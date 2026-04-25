@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import type { Question } from './types';
 import { uid } from './utils';
 
@@ -108,16 +108,35 @@ export function hydrate(userId: string | null) {
 
 const subscribe = (fn: () => void) => {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => {
+    listeners.delete(fn);
+  };
 };
-const getSnapshot = () => state;
-const getServerSnapshot = () => initial;
 
+/**
+ * Hook reativo. Cacheia o resultado do selector enquanto a referência de
+ * `state` não mudar — sem isso, selectors que retornam novos arrays
+ * (como `questions.filter(...)`) causam loop infinito em
+ * useSyncExternalStore (Object.is detecta "mudou" toda render).
+ */
 export function useStore<T>(selector: (s: StoreState) => T): T {
+  const cacheRef = useRef<{ src: StoreState | null; value: T }>({
+    src: null,
+    value: undefined as unknown as T,
+  });
+
+  const getSnapshot = (src: StoreState): T => {
+    const cache = cacheRef.current;
+    if (cache.src === src) return cache.value;
+    const value = selector(src);
+    cacheRef.current = { src, value };
+    return value;
+  };
+
   return useSyncExternalStore(
     subscribe,
-    () => selector(state),
-    () => selector(initial)
+    () => getSnapshot(state),
+    () => getSnapshot(initial)
   );
 }
 
