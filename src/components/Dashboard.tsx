@@ -10,8 +10,14 @@ export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
   const questions = useStore(selectActiveQuestions);
   const disciplinas = useStore(selectDisciplinas);
+  const syncStatus = useStore((s) => s.syncStatus);
+  const lastPullAt = useStore((s) => s.lastPullAt);
 
-  if (!hydrated) {
+  // Mostra skeleton enquanto carrega o store local OU enquanto a
+  // primeira sincronização com o servidor ainda não terminou — sem
+  // isso, o painel pisca "0 questões" antes do pull inicial completar.
+  const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
+  if (!hydrated || firstSyncInFlight) {
     return (
       <>
         <div className="grid-cards">
@@ -21,6 +27,9 @@ export function Dashboard() {
               <div className="skeleton" style={{ height: 30, width: '40%', margin: '0 auto' }} />
             </div>
           ))}
+        </div>
+        <div className="card">
+          <p className="muted center">Carregando suas questões…</p>
         </div>
       </>
     );

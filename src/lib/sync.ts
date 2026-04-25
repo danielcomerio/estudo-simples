@@ -85,38 +85,61 @@ export async function pushPending(): Promise<{ pushed: number; errors: string[] 
   return { pushed, errors };
 }
 
+/**
+ * Pagina manualmente para contornar o limite default de 1000 linhas
+ * por response do PostgREST (Supabase). Repulla rows com updated_at
+ * exatamente igual ao cursor (gte) — mergeFromServer dedupa por id,
+ * então o custo é desprezível e cobre transações em lote em que várias
+ * linhas compartilham o mesmo timestamp (now() é igual no escopo da
+ * transação).
+ */
 export async function pullSince(): Promise<{ pulled: number; error: string | null }> {
   const s = getState();
   if (!s.userId) return { pulled: 0, error: 'Sem usuário autenticado' };
   const supabase = createClient();
 
-  let query = supabase
-    .from('questions')
-    .select('*')
-    .eq('user_id', s.userId)
-    .order('updated_at', { ascending: true })
-    .limit(2000);
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 100; // teto de segurança: 100k linhas
 
-  if (s.lastPullAt) {
-    query = query.gt('updated_at', s.lastPullAt);
+  let offset = 0;
+  let total = 0;
+  let lastSeenTs: string | null = null;
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    let query = supabase
+      .from('questions')
+      .select('*')
+      .eq('user_id', s.userId)
+      .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (s.lastPullAt) {
+      query = query.gte('updated_at', s.lastPullAt);
+    }
+
+    const { data, error } = await query;
+    if (error) return { pulled: total, error: error.message };
+    if (!data || data.length === 0) break;
+
+    const questions = data.map(rowToQuestion);
+    mergeFromServer(questions);
+    total += questions.length;
+    lastSeenTs = questions[questions.length - 1].updated_at;
+
+    if (data.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
   }
 
-  const { data, error } = await query;
-  if (error) return { pulled: 0, error: error.message };
-  if (!data) return { pulled: 0, error: null };
-
-  const questions = data.map(rowToQuestion);
-  if (questions.length) {
-    mergeFromServer(questions);
-    const last = questions[questions.length - 1].updated_at;
-    setLastPullAt(last);
+  if (lastSeenTs) {
+    setLastPullAt(lastSeenTs);
   } else if (!s.lastPullAt) {
     // primeiro pull mesmo sem dados — fixa um marco
     setLastPullAt(new Date().toISOString());
   }
-  // remove ainda os já-deletados
+
   purgeDeletedLocal();
-  return { pulled: questions.length, error: null };
+  return { pulled: total, error: null };
 }
 
 export async function syncNow(): Promise<void> {

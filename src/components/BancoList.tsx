@@ -22,6 +22,10 @@ function previewOf(q: Question): string {
 export function BancoList() {
   const questions = useStore(selectActiveQuestions);
   const disciplinas = useStore(selectDisciplinas);
+  const hydrated = useStore((s) => s.hydrated);
+  const syncStatus = useStore((s) => s.syncStatus);
+  const lastPullAt = useStore((s) => s.lastPullAt);
+  const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
 
   const [search, setSearch] = useState('');
   const [disc, setDisc] = useState('');
@@ -199,7 +203,14 @@ export function BancoList() {
       </div>
 
       <div className="banco-list">
-        {filtered.length === 0 ? (
+        {!hydrated || firstSyncInFlight ? (
+          <div className="empty">
+            <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
+            <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
+            <div className="skeleton" style={{ height: 60 }} />
+            <p className="muted" style={{ marginTop: 14 }}>Carregando suas questões…</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="empty">
             <div className="big">∅</div>
             <p>
