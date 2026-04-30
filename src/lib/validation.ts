@@ -125,6 +125,12 @@ export function normalizeQuestion(
     created_at: _created_at,
     updated_at: _updated_at,
     deleted_at: _deleted_at,
+    // Campos da hierarquia (migration 0002): ignoramos no import. UI da
+    // etapa 0.4 será responsável por round-trip. Sem isso, eles cairiam
+    // no `payload` via ...rest, criando duplicação confusa.
+    topico_id: _topico_id,
+    concurso_id: _concurso_id,
+    tags: _tags,
     ...rest
   } = raw;
 

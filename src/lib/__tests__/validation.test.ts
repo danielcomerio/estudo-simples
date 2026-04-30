@@ -278,6 +278,31 @@ describe('normalizeQuestion — segurança', () => {
     expect(p.gabarito).toBe('B');
   });
 
+  it('strippa campos da hierarquia 0002 do payload (topico_id, concurso_id, tags)', () => {
+    const r = normalizeQuestion(
+      {
+        disciplina_id: 'd',
+        enunciado: 'q',
+        topico_id: 'forjado',
+        concurso_id: 'forjado',
+        tags: ['x', 'y'],
+        alternativas: [
+          { letra: 'A', texto: 'a' },
+          { letra: 'B', texto: 'b', correta: true },
+        ],
+      } as Record<string, unknown>,
+      'objetiva'
+    );
+    const p = r.payload as Record<string, unknown>;
+    expect(p.topico_id).toBeUndefined();
+    expect(p.concurso_id).toBeUndefined();
+    expect(p.tags).toBeUndefined();
+    // E também não viraram top-level — round-trip de hierarquia é via UI.
+    expect((r as Record<string, unknown>).topico_id).toBeUndefined();
+    expect((r as Record<string, unknown>).concurso_id).toBeUndefined();
+    expect((r as Record<string, unknown>).tags).toBeUndefined();
+  });
+
   it('aplica correta:true a partir de gabarito se faltava', () => {
     const r = normalizeQuestion(
       {

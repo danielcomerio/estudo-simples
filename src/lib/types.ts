@@ -90,6 +90,94 @@ export type Question = {
   deleted_at: string | null; // ISO (soft delete)
   /** Marcado quando há mutações locais não sincronizadas. */
   _dirty?: boolean;
+  // ===== Campos da migration 0002 (hierarquia) =====
+  // Opcionais aqui pra não quebrar leitura de localStorage antigo nem
+  // de rows sincronizadas antes da 0002 ter sido aplicada. Server tem
+  // default '[]' pra tags; topico_id e concurso_id ficam null.
+  /** UUID do tópico (referencia public.topicos.id). Null = sem tópico. */
+  topico_id?: string | null;
+  /** UUID do concurso ao qual esta questão está vinculada. */
+  concurso_id?: string | null;
+  /** Tags livres pra cortes ortogonais à hierarquia. */
+  tags?: string[];
+};
+
+// =====================================================================
+// Hierarquia (migration 0002)
+// =====================================================================
+
+export type ConcursoStatus = 'ativo' | 'arquivado' | 'concluido';
+
+export type Concurso = {
+  id: string;
+  user_id: string;
+  nome: string;
+  banca: string | null;
+  orgao: string | null;
+  cargo: string | null;
+  /** ISO date YYYY-MM-DD (sem hora). */
+  data_prova: string | null;
+  status: ConcursoStatus;
+  edital_url: string | null;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  _dirty?: boolean;
+};
+
+export type Disciplina = {
+  id: string;
+  user_id: string;
+  nome: string;
+  /** Peso default da disciplina (sobrescrito por concurso_disciplinas.peso). */
+  peso_default: number | null;
+  /** Cor hex `#rrggbb` ou null. Validado no DB. */
+  cor: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  _dirty?: boolean;
+};
+
+export type ConcursoDisciplina = {
+  id: string;
+  user_id: string;
+  concurso_id: string;
+  disciplina_id: string;
+  peso: number;
+  qtd_questoes_prova: number | null;
+  created_at: string;
+  updated_at: string;
+  _dirty?: boolean;
+};
+
+export type Topico = {
+  id: string;
+  user_id: string;
+  disciplina_id: string;
+  /** Tópico pai (hierárquico). Null = raiz da disciplina. */
+  parent_topico_id: string | null;
+  nome: string;
+  ordem: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  _dirty?: boolean;
+};
+
+export type EditalItem = {
+  id: string;
+  user_id: string;
+  concurso_id: string;
+  /** Tópico ao qual este item do edital foi mapeado. */
+  topico_id: string | null;
+  texto_original: string;
+  ordem: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  _dirty?: boolean;
 };
 
 export type StudyMode = 'srs' | 'aleatorio' | 'dificuldade' | 'erros' | 'novas';
