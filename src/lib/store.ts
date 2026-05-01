@@ -252,6 +252,30 @@ export function deleteQuestionsBulk(ids: string[]) {
   });
 }
 
+/**
+ * Remove questões definitivamente do estado local (hard-delete) e do
+ * pendingSync. Diferente de `deleteQuestionLocal` (soft-delete + marca
+ * pending pra propagar a deleção pro servidor): aqui as questões são
+ * removidas como se nunca tivessem existido localmente.
+ *
+ * Uso atual: sync detectou 23505 (duplicate key) ao tentar pushar — o
+ * conteúdo já existe no servidor com outro id. Não há nada pra
+ * propagar; só descartar a cópia local.
+ */
+export function discardLocal(ids: string[]) {
+  if (!ids.length) return;
+  setState((s) => {
+    const set = new Set(ids);
+    const pending = { ...s.pendingSync };
+    for (const id of ids) delete pending[id];
+    return {
+      ...s,
+      questions: s.questions.filter((q) => !set.has(q.id)),
+      pendingSync: pending,
+    };
+  });
+}
+
 export function clearPending(ids: string[]) {
   setState((s) => {
     const pending = { ...s.pendingSync };

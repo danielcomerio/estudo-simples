@@ -1,8 +1,10 @@
 'use client';
 
+import { toast } from '@/components/Toast';
 import { createClient } from './supabase/client';
 import {
   clearPending,
+  discardLocal,
   getState,
   mergeFromServer,
   purgeDeletedLocal,
@@ -62,17 +64,24 @@ function questionToRow(q: Question) {
   };
 }
 
-export async function pushPending(): Promise<{ pushed: number; errors: string[] }> {
+export type PushResult = {
+  pushed: number;
+  /** Questões locais descartadas pq DB já tem com mesmo dedup_hash (id diferente). */
+  discarded: number;
+  errors: string[];
+};
+
+export async function pushPending(): Promise<PushResult> {
   const s = getState();
   const ids = Object.keys(s.pendingSync);
-  if (!ids.length) return { pushed: 0, errors: [] };
-  if (!s.userId) return { pushed: 0, errors: ['Sem usuário autenticado'] };
+  if (!ids.length) return { pushed: 0, discarded: 0, errors: [] };
+  if (!s.userId) return { pushed: 0, discarded: 0, errors: ['Sem usuário autenticado'] };
 
   const supabase = createClient();
   const errors: string[] = [];
   let pushed = 0;
+  const toDiscard: string[] = [];
 
-  // Envia em chunks de até 100 para não estourar payload
   const toSync = s.questions.filter((q) => s.pendingSync[q.id]);
   const chunks: Question[][] = [];
   for (let i = 0; i < toSync.length; i += 100) chunks.push(toSync.slice(i, i + 100));
@@ -82,20 +91,51 @@ export async function pushPending(): Promise<{ pushed: number; errors: string[] 
     const { error } = await supabase
       .from('questions')
       .upsert(rows, { onConflict: 'id' });
-    if (error) {
+
+    if (!error) {
+      pushed += chunk.length;
+      clearPending(chunk.map((q) => q.id));
+      continue;
+    }
+
+    // 23505 = unique_violation. No nosso schema, o índice único é
+    // `(user_id, dedup_hash) where deleted_at is null`. Significa: alguma
+    // row do chunk colide (entre si ou com o servidor) por dedup_hash.
+    // Postgres falha o chunk inteiro atomicamente. Retentar item-por-item
+    // identifica QUAIS são duplicatas — descartá-las localmente desbloqueia
+    // o sync das outras. Sem isso, 1 questão duplicada trava 100 (caso
+    // real do user, 100 discursivas presas).
+    if (error.code !== '23505') {
       errors.push(error.message);
       continue;
     }
-    pushed += chunk.length;
-    clearPending(chunk.map((q) => q.id));
+
+    for (const q of chunk) {
+      const row = questionToRow(q);
+      const { error: indErr } = await supabase
+        .from('questions')
+        .upsert([row], { onConflict: 'id' });
+      if (!indErr) {
+        pushed++;
+        clearPending([q.id]);
+      } else if (indErr.code === '23505') {
+        // Duplicata por dedup_hash: o conteúdo já está no servidor com
+        // outro id. Descartar local é seguro porque pull em seguida vai
+        // trazer a versão canônica do servidor.
+        toDiscard.push(q.id);
+      } else {
+        errors.push(indErr.message);
+      }
+    }
   }
 
+  if (toDiscard.length > 0) discardLocal(toDiscard);
+
   if (!errors.length) {
-    // depois de empurrar deleções, podemos remover localmente as soft-deleted
     purgeDeletedLocal();
   }
 
-  return { pushed, errors };
+  return { pushed, discarded: toDiscard.length, errors };
 }
 
 /**
@@ -168,6 +208,15 @@ export async function syncNow(): Promise<void> {
       if (push.errors.length) {
         setSyncStatus('error', push.errors[0]);
         return;
+      }
+      // Descarte por duplicata é informativo, não erro: a versão canônica
+      // já está no servidor e vai voltar no pull. User merece saber pra
+      // entender se uma questão "sumiu" do banco local.
+      if (push.discarded > 0) {
+        toast(
+          `${push.discarded} questão(ões) duplicada(s) detectada(s) e descartada(s) localmente — o conteúdo já existia no servidor.`,
+          'warn'
+        );
       }
       const pull = await pullSince();
       if (pull.error) {
