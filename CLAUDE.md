@@ -1,9 +1,13 @@
 # Contexto do projeto — para o Claude
 
 App de **repetição espaçada para concursos públicos** (FGV em primeiro plano).
-Construído em uma única sessão (2026-04-25) migrando de um SPA standalone
-(HTML/CSS/JS + localStorage) para **Next.js 14 + Supabase + Vercel**, com
-autenticação por email/senha e cada usuário em sua própria instância (RLS).
+Migração inicial em 2026-04-25 de um SPA standalone (HTML/CSS/JS +
+localStorage) para **Next.js 14 + Supabase + Vercel**, com autenticação
+por email/senha e cada usuário em sua própria instância (RLS).
+
+A Onda 0 (2026-04-29 → 2026-04-30) consolidou: hierarquia (concursos,
+disciplinas, tópicos, edital), FSRS opt-in convivendo com SM-2, edição
+inline de questão, anotações pessoais e bulk-assign de tópico.
 
 A documentação voltada ao usuário final está em [`README.md`](README.md). Este
 arquivo é o briefing para sessões futuras de Claude — capture o "porquê" das
@@ -13,9 +17,16 @@ decisões e os bugs que já machucaram, não o "o que está em cada arquivo".
 
 ## Stack
 
-- **Next.js 14.2.18** (App Router, `src/` directory) + **TypeScript estrito**
-- **React 18.3** (não 19 — ver "Gotchas")
-- **Supabase**: Auth (email/senha) + Postgres + RLS via `@supabase/ssr ^0.5`
+- **Next.js 14.2.x** (App Router, `src/` directory) — versão patch flutua
+  via `^14.2.35`. Subir só dentro da série 14.2 (Next 15+ requer migração
+  de cookies/etc; ver Gotcha #5).
+- **TypeScript estrito**, **React 18.3** (não 19 — ver Gotcha #4).
+- **Supabase**: Auth (email/senha) + Postgres + RLS via `@supabase/ssr ^0.5`.
+- **ts-fsrs ^5.3** (Onda 0.5): adapter FSRS-6 sobre nosso tipo SRS,
+  convive com SM-2 sem perder dados.
+- **tsx ^4.21** (devDep): executor TS pra scripts em `scripts/`.
+- **Vitest ^4.1** (devDep): test runner. Vitest 4 (não 2) deliberado pra
+  evitar CVEs dev-only de esbuild/vite v2.
 - **Sem** Tailwind, shadcn, zustand, react-query, ou qualquer UI lib.
   CSS puro com variáveis em `src/app/globals.css`. Store próprio sobre
   `useSyncExternalStore`. Decisão deliberada — o usuário rejeitou Tailwind
@@ -23,24 +34,31 @@ decisões e os bugs que já machucaram, não o "o que está em cada arquivo".
   migração não compensaria.
 - **Vercel** com `vercel.json { "framework": "nextjs" }` (necessário porque
   o projeto Vercel foi criado antes do código existir e ficou marcado
-  como "Other")
+  como "Other").
 
 ## Princípios arquiteturais
 
-1. **Offline-first.** localStorage é a fonte de leitura; Supabase é destino
-   de sincronia em background. Nada na UI espera resposta de rede.
-2. **Validação em fronteira.** Importação de JSON é onde a desconfiança fica.
-   Internamente confiamos nos tipos.
-3. **Mutações tipadas em um único lugar.** Toda alteração passa pelas
-   funções exportadas em `lib/store.ts`. Não mexa no `state` direto.
-4. **Sem dependências de UI.** Toast, ConfirmDialog, etc., são componentes
+1. **Offline-first para `questions`.** localStorage é a fonte de leitura;
+   Supabase é destino de sincronia em background. Nada na UI espera
+   resposta de rede.
+2. **Online-first para hierarquia.** Concursos/disciplinas/tópicos são
+   baixo volume (dezenas) e mudam pouco — não justificam complexidade
+   de sync. Ficam em cache em memória via `lib/hierarchy.ts`, refetch
+   após mutações.
+3. **Validação em camadas.** UI valida (UX) → lib valida (defense-in-depth)
+   → DB CHECK + RLS rejeita o que escapou. Nunca confiar em uma só.
+4. **Mutações tipadas em um único lugar.** `questions` passam por
+   `lib/store.ts`; hierarquia passa por `lib/hierarchy.ts`. Não mexa no
+   `state` direto nem instancie supabase client em componente.
+5. **Sem dependências de UI.** Toast, ConfirmDialog, etc., são componentes
    próprios em `src/components/`.
-5. **Server Components só onde compensa** (auth check do layout). O resto
+6. **Server Components só onde compensa** (auth check do layout). O resto
    é client component porque depende de localStorage e interatividade.
 
 ## Como o sync funciona
 
-`lib/sync.ts` orquestra:
+`lib/sync.ts` orquestra **só `questions`** (hierarquia não passa por
+aqui — ver `lib/hierarchy.ts`).
 
 - `pushPending()`: percorre `state.pendingSync`, faz `upsert` em chunks
   de 100 com `deleted_at` quando soft-deletadas. Em sucesso, limpa
@@ -60,9 +78,13 @@ Conflitos: quem grava por último ganha (server `now()` no trigger
 `updated_at`). Mutações locais não-flushadas são protegidas em pulls
 via `pendingSync` (não sobrescrevemos local quando há push pendente).
 
+**CRÍTICO** (ver Gotcha #13): `questionToRow()` e `rowToQuestion()`
+mapeiam explicitamente cada campo. Adicionar coluna nova em `questions`
+exige editar AMBAS — senão push apaga e pull ignora silenciosamente.
+
 ## Como o store funciona
 
-`lib/store.ts` é um zustand-lite caseiro:
+`lib/store.ts` é um zustand-lite caseiro **só pra `questions`**:
 
 - Variável `state` no escopo do módulo, substituída inteira a cada `setState`.
 - `Set<listener>` notificado em cada mudança.
@@ -76,21 +98,62 @@ via `pendingSync` (não sobrescrevemos local quando há push pendente).
 - `hydrate(userId)`: chamado UMA vez no mount do `StoreProvider`. Carrega
   do localStorage, se o `userId` mudou desde a última sessão limpa o cache.
 
+`lib/hierarchy.ts` (Onda 0.4) é um **cache em memória separado** para
+concursos/disciplinas/tópicos. Cada entidade tem `loadX/createX/updateX/
+softDeleteX/useX`. Sem localStorage, sem sync diferido — refetch on
+mutate. `clearHierarchyCache()` é chamado no logout (StoreProvider).
+Padrão deliberado: volume baixo justifica simplicidade.
+
+`lib/settings.ts` (Onda 0.5) guarda preferências em localStorage,
+hoje só `algorithm: 'sm2' | 'fsrs'`. `useAlgorithm()` é hook reativo
+inclusive a `storage` event de outras tabs. Quando crescer pra 3+
+settings, refatorar pra objeto único; quando precisar sync entre
+dispositivos, mover pra tabela `user_settings` no DB.
+
 ## Como o SRS funciona
 
-`lib/srs.ts` implementa SM-2 com tweaks Anki-like. Inputs:
+Dois algoritmos coexistem desde a Onda 0.5. Default é SM-2 por compat;
+FSRS é opt-in via `/configuracoes` → "Algoritmo de revisão".
+
+**Ponto de entrada único:** `applyReview(card, quality, algorithm)` em
+`lib/srs-fsrs.ts`. Caller (QuestionRunner, DiscursivaRunner) chama
+`useAlgorithm()` e passa o resultado.
+
+### SM-2 (`lib/srs.ts`) — `applySRS(card, q)`
+
 - `q=0` (De novo): zera repetições, intervalo 0 (mesmo dia).
 - `q=3` (Difícil): progressão usa `max(1.2, EF − 0.15)` em vez de EF cheio.
 - `q=4` (Bom): progressão padrão (1d → 6d → 6d × EF → ...).
 - `q=5` (Fácil): intervalo final ×1.3.
 - EF clamp em [1.3, ~3.0] pela fórmula clássica de Wozniak.
 
+### FSRS-6 (`lib/srs-fsrs.ts`) — `applyFSRS(card, q)`
+
+- Wrapper sobre `ts-fsrs` 5.3 com `request_retention=0.9`,
+  `enable_fuzz=false` (determinismo pra testes).
+- Mapeia quality 0-5 → Grade FSRS (Again/Hard/Good/Easy).
+- `srsToFsrsCard`: SRS sem stability/difficulty → `createEmptyCard`
+  (primeira passada calibra). Com FSRS data → reconstrói card.
+- `fsrsCardToSrs`: **incrementa `repetitions`** em vez de copiar
+  `card.reps` (que reseta em createEmptyCard pra cards migrados de
+  SM-2). Preserva `easeFactor` (SM-2) intacto pra permitir voltar.
+- Defesa contra clock-skew: `elapsed_days >= 0`. Defesa contra
+  interval negativo (corrupção): `scheduled_days >= 0`.
+
+### Convivência
+
+A SRS struct ganhou fields opcionais (`stability`, `difficulty`, `state`,
+`lapses`). Trocar de algoritmo NÃO corrompe — fields do anterior ficam
+intactos, próxima revisão usa só o atual. Testado em
+`__tests__/srs-fsrs.test.ts`.
+
 Para discursivas, `suggestQualityFromScore(pct)` mapeia <40/40-65/65-85/>85 → 0/3/4/5.
 
 ## Schema do banco
 
-Migração canônica em [`supabase/migrations/0001_initial.sql`](supabase/migrations/0001_initial.sql).
-Resumo:
+Duas migrations canônicas:
+
+### `0001_initial.sql` — questions
 
 - Tabela única `questions(id, user_id, type, disciplina_id, tema, banca_estilo,
   dificuldade, payload jsonb, srs jsonb, stats jsonb, dedup_hash generated,
@@ -98,13 +161,36 @@ Resumo:
 - **Híbrido** colunas indexadas + `payload jsonb` com o conteúdo cru
   (enunciado, alternativas, espelho, etc.). Trade-off escolhido: queries
   simples são rápidas, mudar formato JSON não exige migration. Normalizar
-  alternativas em outra tabela seria overkill (decisão acordada com o
-  usuário).
-- 4 índices parciais para `deleted_at IS NULL` + 1 para `updated_at`
+  alternativas em outra tabela seria overkill (decisão acordada).
+- 4 índices parciais `where deleted_at is null` + 1 para `updated_at`
   (sync) + 1 único para dedupe por `(user_id, dedup_hash)`.
 - Trigger `set_updated_at` em update.
-- RLS habilitado com 4 policies separadas (select/insert/update/delete),
+- RLS habilitada com 4 policies separadas (select/insert/update/delete),
   todas `auth.uid() = user_id`.
+
+### `0002_hierarchy.sql` — concursos/disciplinas/topicos/edital + tags
+
+5 tabelas novas: `concursos`, `disciplinas`, `concurso_disciplinas` (join
+com peso), `topicos` (auto-FK pra parent), `edital_itens` (texto cru
+mapeado a tópico). E 3 colunas em `questions`: `topico_id`, `concurso_id`,
+`tags text[]`.
+
+Decisões deliberadas (defense-in-depth):
+- **`user_id` em TODAS as tabelas**, inclusive joins. Custo irrisório,
+  ganho enorme: simplifica RLS e habilita FKs compostos.
+- **FKs compostos `(id, user_id) → parent(id, user_id)`** em todas as
+  referências entre tabelas da hierarquia. Garante que ninguém referencia
+  recurso de outro user mesmo com bypass de RLS. Requer `unique (id,
+  user_id)` extra em todo parent — custo de 1 índice por tabela.
+- CHECK constraints em comprimento de texto (200 chars pra nome, 10k pra
+  notas, etc.) e formato (cor `^#[0-9a-fA-F]{6}$`, status enum).
+- `tags` com cap 30 itens, índice GIN parcial pra `where tags @> '{...}'`.
+- Idempotente (re-rodável com `if not exists`, `do $$` em alterações
+  condicionais).
+- Down migration em `0002_hierarchy_down.sql` — reverte ALTERs em
+  questions e drop cascade nas 5 novas. Triggers e policies caem junto.
+
+**Próxima migration deve ser 0003.** Não editar 0001/0002.
 
 ## Auth
 
@@ -172,6 +258,38 @@ Resumo:
 12. **BOM em JSON colado**: `safeParseJSON` strip `﻿` no início.
     Detectado durante testes da v1 standalone.
 
+13. **`questionToRow` e `rowToQuestion` em `lib/sync.ts`** mapeiam cada
+    coluna **explicitamente**. Adicionar coluna nova em `questions` SEM
+    atualizar essas duas funções resulta em: push apaga o campo no servidor,
+    pull ignora valor do servidor. Bug silencioso, descoberto na 0.4.4 com
+    `topico_id`/`concurso_id`/`tags`.
+
+14. **Soft-delete em hierarquia auto-relacional não cascateia**: o FK
+    `on delete cascade` da migration 0002 só roda em hard-delete. Pra
+    `topicos` (filhos via `parent_topico_id`), `softDeleteTopico` faz
+    BFS na cache pra marcar todos os descendentes — senão filhos ficam
+    órfãos visíveis. Padrão aplicável a qualquer entidade hierárquica
+    futura.
+
+15. **Composite FK `(id, user_id) → parent(id, user_id)`** exige `UNIQUE
+    (id, user_id)` no parent. Esse `UNIQUE` parece redundante com PK em `id`
+    sozinho, mas o Postgres exige a tupla composta como unique constraint
+    real. Custo: 1 índice extra por tabela. Vale o ganho de defense-in-
+    depth contra cross-user. Padrão da migration 0002.
+
+16. **localStorage de hierarquia NÃO existe.** Diferente de `questions`
+    (offline-first), concursos/disciplinas/tópicos só vivem em cache em
+    memória via `lib/hierarchy.ts`. Logout limpa via
+    `clearHierarchyCache()` (chamado pelo StoreProvider). Não vaza entre
+    sessões/users.
+
+17. **Vulnerabilidades aceitas no audit**: 5 high/moderate (eslint-config-
+    next/glob CLI command-injection — devDep CLI não invocada; Next 14.2.x
+    DoS adicionais — não exploráveis nesta config porque app não usa
+    `next/image`/`rewrites`/`redirects`; postcss XSS em `</style>` — build-
+    time, fonte sob nosso controle). Documentadas no commit 75d0b44 da
+    Onda 0.1. Subir pra Next 15+ resolve todas mas é mudança maior.
+
 ## Comandos
 
 ```bash
@@ -179,6 +297,8 @@ npm install              # uma vez
 npm run dev              # http://localhost:3000
 npm run build            # validar antes de push
 npm run typecheck        # tsc --noEmit (rápido)
+npm test                 # Vitest (60+ testes em src/lib/__tests__/)
+npm run test:watch       # modo dev
 git push                 # Vercel auto-deploya (~1min)
 ```
 
@@ -187,17 +307,40 @@ Build local sem env reais: prefixe com placeholders pra não falhar:
 NEXT_PUBLIC_SUPABASE_URL=https://x.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=x npm run build
 ```
 
+Backfill de disciplinas (depois de aplicar migration 0002 no Supabase):
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=https://...supabase.co
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+export SUPABASE_EMAIL=...
+export SUPABASE_PASSWORD=...
+npm run backfill:disciplinas -- --dry-run    # preview
+npm run backfill:disciplinas                  # apply
+```
+Idempotente. Usa anon key + login (nunca service role). Detalhes no
+header de `scripts/backfill-disciplinas.ts`.
+
 ## Convenções específicas
 
 - Arquivos client começam com `'use client';`.
 - Componentes em `src/components/`, páginas em `src/app/<rota>/page.tsx`,
-  lógica pura em `src/lib/`.
+  lógica pura em `src/lib/`, testes em `src/lib/__tests__/*.test.ts`.
+- Scripts CLI em `scripts/` (executados via `tsx` por npm scripts).
 - Path alias `@/` aponta pra `src/`.
 - Toasts: `import { toast } from '@/components/Toast'`. Use kinds
   `'success' | 'error' | 'warn' | ''`.
 - Confirmações destrutivas: `import { confirmDialog } from
   '@/components/ConfirmDialog'`. Sempre passe `danger: true` para
   exclusões.
+- Hierarquia: `import { useConcursos, useDisciplinas, useTopicos,
+  createX, updateX, softDeleteX } from '@/lib/hierarchy'`. Mutações
+  podem lançar `HierarchyValidationError` ou `Error` (rede) — sempre
+  try/catch + toast.
+- Settings: `import { useAlgorithm, setAlgorithm } from '@/lib/settings'`.
+- SRS: nunca chame `applySRS` ou `applyFSRS` direto na UI — use
+  `applyReview(card, q, useAlgorithm())` em `lib/srs-fsrs.ts`.
+- Edição de questão existente: `<QuestionEditDrawer question={q}
+  onClose={...} />`. Faz validação completa + dedup-aware antes de
+  salvar.
 - **Não escreva** comentários explicando "o que" o código faz. Só "por que"
   quando for não óbvio (especialmente: workarounds de limitações de
   framework/SDK, decisões deliberadas que parecem erradas).
@@ -205,36 +348,90 @@ NEXT_PUBLIC_SUPABASE_URL=https://x.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=x n
 ## O que NÃO mudar sem motivo forte
 
 - Stack (não trocar pra Tailwind/shadcn — usuário já vetou).
-- Schema híbrido (não normalizar alternativas em outra tabela).
-- Algoritmo SRS (já é estado-da-arte para SM-2; só trocar se for por
-  FSRS, que é o sucessor moderno e exigiria store de revisões).
+- Schema híbrido em `questions` (não normalizar alternativas em outra tabela).
+- Coexistência SM-2 + FSRS via flag (não remover SM-2 — convivência
+  garante migração sem perda; quem prefere SM-2 pode continuar).
 - Padrão de auth com middleware no `src/`.
 - O cache do `useStore`.
+- Pattern do `lib/hierarchy.ts` (cache em memória sem offline-first) pra
+  entidades de baixo volume — só revisar se uma entidade específica
+  passar a ter milhares de linhas.
+- FKs compostos `(id, user_id) → parent` em qualquer hierarquia futura
+  — defense-in-depth contra cross-user.
+- `questionToRow`/`rowToQuestion` como mapeamento explícito (não
+  trocar por `...row` spread) — é a barreira de schema-evolução e
+  segurança (ignora campos não mapeados).
 
 ## Limitações conhecidas / dívida deliberada
 
 - Sync é last-write-wins. Para um app monousuário em múltiplos
   dispositivos, é aceitável.
+- Hierarquia (concursos/disciplinas/tópicos) NÃO é offline-first —
+  precisa de rede pra criar/listar. Aceitável (volume baixo, mudança
+  pouca).
 - Sem realtime (Supabase Realtime). Polling de 60s + on-focus.
 - Sem dark/light toggle manual — segue o `prefers-color-scheme` do SO.
 - Sem export de stats em CSV. Só do banco em JSON.
 - Sem importação de Anki .apkg. Só JSON.
-- Sem suporte a imagens nas questões (text-only).
+- Sem suporte a imagens nas questões (text-only). Em planejamento (Onda 1).
+- FSRS roda com parâmetros default — sem treino dos parâmetros pessoais
+  do user (que exigiria histórico de 1k+ revisões + trainer). OK pra
+  agora; quando volume justificar, integrar `ts-fsrs` optimizer.
+- `notes_user` no payload jsonb não tem CHECK de comprimento no DB
+  (só UI). Pra estresse extremo, adicionar trigger ou migrar pra
+  coluna text com CHECK.
+- Discursivas longas (quesitos/rubrica/conceitos_chave) não têm UI de
+  edição estruturada — só edição do enunciado e espelho via
+  QuestionEditDrawer.
+- Migration 0002 e backfill de disciplinas precisam ser aplicados
+  manualmente no Supabase pelo user. Documentado.
 
 ## Quando adicionar uma feature nova
 
 Antes de escrever código:
-1. Onde encaixa no fluxo? (banco → sessão → revisão → stats)
-2. Toca o schema? Se sim, criar nova migration `0002_*.sql` (não
-   editar a 0001).
-3. Toca a sync? Adicionar uma nova mutação em `store.ts` que marque
-   `pendingSync` corretamente.
+1. Onde encaixa no fluxo? (banco → sessão → revisão → stats →
+   configurações)
+2. Toca o schema?
+   - **`questions`**: sempre criar nova migration (`0003_*.sql` é a
+     próxima). Atualizar `questionToRow`/`rowToQuestion` na MESMA PR
+     (ver Gotcha #13).
+   - **Hierarquia**: idem, próxima migration. Manter padrão de FKs
+     compostos `(id, user_id)` se for nova entidade hierárquica.
+   - Adicionar testes em `src/lib/__tests__/` quando lógica for pura.
+3. Toca o sync?
+   - `questions`: nova mutação em `lib/store.ts` que marca `pendingSync`.
+   - Hierarquia: nova função em `lib/hierarchy.ts` (load/create/update/
+     softDelete + cache).
 4. Toca a UI de sessão? Lembrar dos atalhos de teclado existentes
    (A-E pra responder; 1/2/3/4 pra rate).
+5. Adiciona campo no payload jsonb? Estender `ObjetivaPayload`/
+   `DiscursivaPayload` em `types.ts` com field opcional + comentário
+   de propósito.
+6. Validação: 3 camadas obrigatórias (UI → lib → DB). Não pular nenhuma.
+7. Mutação destrutiva: `confirmDialog({...danger: true})` sempre.
+8. Testar com `npm test` antes de commitar.
 
 ## Histórico crítico de decisões
 
-Veja `git log --oneline` — commits têm o "porquê" no corpo:
+Veja `git log --oneline` — commits têm o "porquê" no corpo. Onda 0
+(2026-04-29 → 2026-04-30):
+
+- `ae60dd3` — Anotações pessoais (notes_user no payload jsonb)
+- `7a906b9` — Edição inline de questão (drawer dedup-aware)
+- `9342cb2` — Persistência FSRS/SM-2 + UI toggle + callers usam `applyReview`
+- `55c53f0` — Adapter FSRS-6 sobre tipo SRS local (`ts-fsrs`)
+- `262103d` — Atribuição em lote (concurso/disciplina/tópico) no Import
+- `3914ddd` — Bulk-assign tópico no Banco + bug fix sync (faltavam
+  topico_id/concurso_id/tags em questionToRow/rowToQuestion)
+- `48ad155` — Tópicos hierárquicos com BFS soft-delete cascade
+- `3890f2b` — Disciplinas CRUD
+- `2afff23` — Concursos CRUD + foundation `lib/hierarchy.ts` +
+  `/configuracoes`
+- `51950b8` — Backfill script (idempotente, anon key only)
+- `773f93f` — Migration 0002: hierarquia + FKs compostos defense-in-depth
+- `75d0b44` — Vitest setup + bump Next 14.2.18 → 14.2.35 (CVEs runtime)
+
+Pré-Onda 0:
 
 - `cb609b5` — `vercel.json` pra forçar framework=nextjs (build estava
   procurando `public/`)
@@ -244,3 +441,7 @@ Veja `git log --oneline` — commits têm o "porquê" no corpo:
 - `9b2a367` — favicon SVG em `app/icon.svg`
 - `6d77aeb` — cache no `useStore` (loop infinito)
 - `1b8932f` — migração inicial Next.js + Supabase + Vercel
+
+Tag de segurança `pre-onda0` em `e91906b` (último commit antes da
+Onda 0). `git reset --hard pre-onda0` restaura o estado anterior se
+tudo der errado.
