@@ -214,3 +214,70 @@ export type DiscSessionConfig = {
   qtd: number;
   modo: 'srs' | 'aleatorio' | 'novas';
 };
+
+// =====================================================================
+// Simulado (Onda 1)
+// =====================================================================
+
+export type SimuladoConfig = {
+  /** Strings de disciplina_id (vazio = todas). */
+  disciplinas: string[];
+  /** Número de questões alvo. */
+  qtd: number;
+  /** Limite em minutos. 0 = sem limite (cronômetro só conta tempo). */
+  tempo_limite_min: number;
+  /** Embaralhar ordem de questões. */
+  embaralhar: boolean;
+  /** Embaralhar ordem das alternativas dentro de cada questão. */
+  embaralhar_alternativas: boolean;
+  /** Filtra só questões de uma banca específica. Vazio = qualquer. */
+  banca_estilo?: string;
+  /** Faixa de dificuldade (inclusive). */
+  dif_min?: number;
+  dif_max?: number;
+};
+
+export type SimuladoStatus =
+  | 'em_andamento'
+  | 'finalizado_no_tempo'        // user finalizou voluntariamente antes do tempo
+  | 'finalizado_completo'         // todas as questões respondidas dentro ou fora
+  | 'finalizado_timeup_stopped'   // tempo acabou e user escolheu encerrar
+  | 'finalizado_extra'            // tempo acabou, user continuou, depois finalizou
+  | 'abandonado';                 // user fechou sem finalizar (não chegou pro relatório)
+
+export type SimuladoQuestionResult = {
+  question_id: string;
+  /** Letra marcada pelo user. null = não respondida. */
+  letra_marcada: string | null;
+  /** Calculado contra payload.gabarito quando respondida. */
+  correto: boolean | null;
+  /** Tempo (ms) gasto desde mostrar a questão até responder. */
+  ms_para_responder: number | null;
+  /** True se respondida APÓS o cronômetro chegar a zero (modo extra). */
+  respondido_apos_tempo: boolean;
+  /** Sinaliza pra revisar depois (igual prova real). */
+  marcado_revisar: boolean;
+};
+
+export type Simulado = {
+  /** UUID local. */
+  id: string;
+  user_id: string;
+  config: SimuladoConfig;
+  /** Ordem fixa estabelecida no início (após embaralhar se houver). */
+  question_ids: string[];
+  /** Mesma ordem de question_ids; índice i refere q[i]. */
+  resultados: SimuladoQuestionResult[];
+  status: SimuladoStatus;
+  /** Epoch ms quando o usuário clicou "Iniciar". */
+  started_at: number;
+  /** Epoch ms quando finalizou (ou null se em andamento/abandonado). */
+  finished_at: number | null;
+  /**
+   * Tempo (ms) em que o cronômetro chegou a 0. Null se finalizou
+   * voluntariamente antes do tempo, ou se config.tempo_limite_min=0.
+   */
+  tempo_expirou_at: number | null;
+  /** Nome opcional para o user identificar o simulado depois. */
+  nome?: string;
+};
