@@ -3,30 +3,37 @@
 import { useMemo, useRef, useState } from 'react';
 import { useStore, addQuestionsBulk, selectActiveQuestions } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
-import {
-  dedupeKey,
-  extractItems,
-  normalizeQuestion,
-  safeParseJSON,
-  validateQuestion,
-} from '@/lib/validation';
+import { dedupeKey, safeParseJSON } from '@/lib/validation';
 import {
   ensureDisciplinasExist,
   useConcursos,
   useDisciplinas,
   useTopicos,
 } from '@/lib/hierarchy';
+import {
+  applyDisciplinaMapping,
+  parseImportBatch,
+  suggestDisciplinaMapping,
+  type BatchParseResult,
+  type NormalizedItem,
+} from '@/lib/real-import';
 import { toast } from './Toast';
 
-type ImportResult = { added: number; skipped: number; errors: string[] };
-
-type AssignOpts = {
-  concursoId: string | null;
-  topicoId: string | null;
-  /** Nome da disciplina derivado do tópico — sobrescreve disciplina_id (string). */
-  discNome: string | null;
-};
-
+/**
+ * Importação de JSON com suporte a 2 formatos:
+ *  - Autoral (nosso): tem disciplina_id snake_case
+ *  - Real (QConcursos-like): tem materia + concursoAno
+ *
+ * Fluxo:
+ *  1. User dropa arquivo / cola JSON
+ *  2. App parseia tudo (parseImportBatch) — NÃO grava nada
+ *  3. Mostra Preview com counts + descartadas + mapping de disciplinas novas
+ *  4. User confirma mapping (ou aceita sugestões automáticas)
+ *  5. Botão "Importar" aplica mapping → addQuestionsBulk + ensureDisciplinasExist
+ *
+ * Atribuição em lote (concurso/topico/disciplina) ainda existe e é
+ * aplicada após o mapping (sobrescreve disciplina_id se houver).
+ */
 export function ImportZone() {
   const userId = useStore((s) => s.userId);
   const existing = useStore(selectActiveQuestions);
@@ -37,12 +44,17 @@ export function ImportZone() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [paste, setPaste] = useState('');
-  const [report, setReport] = useState<ImportResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Atribuição opcional aplicada a TODAS as questões do lote
+  // Atribuição em lote
   const [assignConcursoId, setAssignConcursoId] = useState('');
   const [assignDiscId, setAssignDiscId] = useState('');
   const [assignTopicoId, setAssignTopicoId] = useState('');
+
+  // Preview state — itens parseados aguardando confirmação
+  const [preview, setPreview] = useState<BatchParseResult | null>(null);
+  // Mapping nome novo → nome existente (ou ele mesmo = manter)
+  const [discMapping, setDiscMapping] = useState<Map<string, string>>(new Map());
 
   const topicosFiltrados = useMemo(
     () =>
@@ -52,7 +64,7 @@ export function ImportZone() {
     [topicos, assignDiscId]
   );
 
-  const buildAssign = (): AssignOpts => {
+  const buildAssign = () => {
     const tid = assignTopicoId || null;
     const cid = assignConcursoId || null;
     let discNome: string | null = null;
@@ -67,56 +79,42 @@ export function ImportZone() {
     return { concursoId: cid, topicoId: tid, discNome };
   };
 
-  const importText = (text: string): ImportResult => {
-    if (!userId) return { added: 0, skipped: 0, errors: ['Sem usuário autenticado'] };
-    if (!text || !text.trim()) return { added: 0, skipped: 0, errors: ['Vazio.'] };
-    const { value, error } = safeParseJSON(text);
-    if (error) return { added: 0, skipped: 0, errors: ['JSON inválido: ' + error] };
-    const items = extractItems(value);
-    if (items.length === 0) return { added: 0, skipped: 0, errors: ['Nenhum item encontrado.'] };
+  const startPreview = (text: string) => {
+    setError(null);
+    setPreview(null);
+    setDiscMapping(new Map());
 
-    const assign = buildAssign();
-    const existingKeys = new Set(existing.map(dedupeKey));
-    const novos: Parameters<typeof addQuestionsBulk>[0] = [];
-    const errors: string[] = [];
-    let skipped = 0;
-
-    items.forEach((raw, idx) => {
-      const v = validateQuestion(raw);
-      if (!v.ok) {
-        errors.push(`Item #${idx + 1}: ${v.errors.join(' | ')}`);
-        return;
-      }
-      const baseNorm = normalizeQuestion(raw as Record<string, unknown>, v.type);
-      // Aplica atribuição em lote (vinda dos selects acima do dropzone).
-      // discNome sobrescreve disciplina_id da questão pra coerência com
-      // o filtro string atual de /banco — só se houve override explícito.
-      const norm: typeof baseNorm = {
-        ...baseNorm,
-        topico_id: assign.topicoId,
-        concurso_id: assign.concursoId,
-        disciplina_id: assign.discNome ?? baseNorm.disciplina_id,
-      };
-      const key = dedupeKey(norm);
-      if (existingKeys.has(key)) {
-        skipped++;
-        return;
-      }
-      existingKeys.add(key);
-      novos.push(norm);
-    });
-
-    if (novos.length) {
-      addQuestionsBulk(novos, userId);
-      scheduleSync(800);
-      // Auto-cria registro de disciplina pra cada nome novo nas questões
-      // importadas. Best-effort, async — não bloqueia o feedback ao user.
-      const nomes = novos
-        .map((n) => n.disciplina_id)
-        .filter((d): d is string => !!d);
-      void ensureDisciplinasExist(nomes);
+    if (!userId) {
+      setError('Sem usuário autenticado.');
+      return;
     }
-    return { added: novos.length, skipped, errors };
+    if (!text || !text.trim()) {
+      setError('Vazio.');
+      return;
+    }
+
+    const existingKeys = new Set(existing.map(dedupeKey));
+    const result = parseImportBatch(text, existingKeys);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setPreview(result.ok!);
+
+    // Pré-popula mapping com sugestões automáticas pra disciplinas novas
+    // que ainda não existem na tabela.
+    const suggestions = suggestDisciplinaMapping(
+      result.ok!.novasDisciplinaNomes,
+      (disciplinas ?? []).map((d) => ({ id: d.id, nome: d.nome }))
+    );
+    const map = new Map<string, string>();
+    for (const s of suggestions) {
+      if (s.sugestaoExistenteNome) {
+        map.set(s.novoNome, s.sugestaoExistenteNome);
+      }
+      // Sem sugestão: deixa fora do map → mantém nome original
+    }
+    setDiscMapping(map);
   };
 
   const handleFiles = async (files: FileList | File[]) => {
@@ -127,34 +125,55 @@ export function ImportZone() {
       toast('Nenhum arquivo JSON.', 'warn');
       return;
     }
-    const aggregate: ImportResult = { added: 0, skipped: 0, errors: [] };
-    for (const file of arr) {
-      try {
-        const text = await file.text();
-        const r = importText(text);
-        aggregate.added += r.added;
-        aggregate.skipped += r.skipped;
-        aggregate.errors.push(...r.errors.map((e) => `[${file.name}] ${e}`));
-      } catch (e) {
-        aggregate.errors.push(
-          `[${file.name}] Falha ao ler: ${e instanceof Error ? e.message : String(e)}`
-        );
-      }
+    if (arr.length > 1) {
+      toast('Importe um arquivo por vez (preview multi-arquivo ainda não).', 'warn');
+      return;
     }
-    setReport(aggregate);
-    if (aggregate.added > 0) toast(`${aggregate.added} questão(ões) importada(s).`, 'success');
-    else if (aggregate.errors.length) toast('Importação falhou. Veja relatório.', 'error');
+    const text = await arr[0].text();
+    startPreview(text);
   };
 
-  const handlePaste = () => {
-    const r = importText(paste);
-    setReport(r);
-    if (r.added > 0) {
-      toast(`${r.added} questão(ões) importada(s).`, 'success');
-      setPaste('');
-    } else if (r.errors.length) {
-      toast('Importação falhou. Veja relatório.', 'error');
+  const confirmImport = () => {
+    if (!preview || !userId) return;
+    const assign = buildAssign();
+
+    // Aplica mapping de disciplinas + atribuição em lote
+    let items: NormalizedItem[] = applyDisciplinaMapping(preview.toImport, discMapping);
+    if (assign.discNome || assign.concursoId || assign.topicoId) {
+      items = items.map((item) => ({
+        ...item,
+        topico_id: assign.topicoId ?? item.topico_id ?? null,
+        concurso_id: assign.concursoId ?? item.concurso_id ?? null,
+        disciplina_id: assign.discNome ?? item.disciplina_id,
+      }));
     }
+
+    addQuestionsBulk(items, userId);
+    scheduleSync(800);
+
+    // Auto-cria disciplinas pra cada nome final único
+    const nomes = items
+      .map((n) => n.disciplina_id)
+      .filter((d): d is string => !!d);
+    void ensureDisciplinasExist(nomes);
+
+    const nReal = items.filter((i) => i.origem === 'real').length;
+    const nAuto = items.length - nReal;
+    const partes: string[] = [];
+    if (nReal) partes.push(`${nReal} real(is)`);
+    if (nAuto) partes.push(`${nAuto} autoral(is)`);
+    toast(`${items.length} questão(ões) importada(s) — ${partes.join(' + ')}.`, 'success');
+
+    // Reset
+    setPreview(null);
+    setDiscMapping(new Map());
+    setPaste('');
+  };
+
+  const cancelPreview = () => {
+    setPreview(null);
+    setDiscMapping(new Map());
+    setError(null);
   };
 
   const temHierarquia =
@@ -166,11 +185,13 @@ export function ImportZone() {
     <div className="card">
       <h2>Importar questões</h2>
       <p className="muted">
-        Aceita um único objeto, um array, ou um objeto com a chave <code>questions</code>. Suporta
-        objetivas e discursivas (campo <code>tipo: &quot;discursiva&quot;</code>).
+        Aceita formato <strong>autoral</strong> (com <code>disciplina_id</code>)
+        ou formato <strong>real</strong> (de QConcursos: com <code>materia</code>{' '}
+        + <code>concursoAno</code>). Detecta automaticamente.
       </p>
 
-      {temHierarquia && (
+      {/* Atribuição em lote */}
+      {temHierarquia && !preview && (
         <details
           style={{
             marginBottom: 12,
@@ -191,9 +212,7 @@ export function ImportZone() {
           <div className="row gap wrap" style={{ marginTop: 10 }}>
             {(concursos?.length ?? 0) > 0 && (
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="muted" style={{ fontSize: '0.82rem' }}>
-                  Concurso
-                </span>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>Concurso</span>
                 <select
                   value={assignConcursoId}
                   onChange={(e) => setAssignConcursoId(e.target.value)}
@@ -201,18 +220,14 @@ export function ImportZone() {
                 >
                   <option value="">— Nenhum —</option>
                   {concursos?.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.nome}</option>
                   ))}
                 </select>
               </label>
             )}
             {(disciplinas?.length ?? 0) > 0 && (
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="muted" style={{ fontSize: '0.82rem' }}>
-                  Disciplina
-                </span>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>Disciplina (sobrescreve)</span>
                 <select
                   value={assignDiscId}
                   onChange={(e) => {
@@ -221,20 +236,16 @@ export function ImportZone() {
                   }}
                   style={{ minWidth: 200 }}
                 >
-                  <option value="">— Manter do JSON —</option>
+                  <option value="">— Manter do JSON / mapping —</option>
                   {disciplinas?.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nome}
-                    </option>
+                    <option key={d.id} value={d.id}>{d.nome}</option>
                   ))}
                 </select>
               </label>
             )}
             {(topicos?.length ?? 0) > 0 && (
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="muted" style={{ fontSize: '0.82rem' }}>
-                  Tópico
-                </span>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>Tópico</span>
                 <select
                   value={assignTopicoId}
                   onChange={(e) => setAssignTopicoId(e.target.value)}
@@ -245,10 +256,7 @@ export function ImportZone() {
                     const d = disciplinas?.find((x) => x.id === t.disciplina_id);
                     const prefix = d && !assignDiscId ? `${d.nome} · ` : '';
                     return (
-                      <option key={t.id} value={t.id}>
-                        {prefix}
-                        {t.nome}
-                      </option>
+                      <option key={t.id} value={t.id}>{prefix}{t.nome}</option>
                     );
                   })}
                 </select>
@@ -272,95 +280,245 @@ export function ImportZone() {
         </details>
       )}
 
-      <div
-        className={'dropzone' + (dragOver ? ' dragover' : '')}
-        tabIndex={0}
-        onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        onDragEnter={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          if (e.dataTransfer?.files?.length) void handleFiles(e.dataTransfer.files);
-        }}
-      >
-        <span className="icon" aria-hidden>
-          ⬆
-        </span>
-        <strong>Arraste arquivos JSON aqui</strong>
-        <span>ou clique para selecionar</span>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".json,application/json"
-          multiple
-          hidden
-          onChange={(e) => {
-            if (e.target.files?.length) void handleFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
-      </div>
+      {/* Dropzone — só quando NÃO tá em preview */}
+      {!preview && (
+        <>
+          <div
+            className={'dropzone' + (dragOver ? ' dragover' : '')}
+            tabIndex={0}
+            onClick={() => inputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+            onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer?.files?.length) void handleFiles(e.dataTransfer.files);
+            }}
+          >
+            <span className="icon" aria-hidden>⬆</span>
+            <strong>Arraste UM arquivo JSON aqui</strong>
+            <span>ou clique para selecionar</span>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) void handleFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </div>
 
-      <details className="paste-block">
-        <summary>Colar JSON manualmente</summary>
-        <textarea
-          rows={10}
-          value={paste}
-          onChange={(e) => setPaste(e.target.value)}
-          placeholder='Cole aqui o JSON. Ex.: [{"disciplina_id":"...","enunciado":"...","alternativas":[...]}, ...]'
-        />
-        <div className="row gap">
-          <button type="button" className="primary" onClick={handlePaste}>
-            Importar JSON colado
-          </button>
-          <button type="button" onClick={() => setPaste('')}>
-            Limpar
-          </button>
-        </div>
-      </details>
+          <details className="paste-block">
+            <summary>Colar JSON manualmente</summary>
+            <textarea
+              rows={10}
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              placeholder='Cole o JSON. Suporta array, objeto único, ou objeto com chave "questions".'
+            />
+            <div className="row gap">
+              <button type="button" className="primary" onClick={() => startPreview(paste)}>
+                Analisar JSON colado
+              </button>
+              <button type="button" onClick={() => setPaste('')}>Limpar</button>
+            </div>
+          </details>
+        </>
+      )}
 
-      {report && (
-        <div
-          className={
-            'import-report ' +
-            (report.added > 0 && report.errors.length === 0
-              ? 'ok'
-              : report.errors.length
-                ? 'fail'
-                : '')
-          }
-        >
-          <strong>{report.added}</strong> adicionada(s)
-          {report.skipped > 0 && <> · <strong>{report.skipped}</strong> duplicada(s) ignorada(s)</>}
-          {report.errors.length > 0 && (
-            <details open>
-              <summary>
-                <strong>{report.errors.length}</strong> erro(s)
-              </summary>
-              <ul>
-                {report.errors.slice(0, 50).map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-                {report.errors.length > 50 && <li>… e {report.errors.length - 50} a mais</li>}
-              </ul>
-            </details>
-          )}
+      {error && (
+        <div className="import-report fail" role="alert">
+          <strong>Erro:</strong> {error}
         </div>
       )}
+
+      {preview && (
+        <PreviewPanel
+          preview={preview}
+          discMapping={discMapping}
+          setDiscMapping={setDiscMapping}
+          existingDisciplinas={disciplinas ?? []}
+          onConfirm={confirmImport}
+          onCancel={cancelPreview}
+        />
+      )}
+    </div>
+  );
+}
+
+function PreviewPanel({
+  preview,
+  discMapping,
+  setDiscMapping,
+  existingDisciplinas,
+  onConfirm,
+  onCancel,
+}: {
+  preview: BatchParseResult;
+  discMapping: Map<string, string>;
+  setDiscMapping: (m: Map<string, string>) => void;
+  existingDisciplinas: Array<{ id: string; nome: string }>;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  // Suggestions só pras disciplinas que NÃO existem case-insensitive
+  const existentesLower = new Set(
+    existingDisciplinas.map((d) => d.nome.toLowerCase())
+  );
+  const novasNaoExistentes = preview.novasDisciplinaNomes.filter(
+    (n) => !existentesLower.has(n.toLowerCase())
+  );
+
+  const updateMapping = (novoNome: string, valor: string) => {
+    const next = new Map(discMapping);
+    if (valor === '__keep__') {
+      next.delete(novoNome);
+    } else {
+      next.set(novoNome, valor);
+    }
+    setDiscMapping(next);
+  };
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--primary)',
+        borderRadius: 'var(--radius)',
+        padding: 14,
+        background: 'var(--bg-elev-2)',
+      }}
+    >
+      <h3 style={{ marginTop: 0 }}>Preview</h3>
+
+      <div className="row gap wrap" style={{ fontSize: '0.92rem', marginBottom: 12 }}>
+        <span><strong>{preview.toImport.length}</strong> a importar</span>
+        {preview.realCount > 0 && (
+          <span className="muted">
+            (📋 {preview.realCount} real{preview.realCount !== 1 ? 'is' : ''})
+          </span>
+        )}
+        {preview.autoralCount > 0 && (
+          <span className="muted">
+            (✏️ {preview.autoralCount} autoral{preview.autoralCount !== 1 ? 'is' : ''})
+          </span>
+        )}
+        {preview.duplicateInDbCount > 0 && (
+          <span style={{ color: 'var(--warn, #d97706)' }}>
+            · {preview.duplicateInDbCount} duplicada(s) já no banco (ignoradas)
+          </span>
+        )}
+        {preview.duplicateInBatchCount > 0 && (
+          <span style={{ color: 'var(--warn, #d97706)' }}>
+            · {preview.duplicateInBatchCount} duplicada(s) no próprio arquivo
+          </span>
+        )}
+        {preview.realDiscarded.length > 0 && (
+          <span style={{ color: 'var(--danger)' }}>
+            · {preview.realDiscarded.length} descartada(s)
+          </span>
+        )}
+        {preview.unknownCount > 0 && (
+          <span style={{ color: 'var(--danger)' }}>
+            · {preview.unknownCount} formato desconhecido
+          </span>
+        )}
+      </div>
+
+      {/* Descartadas — quando há, mostra detalhe */}
+      {preview.realDiscarded.length > 0 && (
+        <details style={{ marginBottom: 12 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            ⚠ {preview.realDiscarded.length} questão(ões) descartada(s) — ver motivos
+          </summary>
+          <ul style={{ marginTop: 8, fontSize: '0.85rem' }}>
+            {preview.realDiscarded.slice(0, 50).map((d, i) => (
+              <li key={i}>
+                <code>#{d.numero ?? d.externalId ?? '?'}</code>{' '}
+                ({d.disciplinaNome ?? 'sem disciplina'}): {d.reason}
+              </li>
+            ))}
+            {preview.realDiscarded.length > 50 && (
+              <li>… e {preview.realDiscarded.length - 50} a mais</li>
+            )}
+          </ul>
+        </details>
+      )}
+
+      {preview.autoralErrors.length > 0 && (
+        <details style={{ marginBottom: 12 }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            ⚠ {preview.autoralErrors.length} autoral(is) com erro de validação
+          </summary>
+          <ul style={{ marginTop: 8, fontSize: '0.85rem' }}>
+            {preview.autoralErrors.slice(0, 50).map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </details>
+      )}
+
+      {/* Mapping de disciplinas novas */}
+      {novasNaoExistentes.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <h4 style={{ margin: '0 0 6px' }}>
+            Disciplinas novas detectadas ({novasNaoExistentes.length})
+          </h4>
+          <p className="muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+            Cada uma destas não existe na sua app. Você pode mapear pra
+            uma existente (recomendado quando há sugestão de match) ou
+            manter como nova disciplina.
+          </p>
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {novasNaoExistentes.map((nome) => {
+              const mapped = discMapping.get(nome);
+              return (
+                <li key={nome} className="row gap wrap" style={{ alignItems: 'center', background: 'var(--bg-elev)', padding: '6px 10px', borderRadius: 'var(--radius)' }}>
+                  <span style={{ fontFamily: 'monospace', flex: '0 0 auto', wordBreak: 'break-all' }}>
+                    {nome}
+                  </span>
+                  <span style={{ flex: '0 0 auto' }}>→</span>
+                  <select
+                    value={mapped ?? '__keep__'}
+                    onChange={(e) => updateMapping(nome, e.target.value)}
+                    style={{ flex: '1 1 220px', minWidth: 220 }}
+                  >
+                    <option value="__keep__">
+                      ➕ Criar como nova: "{nome}"
+                    </option>
+                    {existingDisciplinas.map((d) => (
+                      <option key={d.id} value={d.nome}>
+                        Mapear para: {d.nome}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {/* Ações */}
+      <div className="row gap right" style={{ marginTop: 16 }}>
+        <button type="button" className="ghost" onClick={onCancel}>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={onConfirm}
+          disabled={preview.toImport.length === 0}
+        >
+          Importar {preview.toImport.length} questão(ões)
+        </button>
+      </div>
     </div>
   );
 }

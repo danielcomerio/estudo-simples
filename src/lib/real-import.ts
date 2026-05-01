@@ -15,11 +15,19 @@
 
 import type {
   Alternativa,
+  DiscursivaPayload,
   ObjetivaPayload,
   Question,
   QuestionFonte,
 } from './types';
 import { newSRS, newStats } from './srs';
+import {
+  dedupeKey,
+  extractItems,
+  normalizeQuestion,
+  safeParseJSON,
+  validateQuestion,
+} from './validation';
 
 // =====================================================================
 // Detecção de formato
@@ -338,6 +346,141 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   for (const t of a) if (b.has(t)) inter++;
   const union = a.size + b.size - inter;
   return union === 0 ? 0 : inter / union;
+}
+
+// =====================================================================
+// Parse de batch (combina autoral + real num único caminho)
+// =====================================================================
+
+export type NormalizedItem = Omit<
+  Question,
+  'id' | 'user_id' | 'created_at' | 'updated_at'
+> & {
+  payload: ObjetivaPayload | DiscursivaPayload;
+};
+
+export type BatchParseResult = {
+  /** Itens prontos pra import (já passaram dedup contra DB existente). */
+  toImport: NormalizedItem[];
+  /** Reais descartadas (com motivo). */
+  realDiscarded: ParsedRealItem[];
+  /** Autorais que falharam validação. */
+  autoralErrors: string[];
+  /** Itens com formato não detectável. */
+  unknownCount: number;
+  /** Duplicatas com algo já no banco (conta separada). */
+  duplicateInDbCount: number;
+  /** Duplicatas dentro do próprio batch (ex: arquivo tem mesma questão 2x). */
+  duplicateInBatchCount: number;
+  /** Nomes únicos de disciplina detectados nos itens a importar. */
+  novasDisciplinaNomes: string[];
+  /** Quantos itens de cada formato. */
+  realCount: number;
+  autoralCount: number;
+};
+
+/**
+ * Parse + dedup + classificação de um batch de itens.
+ *
+ * NÃO grava nada. Caller usa BatchParseResult pra montar UI de preview
+ * + mapping de disciplinas e depois chama applyMappingAndImport.
+ */
+export function parseImportBatch(
+  rawText: string,
+  existingDedupeKeys: Set<string>
+): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
+  const { value, error } = safeParseJSON(rawText);
+  if (error) return { error: 'JSON inválido: ' + error };
+  const items = extractItems(value);
+  if (items.length === 0) return { error: 'Nenhum item encontrado' };
+
+  const result: BatchParseResult = {
+    toImport: [],
+    realDiscarded: [],
+    autoralErrors: [],
+    unknownCount: 0,
+    duplicateInDbCount: 0,
+    duplicateInBatchCount: 0,
+    novasDisciplinaNomes: [],
+    realCount: 0,
+    autoralCount: 0,
+  };
+
+  const seenInBatch = new Set<string>();
+  const novasDisciplinasSet = new Set<string>();
+
+  items.forEach((raw, idx) => {
+    const fmt = detectFormat(raw);
+
+    if (fmt === 'real') {
+      result.realCount += 1;
+      const parsed = parseRealItem(raw);
+      if (parsed.decision === 'descartar') {
+        result.realDiscarded.push(parsed);
+        return;
+      }
+      const norm = parsed.normalized!;
+      const k = dedupeKey(norm);
+      if (existingDedupeKeys.has(k)) {
+        result.duplicateInDbCount += 1;
+        return;
+      }
+      if (seenInBatch.has(k)) {
+        result.duplicateInBatchCount += 1;
+        return;
+      }
+      seenInBatch.add(k);
+      result.toImport.push(norm);
+      if (parsed.disciplinaNome) novasDisciplinasSet.add(parsed.disciplinaNome);
+    } else if (fmt === 'autoral') {
+      result.autoralCount += 1;
+      const v = validateQuestion(raw);
+      if (!v.ok) {
+        result.autoralErrors.push(`Item #${idx + 1}: ${v.errors.join(' | ')}`);
+        return;
+      }
+      const norm = normalizeQuestion(raw as Record<string, unknown>, v.type);
+      const k = dedupeKey(norm);
+      if (existingDedupeKeys.has(k)) {
+        result.duplicateInDbCount += 1;
+        return;
+      }
+      if (seenInBatch.has(k)) {
+        result.duplicateInBatchCount += 1;
+        return;
+      }
+      seenInBatch.add(k);
+      result.toImport.push(norm);
+      if (norm.disciplina_id) novasDisciplinasSet.add(norm.disciplina_id);
+    } else {
+      result.unknownCount += 1;
+    }
+  });
+
+  result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
+  return { ok: result };
+}
+
+/**
+ * Aplica um mapeamento de disciplinas (nomeOriginal → nomeFinal) à
+ * lista de itens a importar. Útil quando o user decidiu fundir
+ * "TI - Ciência..." → "inteligencia_artificial" no wizard.
+ *
+ * Os nomes de origem e destino são case-sensitive intencionalmente —
+ * a UI controla isso (mapping é gerado via lookup case-insensitive
+ * mas as strings finais devem matchar `disciplinas.nome` exato).
+ */
+export function applyDisciplinaMapping(
+  items: NormalizedItem[],
+  mapping: Map<string, string>
+): NormalizedItem[] {
+  if (mapping.size === 0) return items;
+  return items.map((item) => {
+    if (!item.disciplina_id) return item;
+    const replacement = mapping.get(item.disciplina_id);
+    if (!replacement) return item;
+    return { ...item, disciplina_id: replacement };
+  });
 }
 
 export type DisciplinaMappingSuggestion = {
