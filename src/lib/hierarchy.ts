@@ -476,11 +476,32 @@ export async function updateDisciplina(
   return data as Disciplina;
 }
 
+/**
+ * Cascade de soft-delete em todos os tópicos da disciplina. Mesmo
+ * princípio do `softDeleteTopico` (gotcha #14): o FK `on delete cascade`
+ * da migration 0002 só dispara em hard-delete. Soft-delete via UPDATE
+ * `deleted_at` deixaria os tópicos órfãos visíveis. Como tópicos da
+ * mesma disciplina compartilham `disciplina_id`, basta filtrar por ele
+ * (não precisa BFS — a hierarquia é interna à disciplina, não cruza).
+ *
+ * Ordem importa: deleta tópicos primeiro, depois disciplina. Se algo
+ * falhar entre as duas, a disciplina segue ativa pra o user reagir.
+ */
 export async function softDeleteDisciplina(id: string): Promise<void> {
   const sb = createClient();
+  const now = new Date().toISOString();
+
+  const { error: topErr } = await sb
+    .from('topicos')
+    .update({ deleted_at: now })
+    .eq('disciplina_id', id)
+    .is('deleted_at', null);
+
+  if (topErr) throw new Error(`falha ao soft-deletar tópicos: ${topErr.message}`);
+
   const { error } = await sb
     .from('disciplinas')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({ deleted_at: now })
     .eq('id', id);
 
   if (error) throw new Error(error.message);
@@ -488,6 +509,10 @@ export async function softDeleteDisciplina(id: string): Promise<void> {
   setDisciplinas({
     ...disciplinasCache,
     data: disciplinasCache.data?.filter((d) => d.id !== id) ?? null,
+  });
+  setTopicos({
+    ...topicosCache,
+    data: topicosCache.data?.filter((t) => t.disciplina_id !== id) ?? null,
   });
 }
 
