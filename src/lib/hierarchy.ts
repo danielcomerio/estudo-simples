@@ -18,6 +18,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from './supabase/client';
+import { useActiveConcursoId } from './settings';
 import type {
   Concurso,
   ConcursoDisciplina,
@@ -1036,4 +1037,81 @@ export function clearHierarchyCache(): void {
   setDisciplinas({ data: null, loading: false, error: null });
   setCD({ data: null, loading: false, error: null });
   setTopicos({ data: null, loading: false, error: null });
+}
+
+// =====================================================================
+// Filtro derivado: questões pertencentes ao concurso ativo
+// =====================================================================
+
+/**
+ * Resolve o concurso ativo nas estruturas em memória e devolve a lista
+ * de nomes de disciplinas vinculadas a ele. As questões herdadas da v1
+ * standalone usam `disciplina_id` como string livre (ex: "portugues"),
+ * que casa com `disciplinas.nome` após o backfill. Mapeia por nome (e
+ * não por UUID) porque o id na tabela `disciplinas` é UUID, mas o id na
+ * coluna `questions.disciplina_id` é texto.
+ *
+ * Caveat: se o user editar o nome da disciplina (ex: "portugues" →
+ * "Português"), o filtro deixa de pegar as questões antigas até que o
+ * `questions.disciplina_id` seja atualizado também. Migration futura
+ * deve normalizar esse vínculo (q.disciplina_id → UUID).
+ *
+ * Retorno:
+ *  - `concurso = null` e `disciplinaNomes = null`: sem filtro ativo
+ *  - `concurso != null` mas `disciplinaNomes = []`: concurso ativo sem
+ *    disciplinas vinculadas (resultado: zero questões)
+ *  - `disciplinaNomes = ['x', 'y']`: filtro real
+ */
+export function useActiveConcursoFilter(): {
+  concurso: Concurso | null;
+  disciplinaNomes: string[] | null;
+  loading: boolean;
+} {
+  const activeId = useActiveConcursoId();
+  const { data: concursos, loading: lc } = useConcursos();
+  const { data: disciplinas, loading: ld } = useDisciplinas();
+  const { data: vinculos, loading: lv } = useConcursoDisciplinas(activeId);
+
+  const concurso = concursos?.find((c) => c.id === activeId) ?? null;
+
+  const disciplinaNomes = useMemo(() => {
+    if (!activeId) return null;
+    if (!disciplinas) return null;
+    const byId = new Map(disciplinas.map((d) => [d.id, d.nome]));
+    return vinculos
+      .map((v) => byId.get(v.disciplina_id))
+      .filter((n): n is string => !!n);
+  }, [activeId, disciplinas, vinculos]);
+
+  return {
+    concurso,
+    disciplinaNomes,
+    loading: lc || ld || lv,
+  };
+}
+
+/**
+ * Aplica o filtro do concurso ativo a uma lista de strings de
+ * disciplina_id. Compara case-insensitive pra reduzir fragilidade
+ * quando o user renomeia uma disciplina ("portugues" vs "Português").
+ *
+ * Retorna a lista original (sem filtro) quando `disciplinaNomes` é null.
+ */
+export function filterDisciplinaIdsByActiveConcurso(
+  ids: string[],
+  disciplinaNomes: string[] | null
+): string[] {
+  if (disciplinaNomes === null) return ids;
+  const lower = new Set(disciplinaNomes.map((n) => n.toLowerCase()));
+  return ids.filter((id) => lower.has(id.toLowerCase()));
+}
+
+export function matchActiveConcurso(
+  questionDisciplinaId: string | null,
+  disciplinaNomes: string[] | null
+): boolean {
+  if (disciplinaNomes === null) return true;
+  if (!questionDisciplinaId) return false;
+  const target = questionDisciplinaId.toLowerCase();
+  return disciplinaNomes.some((n) => n.toLowerCase() === target);
 }

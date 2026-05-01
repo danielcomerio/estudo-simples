@@ -10,6 +10,11 @@ import {
 import { applyReview } from '@/lib/srs-fsrs';
 import { useAlgorithm } from '@/lib/settings';
 import { scheduleSync } from '@/lib/sync';
+import {
+  filterDisciplinaIdsByActiveConcurso,
+  matchActiveConcurso,
+  useActiveConcursoFilter,
+} from '@/lib/hierarchy';
 import { renderTextWithCode, shuffle } from '@/lib/utils';
 import type {
   DiscSessionConfig,
@@ -40,8 +45,23 @@ function buildPool(all: Question[], cfg: DiscSessionConfig): Question[] {
 }
 
 export function DiscursivaRunner() {
-  const all = useStore(selectActiveQuestions);
-  const disciplinas = useStore(selectDisciplinas);
+  const allRaw = useStore(selectActiveQuestions);
+  const disciplinasRaw = useStore(selectDisciplinas);
+  const { disciplinaNomes: concursoDiscNomes } = useActiveConcursoFilter();
+
+  const all = useMemo(
+    () =>
+      concursoDiscNomes === null
+        ? allRaw
+        : allRaw.filter((q) =>
+            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+          ),
+    [allRaw, concursoDiscNomes]
+  );
+  const disciplinas = useMemo(
+    () => filterDisciplinaIdsByActiveConcurso(disciplinasRaw, concursoDiscNomes),
+    [disciplinasRaw, concursoDiscNomes]
+  );
 
   const [phase, setPhase] = useState<Phase>('config');
   const [cfg, setCfg] = useState<DiscSessionConfig>(defaultCfg);

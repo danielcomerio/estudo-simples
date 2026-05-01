@@ -10,7 +10,13 @@ import {
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { fmtRelative } from '@/lib/format';
-import { useDisciplinas, useTopicos } from '@/lib/hierarchy';
+import {
+  matchActiveConcurso,
+  useActiveConcursoFilter,
+  useDisciplinas,
+  useTopicos,
+} from '@/lib/hierarchy';
+import { setActiveConcursoId } from '@/lib/settings';
 import { confirmDialog } from './ConfirmDialog';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
@@ -40,9 +46,13 @@ export function BancoList() {
     [questions, editingId]
   );
 
+  const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
+    useActiveConcursoFilter();
+
   const filtered = useMemo(() => {
     const txt = search.trim().toLowerCase();
     return questions.filter((q) => {
+      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
       if (txt) {
@@ -59,7 +69,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo]);
+  }, [questions, search, disc, tipo, concursoDiscNomes]);
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -165,6 +175,39 @@ export function BancoList() {
 
   return (
     <div className="card">
+      {activeConcurso && (
+        <div
+          role="status"
+          style={{
+            background: 'var(--primary-soft)',
+            border: '1px solid var(--primary)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            marginBottom: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.9rem' }}>
+            🎯 Filtrando por concurso <strong>{activeConcurso.nome}</strong>
+            {concursoDiscNomes && concursoDiscNomes.length > 0
+              ? ` · ${concursoDiscNomes.length} disciplina(s) vinculada(s)`
+              : ' · sem disciplinas vinculadas (vai mostrar 0 questões)'}
+          </span>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setActiveConcursoId(null)}
+            style={{ fontSize: '0.85rem' }}
+          >
+            Ver tudo
+          </button>
+        </div>
+      )}
+
       <div className="row gap wrap" style={{ marginBottom: 14 }}>
         <h2 style={{ margin: 0, marginRight: 'auto' }}>Banco atual</h2>
         <input

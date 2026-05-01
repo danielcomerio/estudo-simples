@@ -9,7 +9,12 @@ import {
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { applyReview } from '@/lib/srs-fsrs';
-import { useAlgorithm } from '@/lib/settings';
+import { useAlgorithm, setActiveConcursoId } from '@/lib/settings';
+import {
+  filterDisciplinaIdsByActiveConcurso,
+  matchActiveConcurso,
+  useActiveConcursoFilter,
+} from '@/lib/hierarchy';
 import { renderTextWithCode, shuffle } from '@/lib/utils';
 import { fmtRelative } from '@/lib/format';
 import type {
@@ -84,8 +89,26 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
 }
 
 export function QuestionRunner() {
-  const all = useStore(selectActiveQuestions);
-  const disciplinas = useStore(selectDisciplinas);
+  const allRaw = useStore(selectActiveQuestions);
+  const disciplinasRaw = useStore(selectDisciplinas);
+  const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
+    useActiveConcursoFilter();
+
+  // Filtra ANTES de chegar nos selects/picker — pra usuário não selecionar
+  // disciplinas que serão excluídas pelo concurso ativo.
+  const all = useMemo(
+    () =>
+      concursoDiscNomes === null
+        ? allRaw
+        : allRaw.filter((q) =>
+            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+          ),
+    [allRaw, concursoDiscNomes]
+  );
+  const disciplinas = useMemo(
+    () => filterDisciplinaIdsByActiveConcurso(disciplinasRaw, concursoDiscNomes),
+    [disciplinasRaw, concursoDiscNomes]
+  );
 
   const [phase, setPhase] = useState<Phase>('config');
   const [cfg, setCfg] = useState<SessionConfig>(defaultCfg);
@@ -140,6 +163,39 @@ export function QuestionRunner() {
 
   return (
     <div className="card">
+      {activeConcurso && (
+        <div
+          role="status"
+          style={{
+            background: 'var(--primary-soft)',
+            border: '1px solid var(--primary)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            marginBottom: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.9rem' }}>
+            🎯 Estudando para <strong>{activeConcurso.nome}</strong>
+            {concursoDiscNomes && concursoDiscNomes.length > 0
+              ? ` · ${disciplinas.length} disciplina(s) · ${objCount} objetiva(s)`
+              : ' · sem disciplinas vinculadas'}
+          </span>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setActiveConcursoId(null)}
+            style={{ fontSize: '0.85rem' }}
+          >
+            Estudar tudo
+          </button>
+        </div>
+      )}
+
       <h2>Configurar sessão</h2>
 
       <div className="form-grid">

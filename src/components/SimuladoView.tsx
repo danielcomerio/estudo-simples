@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, selectActiveQuestions } from '@/lib/store';
 import {
+  matchActiveConcurso,
+  useActiveConcursoFilter,
+} from '@/lib/hierarchy';
+import {
   getSimuladoEmAndamento,
   saveSimulado,
   useSimuladosForUser,
@@ -24,7 +28,26 @@ type Phase = 'list' | 'config' | 'running' | 'report';
 
 export function SimuladoView() {
   const userId = useStore((s) => s.userId);
-  const all = useStore(selectActiveQuestions);
+  const allRaw = useStore(selectActiveQuestions);
+  const { disciplinaNomes: concursoDiscNomes } = useActiveConcursoFilter();
+
+  // Filtra antes do pool — config form só vê questões/disciplinas do concurso
+  // ativo. Simulado em andamento NÃO é refiltrado (já foi montado).
+  const all = useMemo(
+    () =>
+      concursoDiscNomes === null
+        ? allRaw
+        : allRaw.filter((q) =>
+            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+          ),
+    [allRaw, concursoDiscNomes]
+  );
+
+  // Render-time `all` é filtrado, mas o questions usado em running/report
+  // precisa ser amplo (questões do simulado podem ter sido montadas antes
+  // do concurso ser selecionado). Usa allRaw nessas fases.
+  const allForLookup = allRaw;
+
   const simulados = useSimuladosForUser(userId);
 
   const [phase, setPhase] = useState<Phase>('list');
@@ -117,7 +140,7 @@ export function SimuladoView() {
     return (
       <SimuladoRunner
         simulado={activeSim}
-        questions={all}
+        questions={allForLookup}
         onUpdate={updateSim}
         onFinish={onFinish}
       />
@@ -128,7 +151,7 @@ export function SimuladoView() {
     return (
       <SimuladoReport
         simulado={activeSim}
-        questions={all}
+        questions={allForLookup}
         onBack={backToList}
       />
     );
