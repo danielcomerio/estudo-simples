@@ -16,10 +16,11 @@
  * try/catch + toast.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from './supabase/client';
 import type {
   Concurso,
+  ConcursoDisciplina,
   ConcursoStatus,
   Disciplina,
   Topico,
@@ -42,6 +43,9 @@ type TextRules = {
   pattern?: RegExp;
   patternMsg?: string;
 };
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Valida um campo de texto opcional ou obrigatório com limites. */
 export function validateText(
@@ -534,6 +538,234 @@ export function useDisciplinas(): CacheState<Disciplina> {
 }
 
 // =====================================================================
+// Concurso × Disciplina (vínculos com peso e qtd_questoes_prova)
+// =====================================================================
+
+export type ConcursoDisciplinaInput = {
+  concurso_id: string;
+  disciplina_id: string;
+  peso?: number;
+  qtd_questoes_prova?: number | null;
+};
+
+export function validateConcursoDisciplinaInput(
+  input: ConcursoDisciplinaInput
+): void {
+  validateText('concurso_id', input.concurso_id, {
+    required: true,
+    max: 36,
+    pattern: UUID_PATTERN,
+    patternMsg: 'UUID inválido',
+  });
+  validateText('disciplina_id', input.disciplina_id, {
+    required: true,
+    max: 36,
+    pattern: UUID_PATTERN,
+    patternMsg: 'UUID inválido',
+  });
+  if (input.peso !== undefined) {
+    if (
+      typeof input.peso !== 'number' ||
+      !Number.isFinite(input.peso) ||
+      input.peso <= 0 ||
+      input.peso > 9999
+    ) {
+      throw new HierarchyValidationError('peso', 'deve estar em (0, 9999]');
+    }
+  }
+  if (
+    input.qtd_questoes_prova !== undefined &&
+    input.qtd_questoes_prova !== null
+  ) {
+    if (
+      typeof input.qtd_questoes_prova !== 'number' ||
+      !Number.isInteger(input.qtd_questoes_prova) ||
+      input.qtd_questoes_prova <= 0 ||
+      input.qtd_questoes_prova > 9999
+    ) {
+      throw new HierarchyValidationError(
+        'qtd_questoes_prova',
+        'inteiro entre 1 e 9999'
+      );
+    }
+  }
+}
+
+let cdCache: CacheState<ConcursoDisciplina> = {
+  data: null,
+  loading: false,
+  error: null,
+};
+const cdListeners = new Set<() => void>();
+
+function notifyCD() {
+  cdListeners.forEach((l) => l());
+}
+
+function setCD(next: CacheState<ConcursoDisciplina>) {
+  cdCache = next;
+  notifyCD();
+}
+
+/**
+ * Carrega TODOS os vínculos do user (volume baixo — RLS filtra).
+ * Posteriormente o hook filtra por concurso_id no front.
+ */
+export async function loadConcursoDisciplinas(): Promise<void> {
+  if (cdCache.loading) return;
+  setCD({ ...cdCache, loading: true, error: null });
+
+  const sb = createClient();
+  const { data, error } = await sb
+    .from('concurso_disciplinas')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    setCD({ data: cdCache.data, loading: false, error: error.message });
+    return;
+  }
+  setCD({
+    data: (data ?? []) as ConcursoDisciplina[],
+    loading: false,
+    error: null,
+  });
+}
+
+export async function linkConcursoDisciplina(
+  input: ConcursoDisciplinaInput
+): Promise<ConcursoDisciplina> {
+  validateConcursoDisciplinaInput(input);
+
+  const sb = createClient();
+  const {
+    data: { user },
+    error: authErr,
+  } = await sb.auth.getUser();
+  if (authErr || !user) throw new Error('Não autenticado');
+
+  const { data, error } = await sb
+    .from('concurso_disciplinas')
+    .insert({
+      user_id: user.id,
+      concurso_id: input.concurso_id,
+      disciplina_id: input.disciplina_id,
+      peso: input.peso ?? 1,
+      qtd_questoes_prova: input.qtd_questoes_prova ?? null,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new HierarchyValidationError(
+        'disciplina_id',
+        'esta disciplina já está vinculada a esse concurso'
+      );
+    }
+    if (error.code === '23503') {
+      throw new HierarchyValidationError(
+        'concurso_id',
+        'concurso ou disciplina não encontrado (ou de outro user)'
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  const novo = data as ConcursoDisciplina;
+  setCD({
+    ...cdCache,
+    data: cdCache.data ? [...cdCache.data, novo] : [novo],
+  });
+  return novo;
+}
+
+export async function updateConcursoDisciplina(
+  id: string,
+  patch: Partial<Pick<ConcursoDisciplinaInput, 'peso' | 'qtd_questoes_prova'>>
+): Promise<ConcursoDisciplina> {
+  // Valida só os campos numéricos relevantes
+  validateConcursoDisciplinaInput({
+    concurso_id: '00000000-0000-0000-0000-000000000000',
+    disciplina_id: '00000000-0000-0000-0000-000000000000',
+    ...patch,
+  });
+
+  const filtered: Record<string, unknown> = {};
+  if (patch.peso !== undefined) filtered.peso = patch.peso;
+  if (patch.qtd_questoes_prova !== undefined)
+    filtered.qtd_questoes_prova = patch.qtd_questoes_prova;
+
+  if (Object.keys(filtered).length === 0) {
+    throw new HierarchyValidationError('patch', 'sem campos pra atualizar');
+  }
+
+  const sb = createClient();
+  const { data, error } = await sb
+    .from('concurso_disciplinas')
+    .update(filtered)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  const atualizado = data as ConcursoDisciplina;
+  setCD({
+    ...cdCache,
+    data: cdCache.data?.map((cd) => (cd.id === id ? atualizado : cd)) ?? null,
+  });
+  return atualizado;
+}
+
+/**
+ * Hard-delete: a tabela `concurso_disciplinas` não tem `deleted_at` —
+ * é só uma associação, não precisa preservar histórico.
+ */
+export async function unlinkConcursoDisciplina(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from('concurso_disciplinas').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+
+  setCD({
+    ...cdCache,
+    data: cdCache.data?.filter((cd) => cd.id !== id) ?? null,
+  });
+}
+
+export function useConcursoDisciplinas(concursoId: string | null): {
+  data: ConcursoDisciplina[];
+  loading: boolean;
+  error: string | null;
+} {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const listener = () => setTick((t) => (t + 1) & 0xfffffff);
+    cdListeners.add(listener);
+    if (cdCache.data === null && !cdCache.loading) {
+      void loadConcursoDisciplinas();
+    }
+    return () => {
+      cdListeners.delete(listener);
+    };
+  }, []);
+
+  // useMemo evita gerar arrays diferentes a cada render quando o concursoId
+  // não muda — match com o padrão de cache em useStore.
+  const filtered = useMemo(() => {
+    if (!concursoId || !cdCache.data) return [];
+    return cdCache.data.filter((cd) => cd.concurso_id === concursoId);
+  }, [concursoId, cdCache.data]);
+
+  return {
+    data: filtered,
+    loading: cdCache.loading,
+    error: cdCache.error,
+  };
+}
+
+// =====================================================================
 // Tópicos (hierárquicos)
 // =====================================================================
 
@@ -543,9 +775,6 @@ export type TopicoInput = {
   parent_topico_id?: string | null;
   ordem?: number;
 };
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function validateTopicoInput(input: TopicoInput): void {
   validateText('nome', input.nome, { required: true, max: 200 });
@@ -805,5 +1034,6 @@ export function useTopicos(): CacheState<Topico> {
 export function clearHierarchyCache(): void {
   setConcursos({ data: null, loading: false, error: null });
   setDisciplinas({ data: null, loading: false, error: null });
+  setCD({ data: null, loading: false, error: null });
   setTopicos({ data: null, loading: false, error: null });
 }

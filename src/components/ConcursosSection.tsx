@@ -6,10 +6,12 @@ import {
   createConcurso,
   softDeleteConcurso,
   updateConcurso,
+  useConcursoDisciplinas,
   useConcursos,
   type ConcursoInput,
 } from '@/lib/hierarchy';
 import type { Concurso, ConcursoStatus } from '@/lib/types';
+import { ConcursoDisciplinasManager } from './ConcursoDisciplinasManager';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 
@@ -172,6 +174,11 @@ function ConcursoRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  // O hook compartilha cache global — todas as instâncias filtram da mesma
+  // cache. Volume baixo (dezenas de vínculos por user) torna o overhead
+  // desprezível.
+  const { data: vinculos } = useConcursoDisciplinas(c.id);
   const sub = [c.banca, c.orgao, c.cargo].filter(Boolean).join(' · ');
   return (
     <li
@@ -207,9 +214,18 @@ function ConcursoRow({
           >
             {STATUS_LABEL[c.status]}
             {c.data_prova && ` · prova em ${c.data_prova}`}
+            {vinculos.length > 0 && ` · ${vinculos.length} disciplina(s)`}
           </div>
         </div>
         <div className="row gap">
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+          >
+            {expanded ? '▾ Disciplinas' : '▸ Disciplinas'}
+          </button>
           <button type="button" className="ghost" onClick={onEdit}>
             Editar
           </button>
@@ -218,6 +234,8 @@ function ConcursoRow({
           </button>
         </div>
       </div>
+
+      {expanded && <ConcursoDisciplinasManager concursoId={c.id} />}
     </li>
   );
 }
