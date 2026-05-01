@@ -8,7 +8,8 @@ import {
   updateQuestionLocal,
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
-import { applySRS } from '@/lib/srs';
+import { applyReview } from '@/lib/srs-fsrs';
+import { useAlgorithm } from '@/lib/settings';
 import { renderTextWithCode, shuffle } from '@/lib/utils';
 import { fmtRelative } from '@/lib/format';
 import type {
@@ -266,6 +267,7 @@ function RunningView({
 }) {
   const update = (fn: (s: SessionState) => SessionState) =>
     setSession((cur) => (cur ? fn(cur) : cur));
+  const algorithm = useAlgorithm();
   const q = session.pool[session.idx];
   const payload = q.payload as ObjetivaPayload;
   const [answered, setAnswered] = useState(false);
@@ -347,7 +349,7 @@ function RunningView({
     if (ratedRef.current) return;
     ratedRef.current = true;
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-    applySRS(card, quality);
+    applyReview(card, quality, algorithm);
     updateQuestionLocal(q.id, { srs: card.srs });
     scheduleSync(800);
     next();

@@ -7,7 +7,8 @@ import {
   updateQuestionLocal,
   useStore,
 } from '@/lib/store';
-import { applySRS } from '@/lib/srs';
+import { applyReview } from '@/lib/srs-fsrs';
+import { useAlgorithm } from '@/lib/settings';
 import { scheduleSync } from '@/lib/sync';
 import { renderTextWithCode, shuffle } from '@/lib/utils';
 import type {
@@ -171,6 +172,7 @@ function DiscRunningView({
   onNext: () => void;
   onQuit: () => void;
 }) {
+  const algorithm = useAlgorithm();
   const payload = q.payload as DiscursivaPayload;
   const enun =
     payload.enunciado_completo ||
@@ -236,7 +238,7 @@ function DiscRunningView({
     if (rated) return;
     setRated(true);
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-    applySRS(card, quality);
+    applyReview(card, quality, algorithm);
     const newHistory = [
       ...(q.stats?.history || []).slice(-49),
       {
