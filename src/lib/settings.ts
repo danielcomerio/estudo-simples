@@ -17,8 +17,11 @@ import { useEffect, useState } from 'react';
 import type { SRSAlgorithm } from './srs-fsrs';
 
 const STORAGE_KEY_ALGORITHM = 'estudo-simples:settings:algorithm';
+const STORAGE_KEY_ACTIVE_CONCURSO = 'estudo-simples:settings:activeConcurso';
 
 const VALID_ALGORITHMS: SRSAlgorithm[] = ['sm2', 'fsrs'];
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const listeners = new Set<() => void>();
 
@@ -55,6 +58,62 @@ export function setAlgorithm(algorithm: SRSAlgorithm): void {
     // ignora — UI não-crítica falha em silencio mas re-tenta na próxima
   }
   notify();
+}
+
+/**
+ * Concurso ativo: filtra /banco, /estudar e /stats pelas disciplinas
+ * vinculadas ao concurso. null = sem filtro (vê tudo).
+ *
+ * Validado contra UUID_PATTERN — se localStorage foi adulterado pra
+ * algo arbitrário, retorna null em vez de propagar lixo.
+ */
+export function getActiveConcursoId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ACTIVE_CONCURSO);
+    if (raw && UUID_PATTERN.test(raw)) return raw;
+  } catch {
+    // localStorage indisponível
+  }
+  return null;
+}
+
+export function setActiveConcursoId(id: string | null): void {
+  if (id !== null && !UUID_PATTERN.test(id)) {
+    throw new Error(`Concurso id inválido: ${id}`);
+  }
+  if (typeof window === 'undefined') return;
+  try {
+    if (id === null) {
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_CONCURSO);
+    } else {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_CONCURSO, id);
+    }
+  } catch {
+    // ignora — UI não-crítica falha silenciosa
+  }
+  notify();
+}
+
+export function useActiveConcursoId(): string | null {
+  // SSR-safe: começa null. useEffect ajusta no mount.
+  const [id, setId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const sync = () => setId(getActiveConcursoId());
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_ACTIVE_CONCURSO) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  return id;
 }
 
 /**

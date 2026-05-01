@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { hydrate, resetStore } from '@/lib/store';
 import { startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
+import { setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
 import { ConfirmHost } from './ConfirmDialog';
 
@@ -50,4 +51,7 @@ export function logoutAndReset() {
   resetStore();
   clearHierarchyCache();
   clearSimuladosCache();
+  // Concurso ativo é per-user; resetar evita o próximo user logando ver
+  // filtro residual do user anterior.
+  setActiveConcursoId(null);
 }

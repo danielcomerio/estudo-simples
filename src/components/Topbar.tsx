@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store';
 import { logout } from '@/app/auth/actions';
 import { logoutAndReset } from './StoreProvider';
 import { syncNow } from '@/lib/sync';
+import { ActiveConcursoSelector } from './ActiveConcursoSelector';
 
 const TABS = [
   { href: '/', label: 'Painel' },
@@ -60,6 +61,8 @@ export function Topbar({ email }: { email: string | null }) {
       </nav>
 
       <div className="right">
+        <ActiveConcursoSelector />
+
         <button
           type="button"
           className={'sync-pill ' + syncStatus}
