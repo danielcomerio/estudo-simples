@@ -22,6 +22,7 @@ import type {
   Concurso,
   ConcursoStatus,
   Disciplina,
+  Topico,
 } from './types';
 
 // =====================================================================
@@ -508,10 +509,276 @@ export function useDisciplinas(): CacheState<Disciplina> {
 }
 
 // =====================================================================
+// Tópicos (hierárquicos)
+// =====================================================================
+
+export type TopicoInput = {
+  nome: string;
+  disciplina_id: string;
+  parent_topico_id?: string | null;
+  ordem?: number;
+};
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function validateTopicoInput(input: TopicoInput): void {
+  validateText('nome', input.nome, { required: true, max: 200 });
+  validateText('disciplina_id', input.disciplina_id, {
+    required: true,
+    max: 36,
+    pattern: UUID_PATTERN,
+    patternMsg: 'UUID inválido',
+  });
+  if (
+    input.parent_topico_id !== undefined &&
+    input.parent_topico_id !== null &&
+    input.parent_topico_id !== ''
+  ) {
+    validateText('parent_topico_id', input.parent_topico_id, {
+      max: 36,
+      pattern: UUID_PATTERN,
+      patternMsg: 'UUID inválido',
+    });
+  }
+  if (input.ordem !== undefined && input.ordem !== null) {
+    if (
+      typeof input.ordem !== 'number' ||
+      !Number.isInteger(input.ordem) ||
+      input.ordem < 0 ||
+      input.ordem > 999_999
+    ) {
+      throw new HierarchyValidationError(
+        'ordem',
+        'inteiro entre 0 e 999999'
+      );
+    }
+  }
+}
+
+let topicosCache: CacheState<Topico> = {
+  data: null,
+  loading: false,
+  error: null,
+};
+const topicosListeners = new Set<() => void>();
+
+function notifyTopicos() {
+  topicosListeners.forEach((l) => l());
+}
+
+function setTopicos(next: CacheState<Topico>) {
+  topicosCache = next;
+  notifyTopicos();
+}
+
+export async function loadTopicos(): Promise<void> {
+  if (topicosCache.loading) return;
+  setTopicos({ ...topicosCache, loading: true, error: null });
+
+  const sb = createClient();
+  const { data, error } = await sb
+    .from('topicos')
+    .select('*')
+    .is('deleted_at', null)
+    .order('disciplina_id', { ascending: true })
+    .order('ordem', { ascending: true })
+    .order('nome', { ascending: true });
+
+  if (error) {
+    setTopicos({
+      data: topicosCache.data,
+      loading: false,
+      error: error.message,
+    });
+    return;
+  }
+  setTopicos({
+    data: (data ?? []) as Topico[],
+    loading: false,
+    error: null,
+  });
+}
+
+function normalizeTopicoInput(input: TopicoInput): {
+  nome: string;
+  disciplina_id: string;
+  parent_topico_id: string | null;
+  ordem: number;
+} {
+  const parent =
+    input.parent_topico_id === undefined ||
+    input.parent_topico_id === null ||
+    input.parent_topico_id === ''
+      ? null
+      : input.parent_topico_id;
+  return {
+    nome: input.nome.trim(),
+    disciplina_id: input.disciplina_id,
+    parent_topico_id: parent,
+    ordem: input.ordem ?? 0,
+  };
+}
+
+export async function createTopico(input: TopicoInput): Promise<Topico> {
+  validateTopicoInput(input);
+  const norm = normalizeTopicoInput(input);
+
+  const sb = createClient();
+  const {
+    data: { user },
+    error: authErr,
+  } = await sb.auth.getUser();
+  if (authErr || !user) throw new Error('Não autenticado');
+
+  const { data, error } = await sb
+    .from('topicos')
+    .insert({ ...norm, user_id: user.id })
+    .select('*')
+    .single();
+
+  if (error) {
+    // FK violation indica parent/disciplina inválido (ou de outro user
+    // — bloqueado pelo FK composto + RLS)
+    if (error.code === '23503') {
+      throw new HierarchyValidationError(
+        'disciplina_id',
+        'disciplina ou tópico-pai inválido'
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  setTopicos({
+    ...topicosCache,
+    data: topicosCache.data
+      ? [...topicosCache.data, data as Topico]
+      : [data as Topico],
+  });
+  return data as Topico;
+}
+
+export async function updateTopico(
+  id: string,
+  patch: Partial<TopicoInput>
+): Promise<Topico> {
+  validateTopicoInput({
+    nome: 'placeholder',
+    disciplina_id: '00000000-0000-0000-0000-000000000000',
+    ...patch,
+  });
+  const norm = normalizeTopicoInput({
+    nome: 'placeholder',
+    disciplina_id: '00000000-0000-0000-0000-000000000000',
+    ...patch,
+  });
+  const filtered: Record<string, unknown> = {};
+  for (const k of Object.keys(patch) as (keyof TopicoInput)[]) {
+    filtered[k] = norm[k as keyof typeof norm];
+  }
+  if (Object.keys(filtered).length === 0) {
+    throw new HierarchyValidationError('patch', 'sem campos pra atualizar');
+  }
+  // Defesa contra ciclo: tópico não pode ser próprio pai
+  if (
+    filtered.parent_topico_id &&
+    filtered.parent_topico_id === id
+  ) {
+    throw new HierarchyValidationError(
+      'parent_topico_id',
+      'tópico não pode ser pai de si mesmo'
+    );
+  }
+
+  const sb = createClient();
+  const { data, error } = await sb
+    .from('topicos')
+    .update(filtered)
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === '23503') {
+      throw new HierarchyValidationError(
+        'parent_topico_id',
+        'tópico-pai ou disciplina inválido'
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  setTopicos({
+    ...topicosCache,
+    data:
+      topicosCache.data?.map((t) => (t.id === id ? (data as Topico) : t)) ??
+      null,
+  });
+  return data as Topico;
+}
+
+/**
+ * Cascade de soft-delete em todos os descendentes (BFS na cache).
+ * Importante: o FK composto na 0002 só faz cascade em hard-delete;
+ * soft-delete (UPDATE deleted_at) não dispara. Fazemos manual aqui
+ * pra evitar tópicos órfãos visíveis depois de remover o pai.
+ */
+export async function softDeleteTopico(id: string): Promise<void> {
+  // BFS na cache pra coletar todos os descendentes
+  const idsParaDeletar = new Set<string>([id]);
+  const fila: string[] = [id];
+  while (fila.length > 0) {
+    const cur = fila.shift()!;
+    const filhos =
+      topicosCache.data?.filter(
+        (t) => t.parent_topico_id === cur && !t.deleted_at
+      ) ?? [];
+    for (const f of filhos) {
+      if (!idsParaDeletar.has(f.id)) {
+        idsParaDeletar.add(f.id);
+        fila.push(f.id);
+      }
+    }
+  }
+
+  const sb = createClient();
+  const { error } = await sb
+    .from('topicos')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', Array.from(idsParaDeletar));
+
+  if (error) throw new Error(error.message);
+
+  setTopicos({
+    ...topicosCache,
+    data:
+      topicosCache.data?.filter((t) => !idsParaDeletar.has(t.id)) ?? null,
+  });
+}
+
+export function useTopicos(): CacheState<Topico> {
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const listener = () => setTick((t) => (t + 1) & 0xfffffff);
+    topicosListeners.add(listener);
+    if (topicosCache.data === null && !topicosCache.loading) {
+      void loadTopicos();
+    }
+    return () => {
+      topicosListeners.delete(listener);
+    };
+  }, []);
+
+  return topicosCache;
+}
+
+// =====================================================================
 // Limpeza no logout (chamado de StoreProvider/logoutAndReset)
 // =====================================================================
 
 export function clearHierarchyCache(): void {
   setConcursos({ data: null, loading: false, error: null });
   setDisciplinas({ data: null, loading: false, error: null });
+  setTopicos({ data: null, loading: false, error: null });
 }

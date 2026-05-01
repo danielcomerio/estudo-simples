@@ -1,12 +1,13 @@
 import { ConcursosSection } from '@/components/ConcursosSection';
 import { DisciplinasSection } from '@/components/DisciplinasSection';
+import { TopicosSection } from '@/components/TopicosSection';
 
 export default function ConfiguracoesPage() {
   return (
     <>
       <ConcursosSection />
       <DisciplinasSection />
-      {/* Próxima seção (etapa 0.4.3): Tópicos */}
+      <TopicosSection />
     </>
   );
 }

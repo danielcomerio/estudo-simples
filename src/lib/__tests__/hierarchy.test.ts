@@ -4,9 +4,14 @@ import {
   validateConcursoInput,
   validateDisciplinaInput,
   validateText,
+  validateTopicoInput,
   type ConcursoInput,
   type DisciplinaInput,
+  type TopicoInput,
 } from '../hierarchy';
+
+const VALID_UUID = '11111111-2222-3333-4444-555555555555';
+const VALID_UUID_2 = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
 describe('validateText', () => {
   it('campo undefined sem required passa', () => {
@@ -306,5 +311,89 @@ describe('validateDisciplinaInput', () => {
     expect(() =>
       validateDisciplinaInput({ nome: 'x', cor: '#xxxxxx' })
     ).toThrow(/cor/);
+  });
+});
+
+describe('validateTopicoInput', () => {
+  const valido: TopicoInput = { nome: 'Sintaxe', disciplina_id: VALID_UUID };
+
+  it('aceita input mínimo', () => {
+    expect(() => validateTopicoInput(valido)).not.toThrow();
+  });
+
+  it('aceita com parent_topico_id válido e ordem', () => {
+    expect(() =>
+      validateTopicoInput({
+        ...valido,
+        parent_topico_id: VALID_UUID_2,
+        ordem: 5,
+      })
+    ).not.toThrow();
+  });
+
+  it('aceita parent_topico_id null/vazio', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, parent_topico_id: null })
+    ).not.toThrow();
+    expect(() =>
+      validateTopicoInput({ ...valido, parent_topico_id: '' })
+    ).not.toThrow();
+  });
+
+  it('rejeita nome vazio/longo', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, nome: '' })
+    ).toThrow(/nome/);
+    expect(() =>
+      validateTopicoInput({ ...valido, nome: 'x'.repeat(201) })
+    ).toThrow(/nome/);
+  });
+
+  it('rejeita disciplina_id ausente ou não-UUID (defesa input forjado)', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, disciplina_id: '' })
+    ).toThrow(/disciplina_id/);
+    expect(() =>
+      validateTopicoInput({ ...valido, disciplina_id: 'not-uuid' })
+    ).toThrow(/disciplina_id.*UUID/);
+    expect(() =>
+      validateTopicoInput({
+        ...valido,
+        disciplina_id: '12345' as unknown as string,
+      })
+    ).toThrow(/disciplina_id/);
+  });
+
+  it('rejeita parent_topico_id não-UUID', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, parent_topico_id: 'not-uuid' })
+    ).toThrow(/parent_topico_id.*UUID/);
+  });
+
+  it('aceita ordem inteiro entre 0 e 999999', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, ordem: 0 })
+    ).not.toThrow();
+    expect(() =>
+      validateTopicoInput({ ...valido, ordem: 999_999 })
+    ).not.toThrow();
+  });
+
+  it('rejeita ordem negativa, fracionária, abusiva ou tipo errado', () => {
+    expect(() =>
+      validateTopicoInput({ ...valido, ordem: -1 })
+    ).toThrow(/ordem/);
+    expect(() =>
+      validateTopicoInput({ ...valido, ordem: 1.5 })
+    ).toThrow(/ordem/);
+    expect(() =>
+      validateTopicoInput({ ...valido, ordem: 1e9 })
+    ).toThrow(/ordem/);
+    expect(() =>
+      validateTopicoInput({
+        ...valido,
+        ordem: 'forjado' as unknown as number,
+      })
+    ).toThrow(/ordem/);
   });
 });
