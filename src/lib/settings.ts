@@ -62,14 +62,15 @@ export function setAlgorithm(algorithm: SRSAlgorithm): void {
  * parte do app.
  */
 export function useAlgorithm(): SRSAlgorithm {
-  const [algo, setAlgo] = useState<SRSAlgorithm>(() => getAlgorithm());
+  // Init SSR-safe: sempre 'sm2' no primeiro render. useEffect ajusta pro
+  // valor real do localStorage no mount. Sem isso, server renderiza 'sm2'
+  // mas client renderiza valor real → React warning de hydration mismatch.
+  const [algo, setAlgo] = useState<SRSAlgorithm>('sm2');
 
   useEffect(() => {
     const sync = () => setAlgo(getAlgorithm());
     listeners.add(sync);
-    // Sync no mount (SSR pode ter retornado 'sm2' default; client lê localStorage real)
     sync();
-    // Reage também a mudanças em outras tabs do mesmo browser
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY_ALGORITHM) sync();
     };
