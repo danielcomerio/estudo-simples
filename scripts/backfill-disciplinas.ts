@@ -98,19 +98,32 @@ async function main() {
   const userId = auth.user.id;
   log.info(`autenticado como ${userId}`);
 
-  // 3. Lê questions ativas (RLS limita ao próprio user)
-  const { data: qRows, error: qErr } = await supabase
-    .from('questions')
-    .select('disciplina_id, deleted_at')
-    .is('deleted_at', null);
+  // 3. Lê questions ativas (RLS limita ao próprio user). Pagina manual:
+  // PostgREST corta em 1000 linhas mesmo com .limit() (ver gotcha #3 do
+  // CLAUDE.md). Sem isso, bancos com >1000 questões poderiam esconder
+  // uma disciplina que aparece só nas linhas posteriores.
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 100; // teto de segurança: 100k linhas
+  const qRows: QuestionDiscPicker[] = [];
+  let offset = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('disciplina_id, deleted_at')
+      .is('deleted_at', null)
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1);
 
-  if (qErr) fail(`select questions falhou: ${qErr.message}`);
+    if (error) fail(`select questions falhou: ${error.message}`);
+    const rows = (data ?? []) as QuestionDiscPicker[];
+    qRows.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
 
-  const alvo = extractUniqueDisciplinaNomes(
-    (qRows ?? []) as QuestionDiscPicker[]
-  );
+  const alvo = extractUniqueDisciplinaNomes(qRows);
   log.info(
-    `${qRows?.length ?? 0} questões ativas; ${alvo.length} disciplinas únicas`
+    `${qRows.length} questões ativas; ${alvo.length} disciplinas únicas`
   );
 
   if (!alvo.length) {
