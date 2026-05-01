@@ -1,34 +1,79 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import {
   matchActiveConcurso,
   useActiveConcursoFilter,
+  useAllConcursoDisciplinas,
   useConcursoDisciplinas,
   useConcursos,
   useDisciplinas,
 } from '@/lib/hierarchy';
-import { setActiveConcursoId } from '@/lib/settings';
-import type { Concurso, ConcursoDisciplina, Disciplina } from '@/lib/types';
+import { useActiveConcursoId } from '@/lib/settings';
+import { useSimuladosForUser } from '@/lib/simulado-store';
+import { calcularResultado } from '@/lib/simulado';
+import type { Concurso, ConcursoDisciplina, Disciplina, Simulado } from '@/lib/types';
+
+/** Escopo de filtragem das estatísticas — separado do concurso ativo
+ *  do Topbar pra permitir explorar concursos sem mudar o filtro global. */
+type ScopeKey = '__all__' | '__active__' | string; // string = concurso id
 
 export function StatsView() {
   const allQuestions = useStore(selectActiveQuestions);
-  const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
-    useActiveConcursoFilter();
+  const { data: concursos } = useConcursos();
+  const { data: allDisciplinas } = useDisciplinas();
+  const { data: allVinculos } = useAllConcursoDisciplinas();
+  const activeConcursoId = useActiveConcursoId();
+  const { concurso: activeConcurso } = useActiveConcursoFilter();
 
-  // Aplica filtro de concurso ativo (se houver) — stats refletem o que
-  // está sendo estudado, não o universo total.
+  // Default: respeita o filtro ativo do Topbar. User pode override aqui.
+  const [scope, setScope] = useState<ScopeKey>('__active__');
+
+  // Se o user não tem concurso ativo no Topbar, '__active__' é equivalente
+  // a '__all__' — escolhemos o mais explícito pra UX consistente.
+  useEffect(() => {
+    if (scope === '__active__' && !activeConcursoId) {
+      setScope('__all__');
+    }
+  }, [activeConcursoId, scope]);
+
+  // Resolve o concursoId efetivo do escopo
+  const effectiveConcursoId = useMemo(() => {
+    if (scope === '__all__') return null;
+    if (scope === '__active__') return activeConcursoId;
+    return scope;
+  }, [scope, activeConcursoId]);
+
+  const effectiveConcurso = useMemo(
+    () =>
+      effectiveConcursoId
+        ? concursos?.find((c) => c.id === effectiveConcursoId) ?? null
+        : null,
+    [concursos, effectiveConcursoId]
+  );
+
+  // Disciplinas vinculadas ao escopo (null = sem filtro)
+  const scopeDiscNomes = useMemo<string[] | null>(() => {
+    if (!effectiveConcursoId) return null;
+    if (!allDisciplinas) return [];
+    const byId = new Map(allDisciplinas.map((d) => [d.id, d.nome]));
+    return allVinculos
+      .filter((v) => v.concurso_id === effectiveConcursoId)
+      .map((v) => byId.get(v.disciplina_id))
+      .filter((n): n is string => !!n);
+  }, [effectiveConcursoId, allDisciplinas, allVinculos]);
+
   const questions = useMemo(
     () =>
-      concursoDiscNomes === null
+      scopeDiscNomes === null
         ? allQuestions
         : allQuestions.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+            matchActiveConcurso(q.disciplina_id, scopeDiscNomes)
           ),
-    [allQuestions, concursoDiscNomes]
+    [allQuestions, scopeDiscNomes]
   );
 
   const byDisc: Record<
@@ -69,35 +114,46 @@ export function StatsView() {
 
   return (
     <>
-      {activeConcurso && (
-        <div
-          role="status"
-          style={{
-            background: 'var(--primary-soft)',
-            border: '1px solid var(--primary)',
-            borderRadius: 'var(--radius)',
-            padding: '8px 12px',
-            marginBottom: 12,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ fontSize: '0.9rem' }}>
-            🎯 Estatísticas do concurso <strong>{activeConcurso.nome}</strong>
-          </span>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => setActiveConcursoId(null)}
-            style={{ fontSize: '0.85rem' }}
+      <div
+        className="card"
+        style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: '0.9rem' }}>📊 Estatísticas de:</span>
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value as ScopeKey)}
+            style={{ minWidth: 200 }}
           >
-            Ver tudo
-          </button>
-        </div>
-      )}
+            <option value="__all__">Geral (todos os concursos)</option>
+            {activeConcurso && (
+              <option value="__active__">
+                ★ Concurso ativo: {activeConcurso.nome}
+              </option>
+            )}
+            {(concursos ?? [])
+              .filter((c) => c.id !== activeConcursoId)
+              .map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+          </select>
+        </label>
+        {effectiveConcurso && scopeDiscNomes && (
+          <span className="muted" style={{ fontSize: '0.85rem' }}>
+            {scopeDiscNomes.length} disciplina(s) vinculada(s) ·{' '}
+            {questions.length} questão(ões)
+          </span>
+        )}
+        {!effectiveConcurso && (
+          <span className="muted" style={{ fontSize: '0.85rem' }}>
+            {questions.length} questão(ões) no banco
+          </span>
+        )}
+      </div>
+
+      <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
       <ConcursosOverview />
 
@@ -286,5 +342,213 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Stats de simulado: agrega todos os simulados do user (ou filtrados
+ * pelo escopo selecionado) — total, finalizados/abandonados, % acerto
+ * médio "no tempo", evolução dos últimos 10.
+ */
+function SimuladoStatsSection({
+  scopeDiscNomes,
+}: {
+  scopeDiscNomes: string[] | null;
+}) {
+  const userId = useStore((s) => s.userId);
+  const allQuestions = useStore(selectActiveQuestions);
+  const simulados = useSimuladosForUser(userId);
+
+  const stats = useMemo(() => {
+    // Filtra simulados cujo question_ids tenha alguma da disciplina do escopo.
+    // Sem disciplinas (geral): considera todos.
+    const lookup = new Map(allQuestions.map((q) => [q.id, q]));
+    const inScope = scopeDiscNomes
+      ? simulados.filter((s) => {
+          const lower = scopeDiscNomes.map((n) => n.toLowerCase());
+          return s.question_ids.some((qid) => {
+            const q = lookup.get(qid);
+            return q?.disciplina_id
+              ? lower.includes(q.disciplina_id.toLowerCase())
+              : false;
+          });
+        })
+      : simulados;
+
+    const finalizados = inScope.filter(
+      (s) =>
+        s.status === 'finalizado_no_tempo' ||
+        s.status === 'finalizado_completo' ||
+        s.status === 'finalizado_extra' ||
+        s.status === 'finalizado_timeup_stopped'
+    );
+    const abandonados = inScope.filter((s) => s.status === 'abandonado');
+    const emAndamento = inScope.filter((s) => s.status === 'em_andamento');
+
+    // Calcula resultado pra cada finalizado e agrega
+    let totalAcertosNoTempo = 0;
+    let totalRespondidasNoTempo = 0;
+    let totalAcertosGeral = 0;
+    let totalRespondidasGeral = 0;
+    const evolucao: Array<{ at: number; pctNoTempo: number; nome: string }> = [];
+
+    for (const sim of finalizados) {
+      const res = calcularResultado(sim, lookup);
+      totalAcertosNoTempo += res.acertos_no_tempo;
+      totalRespondidasNoTempo += res.respondidas_no_tempo;
+      totalAcertosGeral += res.acertos_no_tempo + res.acertos_extra;
+      totalRespondidasGeral +=
+        res.respondidas_no_tempo + res.respondidas_extra;
+      evolucao.push({
+        at: sim.finished_at ?? sim.started_at,
+        pctNoTempo:
+          res.respondidas_no_tempo > 0
+            ? res.acertos_no_tempo / res.respondidas_no_tempo
+            : 0,
+        nome: sim.nome ?? `#${sim.id.slice(0, 6)}`,
+      });
+    }
+
+    evolucao.sort((a, b) => a.at - b.at);
+
+    return {
+      total: inScope.length,
+      finalizados: finalizados.length,
+      abandonados: abandonados.length,
+      emAndamento: emAndamento.length,
+      pctNoTempo:
+        totalRespondidasNoTempo > 0
+          ? totalAcertosNoTempo / totalRespondidasNoTempo
+          : null,
+      pctGeral:
+        totalRespondidasGeral > 0
+          ? totalAcertosGeral / totalRespondidasGeral
+          : null,
+      evolucao: evolucao.slice(-10),
+    };
+  }, [simulados, allQuestions, scopeDiscNomes]);
+
+  if (stats.total === 0) {
+    return (
+      <div className="card">
+        <h2 style={{ margin: '0 0 4px' }}>Simulados</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Nenhum simulado neste escopo ainda. Faça um em <code>/simulado</code>{' '}
+          pra começar a acompanhar evolução.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 8px' }}>Simulados</h2>
+      <div
+        className="row gap wrap"
+        style={{
+          marginBottom: stats.evolucao.length > 0 ? 16 : 0,
+          fontSize: '0.95rem',
+        }}
+      >
+        <span>
+          <strong>{stats.total}</strong> total
+        </span>
+        <span className="muted">·</span>
+        <span>
+          <strong>{stats.finalizados}</strong> finalizado(s)
+        </span>
+        {stats.emAndamento > 0 && (
+          <>
+            <span className="muted">·</span>
+            <span>
+              <strong>{stats.emAndamento}</strong> em andamento
+            </span>
+          </>
+        )}
+        {stats.abandonados > 0 && (
+          <>
+            <span className="muted">·</span>
+            <span>
+              <strong>{stats.abandonados}</strong> abandonado(s)
+            </span>
+          </>
+        )}
+        {stats.pctNoTempo !== null && (
+          <>
+            <span className="muted">·</span>
+            <span>
+              acerto médio (no tempo){' '}
+              <strong>{Math.round(stats.pctNoTempo * 100)}%</strong>
+            </span>
+          </>
+        )}
+        {stats.pctGeral !== null &&
+          stats.pctGeral !== stats.pctNoTempo && (
+            <>
+              <span className="muted">·</span>
+              <span>
+                geral <strong>{Math.round(stats.pctGeral * 100)}%</strong>
+              </span>
+            </>
+          )}
+      </div>
+
+      {stats.evolucao.length > 1 && (
+        <div>
+          <div
+            className="muted"
+            style={{ fontSize: '0.82rem', marginBottom: 6 }}
+          >
+            Evolução dos últimos {stats.evolucao.length} (% acerto no tempo)
+          </div>
+          <SimuladoSparkline points={stats.evolucao.map((e) => e.pctNoTempo)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Mini-gráfico de barras horizontais sem dependência. Cada ponto é uma
+ * coluna; altura = pct (0 a 1). Cor varia: <50% danger, <70% warn, >=70% ok.
+ */
+function SimuladoSparkline({ points }: { points: number[] }) {
+  const max = 1;
+  const barWidth = 100 / points.length;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        height: 60,
+        gap: 2,
+        background: 'var(--bg-elev-2)',
+        padding: 6,
+        borderRadius: 'var(--radius)',
+      }}
+    >
+      {points.map((p, i) => {
+        const pct = Math.max(0, Math.min(1, p / max));
+        const cor =
+          p < 0.5
+            ? 'var(--danger)'
+            : p < 0.7
+              ? 'var(--warn, #d97706)'
+              : 'var(--primary)';
+        return (
+          <div
+            key={i}
+            title={`${Math.round(p * 100)}%`}
+            style={{
+              flex: `0 0 ${barWidth}%`,
+              height: `${pct * 100}%`,
+              background: cor,
+              borderRadius: '2px 2px 0 0',
+              minHeight: 2,
+            }}
+          />
+        );
+      })}
+    </div>
   );
 }
