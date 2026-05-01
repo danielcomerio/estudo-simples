@@ -1,14 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   HierarchyValidationError,
+  ensureDisciplinasExist,
   linkConcursoDisciplina,
   unlinkConcursoDisciplina,
   updateConcursoDisciplina,
   useConcursoDisciplinas,
   useDisciplinas,
 } from '@/lib/hierarchy';
+import { selectDisciplinas, useStore } from '@/lib/store';
 import type { ConcursoDisciplina, Disciplina } from '@/lib/types';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
@@ -29,6 +31,25 @@ export function ConcursoDisciplinasManager({
 }) {
   const { data: vinculos, loading, error } = useConcursoDisciplinas(concursoId);
   const { data: disciplinasAll } = useDisciplinas();
+  // Disciplinas derivadas das questões locais — fonte de verdade do que
+  // existe pra vincular (mesmo que ainda não tenha registro na tabela).
+  const disciplinasNasQuestoes = useStore(selectDisciplinas);
+
+  // Auto-cria registros na tabela `disciplinas` pra qualquer nome que
+  // exista nas questões mas não tenha entry. Garante que o user sempre
+  // vê todas as disciplinas existentes pra escolher — sem precisar criar
+  // manualmente. Roda no mount e quando lista de disciplinas mudar.
+  useEffect(() => {
+    if (!disciplinasAll || disciplinasNasQuestoes.length === 0) return;
+    const existentesLower = new Set(
+      disciplinasAll.map((d) => d.nome.toLowerCase())
+    );
+    const faltantes = disciplinasNasQuestoes.filter(
+      (n) => !existentesLower.has(n.toLowerCase())
+    );
+    if (faltantes.length === 0) return;
+    void ensureDisciplinasExist(faltantes);
+  }, [disciplinasAll, disciplinasNasQuestoes]);
 
   const disciplinasMap = useMemo(() => {
     const m = new Map<string, Disciplina>();
@@ -340,8 +361,9 @@ function AdicionarVinculoForm({
           fontStyle: 'italic',
         }}
       >
-        Todas as disciplinas existentes já estão vinculadas. Crie disciplinas
-        novas em "Disciplinas" pra adicionar mais.
+        Todas as disciplinas existentes já estão vinculadas. Disciplinas
+        novas aparecem automaticamente quando você importa questões com
+        novos valores em <code>disciplina_id</code>.
       </p>
     );
   }

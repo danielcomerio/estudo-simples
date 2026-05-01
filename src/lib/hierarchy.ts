@@ -492,6 +492,64 @@ export async function updateDisciplina(
  * Ordem importa: deleta tópicos primeiro, depois disciplina. Se algo
  * falhar entre as duas, a disciplina segue ativa pra o user reagir.
  */
+/**
+ * Garante que cada nome de disciplina dado tenha um registro ativo na
+ * tabela. Idempotente: ignora os que já existem (case-insensitive).
+ *
+ * Usado pela importação de JSON e pela vinculação ao concurso — assim
+ * o usuário nunca precisa criar disciplinas manualmente; elas aparecem
+ * sozinhas conforme aparecem nas questões.
+ *
+ * Erros individuais (ex: 23505 race com outra tab) não interrompem o
+ * loop. Falhas são logadas mas não throw — caller não precisa try/catch.
+ */
+export async function ensureDisciplinasExist(nomes: string[]): Promise<void> {
+  if (!nomes.length) return;
+
+  // Garante cache carregada (idempotente: loadDisciplinas é noop se já loading)
+  if (disciplinasCache.data === null && !disciplinasCache.loading) {
+    await loadDisciplinas();
+  } else if (disciplinasCache.loading) {
+    // Espera o load em flight terminar
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        if (!disciplinasCache.loading) {
+          disciplinasListeners.delete(check);
+          resolve();
+        }
+      };
+      disciplinasListeners.add(check);
+    });
+  }
+
+  const existentesLower = new Set(
+    (disciplinasCache.data ?? []).map((d) => d.nome.toLowerCase())
+  );
+
+  // Dedup do input case-insensitive — mantém a primeira capitalização vista
+  const unicos = new Map<string, string>();
+  for (const raw of nomes) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const lower = trimmed.toLowerCase();
+    if (existentesLower.has(lower)) continue;
+    if (!unicos.has(lower)) unicos.set(lower, trimmed);
+  }
+
+  for (const nome of unicos.values()) {
+    try {
+      await createDisciplina({ nome });
+    } catch (e) {
+      // 23505 = race com outra tab que criou simultaneamente; ignora.
+      // Outros erros logam mas não propagam — auto-create é best-effort.
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes('já existe')) {
+        console.warn(`auto-create disciplina "${nome}" falhou:`, msg);
+      }
+    }
+  }
+}
+
 export async function softDeleteDisciplina(id: string): Promise<void> {
   const sb = createClient();
   const now = new Date().toISOString();
@@ -732,6 +790,35 @@ export async function unlinkConcursoDisciplina(id: string): Promise<void> {
     ...cdCache,
     data: cdCache.data?.filter((cd) => cd.id !== id) ?? null,
   });
+}
+
+/**
+ * Acessa a cache inteira de concurso_disciplinas (todos os vínculos do
+ * user). Útil quando você precisa contar/filtrar cross-concurso (ex:
+ * "essa disciplina está em quantos concursos?"). Em casos simples de
+ * filtrar por concursoId, prefira `useConcursoDisciplinas`.
+ */
+export function useAllConcursoDisciplinas(): {
+  data: ConcursoDisciplina[];
+  loading: boolean;
+  error: string | null;
+} {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const listener = () => setTick((t) => (t + 1) & 0xfffffff);
+    cdListeners.add(listener);
+    if (cdCache.data === null && !cdCache.loading) {
+      void loadConcursoDisciplinas();
+    }
+    return () => {
+      cdListeners.delete(listener);
+    };
+  }, []);
+  return {
+    data: cdCache.data ?? [],
+    loading: cdCache.loading,
+    error: cdCache.error,
+  };
 }
 
 export function useConcursoDisciplinas(concursoId: string | null): {

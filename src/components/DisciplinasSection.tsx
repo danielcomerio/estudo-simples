@@ -1,44 +1,87 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   HierarchyValidationError,
-  createDisciplina,
-  softDeleteDisciplina,
+  ensureDisciplinasExist,
   updateDisciplina,
+  useAllConcursoDisciplinas,
   useDisciplinas,
   type DisciplinaInput,
 } from '@/lib/hierarchy';
+import { selectActiveQuestions, selectDisciplinas, useStore } from '@/lib/store';
 import type { Disciplina } from '@/lib/types';
-import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 
-const EMPTY_INPUT: DisciplinaInput = {
-  nome: '',
-  peso_default: null,
-  cor: null,
-};
-
+/**
+ * Página de disciplinas — read-only no que toca a CRIAR ou EXCLUIR.
+ *
+ * Modelo conceitual: disciplinas são DERIVADAS das questões. Você não
+ * cria uma disciplina manualmente; ela aparece sozinha quando você
+ * importa uma questão com `disciplina_id = "x"` novo. Aqui você pode
+ * apenas editar METADATA (cor, peso default).
+ *
+ * Por que essa decisão: feedback do user — ele excluiu disciplinas
+ * pensando que afetava só o vínculo com o concurso, e perdeu o "menu"
+ * pra escolher quais entrar no concurso. Auto-derivar elimina toda
+ * essa fonte de confusão.
+ */
 export function DisciplinasSection() {
   const { data, loading, error } = useDisciplinas();
+  const { data: vinculos } = useAllConcursoDisciplinas();
+  const allQuestions = useStore(selectActiveQuestions);
+  const disciplinasNasQuestoes = useStore(selectDisciplinas);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showNewForm, setShowNewForm] = useState(false);
 
-  const handleSubmit = async (
+  // Conta vínculos com concursos por disciplina_id (UUID)
+  const vinculosByDisc = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const v of vinculos) {
+      m.set(v.disciplina_id, (m.get(v.disciplina_id) ?? 0) + 1);
+    }
+    return m;
+  }, [vinculos]);
+
+  // Garante que toda disciplina das questões tem registro na tabela.
+  // Roda no mount + quando a lista muda (ex: import recente).
+  useEffect(() => {
+    if (!data || disciplinasNasQuestoes.length === 0) return;
+    const existentesLower = new Set(data.map((d) => d.nome.toLowerCase()));
+    const faltantes = disciplinasNasQuestoes.filter(
+      (n) => !existentesLower.has(n.toLowerCase())
+    );
+    if (faltantes.length === 0) return;
+    void ensureDisciplinasExist(faltantes);
+  }, [data, disciplinasNasQuestoes]);
+
+  // Conta questões ativas por disciplina (case-insensitive)
+  const countByDisc = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const q of allQuestions) {
+      if (!q.disciplina_id) continue;
+      const k = q.disciplina_id.toLowerCase();
+      m.set(k, (m.get(k) ?? 0) + 1);
+    }
+    return m;
+  }, [allQuestions]);
+
+  const handleEditSubmit = async (
     input: DisciplinaInput,
     onDone: () => void
   ): Promise<void> => {
+    if (!editingId) return;
     try {
-      if (editingId) {
-        await updateDisciplina(editingId, input);
-        toast('Disciplina atualizada', 'success');
-      } else {
-        await createDisciplina(input);
-        toast('Disciplina criada', 'success');
-      }
+      // Não permite renomear via UI — nome é a chave que liga questões à
+      // tabela. Renomear quebra o filtro até questions.disciplina_id ser
+      // atualizado também. Limita a peso/cor.
+      const safeInput: Partial<DisciplinaInput> = {
+        peso_default: input.peso_default,
+        cor: input.cor,
+      };
+      await updateDisciplina(editingId, safeInput);
+      toast('Disciplina atualizada', 'success');
       onDone();
       setEditingId(null);
-      setShowNewForm(false);
     } catch (e: unknown) {
       const msg =
         e instanceof HierarchyValidationError
@@ -50,21 +93,6 @@ export function DisciplinasSection() {
     }
   };
 
-  const handleDelete = async (d: Disciplina) => {
-    const ok = await confirmDialog({
-      title: 'Excluir disciplina',
-      message: `Excluir "${d.nome}"? Tópicos vinculados serão removidos junto. Questões com disciplina_id como string continuam.`,
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await softDeleteDisciplina(d.id);
-      toast('Disciplina excluída', 'success');
-    } catch (e: unknown) {
-      toast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
-    }
-  };
-
   return (
     <section className="card">
       <div className="row between" style={{ marginBottom: 12 }}>
@@ -72,25 +100,17 @@ export function DisciplinasSection() {
           Disciplinas{' '}
           {data ? <span className="muted">({data.length})</span> : null}
         </h2>
-        {!showNewForm && !editingId && (
-          <button
-            type="button"
-            className="primary"
-            onClick={() => setShowNewForm(true)}
-          >
-            + Nova
-          </button>
-        )}
       </div>
 
-      {showNewForm && (
-        <DisciplinaForm
-          initial={EMPTY_INPUT}
-          submitLabel="Criar"
-          onSubmit={handleSubmit}
-          onCancel={() => setShowNewForm(false)}
-        />
-      )}
+      <p
+        className="muted"
+        style={{ marginTop: -4, marginBottom: 12, fontSize: '0.9rem' }}
+      >
+        Disciplinas são detectadas automaticamente das suas questões — não
+        crie nem exclua aqui. Cada questão importada com{' '}
+        <code>disciplina_id</code> novo gera uma entrada. Você pode editar
+        cor e peso default pra organização visual.
+      </p>
 
       {loading && data === null && <p className="muted">Carregando…</p>}
       {error && (
@@ -99,10 +119,10 @@ export function DisciplinasSection() {
         </p>
       )}
 
-      {data && data.length === 0 && !showNewForm && (
+      {data && data.length === 0 && (
         <p className="empty">
-          Nenhuma disciplina ainda. Crie pra começar a organizar tópicos e
-          atribuir questões.
+          Nenhuma disciplina detectada ainda. Importe questões em{' '}
+          <code>/banco</code> para começar.
         </p>
       )}
 
@@ -120,14 +140,13 @@ export function DisciplinasSection() {
           {data.map((d) =>
             editingId === d.id ? (
               <li key={d.id}>
-                <DisciplinaForm
+                <DisciplinaMetadataForm
                   initial={{
                     nome: d.nome,
                     peso_default: d.peso_default,
                     cor: d.cor,
                   }}
-                  submitLabel="Salvar"
-                  onSubmit={handleSubmit}
+                  onSubmit={handleEditSubmit}
                   onCancel={() => setEditingId(null)}
                 />
               </li>
@@ -135,8 +154,9 @@ export function DisciplinasSection() {
               <DisciplinaRow
                 key={d.id}
                 disciplina={d}
+                qtdQuestoes={countByDisc.get(d.nome.toLowerCase()) ?? 0}
+                qtdConcursos={vinculosByDisc.get(d.id) ?? 0}
                 onEdit={() => setEditingId(d.id)}
-                onDelete={() => handleDelete(d)}
               />
             )
           )}
@@ -148,12 +168,14 @@ export function DisciplinasSection() {
 
 function DisciplinaRow({
   disciplina: d,
+  qtdQuestoes,
+  qtdConcursos,
   onEdit,
-  onDelete,
 }: {
   disciplina: Disciplina;
+  qtdQuestoes: number;
+  qtdConcursos: number;
   onEdit: () => void;
-  onDelete: () => void;
 }) {
   return (
     <li
@@ -193,22 +215,19 @@ function DisciplinaRow({
             >
               {d.nome}
             </div>
-            {d.peso_default != null && (
-              <div
-                className="muted"
-                style={{ fontSize: '0.82rem', marginTop: 2 }}
-              >
-                peso default: {d.peso_default}
-              </div>
-            )}
+            <div
+              className="muted"
+              style={{ fontSize: '0.82rem', marginTop: 2 }}
+            >
+              {qtdQuestoes} questão(ões) no banco
+              {qtdConcursos > 0 && ` · vinculada a ${qtdConcursos} concurso(s)`}
+              {d.peso_default != null && ` · peso default ${d.peso_default}`}
+            </div>
           </div>
         </div>
         <div className="row gap">
           <button type="button" className="ghost" onClick={onEdit}>
             Editar
-          </button>
-          <button type="button" className="danger" onClick={onDelete}>
-            Excluir
           </button>
         </div>
       </div>
@@ -216,29 +235,20 @@ function DisciplinaRow({
   );
 }
 
-function DisciplinaForm({
+function DisciplinaMetadataForm({
   initial,
-  submitLabel,
   onSubmit,
   onCancel,
 }: {
   initial: DisciplinaInput;
-  submitLabel: string;
   onSubmit: (input: DisciplinaInput, onDone: () => void) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [nome, setNome] = useState(initial.nome);
   const [pesoStr, setPesoStr] = useState(
     initial.peso_default != null ? String(initial.peso_default) : ''
   );
   const [cor, setCor] = useState(initial.cor ?? '');
   const [submitting, setSubmitting] = useState(false);
-
-  const reset = () => {
-    setNome('');
-    setPesoStr('');
-    setCor('');
-  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,11 +268,11 @@ function DisciplinaForm({
 
     await onSubmit(
       {
-        nome,
+        nome: initial.nome, // não editável
         peso_default: peso,
         cor: cor.trim() ? cor.trim() : null,
       },
-      reset
+      () => undefined
     );
     setSubmitting(false);
   };
@@ -272,25 +282,16 @@ function DisciplinaForm({
       onSubmit={submit}
       style={{
         background: 'var(--bg-elev-2)',
-        border: '1px solid var(--border)',
+        border: '1px solid var(--primary)',
         borderRadius: 'var(--radius)',
         padding: 14,
-        marginBottom: 12,
       }}
     >
+      <p className="muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+        Editando <strong>{initial.nome}</strong>. Nome não pode ser alterado
+        — ele é a chave que liga questões a essa disciplina.
+      </p>
       <div className="form-grid">
-        <label>
-          <span>Nome *</span>
-          <input
-            type="text"
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            required
-            maxLength={200}
-            placeholder="Ex: Português"
-            autoFocus
-          />
-        </label>
         <label>
           <span>Peso default</span>
           <input
@@ -337,7 +338,7 @@ function DisciplinaForm({
           Cancelar
         </button>
         <button type="submit" className="primary" disabled={submitting}>
-          {submitting ? 'Salvando…' : submitLabel}
+          {submitting ? 'Salvando…' : 'Salvar'}
         </button>
       </div>
     </form>

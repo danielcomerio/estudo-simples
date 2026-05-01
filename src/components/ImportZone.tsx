@@ -10,7 +10,12 @@ import {
   safeParseJSON,
   validateQuestion,
 } from '@/lib/validation';
-import { useConcursos, useDisciplinas, useTopicos } from '@/lib/hierarchy';
+import {
+  ensureDisciplinasExist,
+  useConcursos,
+  useDisciplinas,
+  useTopicos,
+} from '@/lib/hierarchy';
 import { toast } from './Toast';
 
 type ImportResult = { added: number; skipped: number; errors: string[] };
@@ -104,6 +109,12 @@ export function ImportZone() {
     if (novos.length) {
       addQuestionsBulk(novos, userId);
       scheduleSync(800);
+      // Auto-cria registro de disciplina pra cada nome novo nas questões
+      // importadas. Best-effort, async — não bloqueia o feedback ao user.
+      const nomes = novos
+        .map((n) => n.disciplina_id)
+        .filter((d): d is string => !!d);
+      void ensureDisciplinasExist(nomes);
     }
     return { added: novos.length, skipped, errors };
   };

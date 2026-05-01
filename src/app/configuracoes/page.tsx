@@ -23,9 +23,6 @@ export default function ConfiguracoesPage() {
           <Link href="/disciplinas" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
             Disciplinas →
           </Link>
-          <Link href="/topicos" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-            Tópicos →
-          </Link>
         </div>
       </div>
     </>

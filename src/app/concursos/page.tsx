@@ -17,20 +17,15 @@ export default function ConcursosPage() {
       <ConcursosSection />
 
       <div className="card">
-        <h2 style={{ margin: '0 0 8px' }}>Gerenciamento avançado</h2>
+        <h2 style={{ margin: '0 0 8px' }}>Disciplinas</h2>
         <p className="muted" style={{ marginTop: 0 }}>
-          Disciplinas e tópicos existem independentes dos concursos — uma
-          disciplina pode ser usada em vários concursos. Use as páginas
-          dedicadas pra gerenciar listas globais.
+          Disciplinas são detectadas automaticamente das suas questões.
+          Aqui você só edita metadata visual (cor, peso). Para vincular ao
+          concurso, expanda o concurso acima.
         </p>
-        <div className="row gap wrap">
-          <Link href="/disciplinas" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-            Gerenciar disciplinas →
-          </Link>
-          <Link href="/topicos" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-            Gerenciar tópicos →
-          </Link>
-        </div>
+        <Link href="/disciplinas" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+          Ver lista de disciplinas →
+        </Link>
       </div>
     </>
   );

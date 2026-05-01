@@ -7,9 +7,10 @@ export default function DisciplinasPage() {
       <div className="card">
         <h1 style={{ margin: '0 0 8px' }}>Disciplinas</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Disciplinas são globais — uma vez criadas, podem ser vinculadas a
-          qualquer concurso (com peso e qtd de questões diferentes em cada).
-          Aqui você gerencia a lista geral.
+          Detectadas automaticamente das questões importadas. Você só
+          edita metadata visual (cor, peso default) — não cria nem
+          exclui aqui. Pra remover uma disciplina, exclua as questões
+          que apontam pra ela em <code>/banco</code>.
         </p>
       </div>
 
