@@ -6,9 +6,11 @@ import {
   selectActiveQuestions,
   selectDisciplinas,
   deleteQuestionsBulk,
+  updateQuestionLocal,
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { fmtRelative } from '@/lib/format';
+import { useDisciplinas, useTopicos } from '@/lib/hierarchy';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
@@ -191,6 +193,10 @@ export function BancoList() {
         <button type="button" onClick={() => setSelected(new Set())}>
           Limpar seleção
         </button>
+        <BulkAssignTopico
+          selectedIds={selected}
+          onApplied={() => setSelected(new Set())}
+        />
         <button type="button" className="danger" onClick={deleteSelected}>
           Excluir selecionadas
         </button>
@@ -257,6 +263,195 @@ export function BancoList() {
           })
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Bulk-assign de tópico a um conjunto de questões selecionadas.
+ *
+ * Comportamento:
+ *  - Botão fica desabilitado se não há seleção.
+ *  - Ao abrir, mostra select de disciplina (dos topicos cadastrados)
+ *    e select de tópico (filtrado pela disciplina).
+ *  - Confirma: itera sobre selectedIds, chama updateQuestionLocal
+ *    com `{ topico_id }` (e `disciplina_id` derivado do tópico, pra
+ *    manter compat com filtro string atual). Pendente é marcado pelo
+ *    store; o sync push manda em chunks de 100.
+ *  - Permite "remover tópico" (topico_id = null) via opção dedicada.
+ */
+function BulkAssignTopico({
+  selectedIds,
+  onApplied,
+}: {
+  selectedIds: Set<string>;
+  onApplied: () => void;
+}) {
+  const { data: topicos } = useTopicos();
+  const { data: disciplinas } = useDisciplinas();
+  const [open, setOpen] = useState(false);
+  const [discId, setDiscId] = useState('');
+  const [topicoId, setTopicoId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const disabled = selectedIds.size === 0;
+  const topicosFiltrados = useMemo(
+    () =>
+      (topicos ?? [])
+        .filter((t) => !discId || t.disciplina_id === discId)
+        .filter((t) => !t.deleted_at),
+    [topicos, discId]
+  );
+
+  const apply = async (mode: 'set' | 'clear') => {
+    if (submitting) return;
+    if (mode === 'set' && !topicoId) {
+      toast('Escolha um tópico', 'warn');
+      return;
+    }
+    setSubmitting(true);
+
+    let novoTopicoId: string | null = null;
+    let novaDiscId: string | null = null;
+    if (mode === 'set') {
+      const t = topicos?.find((x) => x.id === topicoId);
+      if (!t) {
+        toast('Tópico inválido', 'error');
+        setSubmitting(false);
+        return;
+      }
+      const d = disciplinas?.find((x) => x.id === t.disciplina_id);
+      novoTopicoId = t.id;
+      // Sincroniza disciplina_id (string) com nome da disciplina, pra
+      // manter o filtro existente coerente com a hierarquia nova.
+      novaDiscId = d?.nome ?? null;
+    }
+
+    const ids = Array.from(selectedIds);
+    for (const id of ids) {
+      updateQuestionLocal(id, (q) => {
+        const patch: Partial<typeof q> = { topico_id: novoTopicoId };
+        // Só sobrescreve disciplina_id se estamos atribuindo (mode=set)
+        // e a questão estava sem disciplina ou tinha string diferente.
+        if (mode === 'set' && novaDiscId) {
+          patch.disciplina_id = novaDiscId;
+        }
+        return patch;
+      });
+    }
+    scheduleSync(500);
+
+    toast(
+      mode === 'set'
+        ? `Tópico atribuído a ${ids.length} questão(ões)`
+        : `Tópico removido de ${ids.length} questão(ões)`,
+      'success'
+    );
+    setOpen(false);
+    setTopicoId('');
+    setDiscId('');
+    onApplied();
+    setSubmitting(false);
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+        title={
+          disabled
+            ? 'Selecione questões pra atribuir tópico'
+            : `Atribuir tópico a ${selectedIds.size} questão(ões)`
+        }
+      >
+        Atribuir tópico…
+      </button>
+    );
+  }
+
+  const semHierarquia =
+    (disciplinas?.length ?? 0) === 0 || (topicos?.length ?? 0) === 0;
+
+  return (
+    <div
+      className="row gap wrap"
+      style={{
+        background: 'var(--bg-elev-2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: 10,
+        flexBasis: '100%',
+      }}
+    >
+      {semHierarquia ? (
+        <span className="muted">
+          Crie disciplinas e tópicos em Configurações antes de atribuir.
+        </span>
+      ) : (
+        <>
+          <select
+            value={discId}
+            onChange={(e) => {
+              setDiscId(e.target.value);
+              setTopicoId('');
+            }}
+            style={{ maxWidth: 220 }}
+          >
+            <option value="">Todas as disciplinas</option>
+            {disciplinas?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nome}
+              </option>
+            ))}
+          </select>
+          <select
+            value={topicoId}
+            onChange={(e) => setTopicoId(e.target.value)}
+            style={{ maxWidth: 280 }}
+          >
+            <option value="">— Selecionar tópico —</option>
+            {topicosFiltrados.map((t) => {
+              const d = disciplinas?.find((x) => x.id === t.disciplina_id);
+              const prefix = d && !discId ? `${d.nome} · ` : '';
+              return (
+                <option key={t.id} value={t.id}>
+                  {prefix}
+                  {t.nome}
+                </option>
+              );
+            })}
+          </select>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => apply('set')}
+            disabled={submitting || !topicoId}
+          >
+            Atribuir
+          </button>
+          <button
+            type="button"
+            onClick={() => apply('clear')}
+            disabled={submitting}
+            title="Remover tópico das questões selecionadas"
+          >
+            Remover tópico
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        className="ghost"
+        onClick={() => {
+          setOpen(false);
+          setTopicoId('');
+          setDiscId('');
+        }}
+      >
+        Fechar
+      </button>
     </div>
   );
 }

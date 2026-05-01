@@ -30,10 +30,20 @@ function rowToQuestion(row: Record<string, unknown>): Question {
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
     deleted_at: (row.deleted_at as string | null) ?? null,
+    // Campos da migration 0002 — server pode não retornar (rows antigas
+    // pré-0002 ou cliente lendo de schema sem essas colunas) → trata
+    // como null/[] pra não vazar undefined no estado.
+    topico_id: (row.topico_id as string | null) ?? null,
+    concurso_id: (row.concurso_id as string | null) ?? null,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
   };
 }
 
 function questionToRow(q: Question) {
+  // Inclui campos da 0002 sempre (server tem default '[]' pra tags e
+  // permite null em topico_id/concurso_id; FKs compostos garantem
+  // user_id consistente). Sem esses campos no upsert, push apagaria
+  // mudanças locais de hierarquia.
   return {
     id: q.id,
     user_id: q.user_id,
@@ -46,6 +56,9 @@ function questionToRow(q: Question) {
     srs: q.srs,
     stats: q.stats,
     deleted_at: q.deleted_at,
+    topico_id: q.topico_id ?? null,
+    concurso_id: q.concurso_id ?? null,
+    tags: q.tags ?? [],
   };
 }
 
