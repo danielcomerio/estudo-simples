@@ -39,6 +39,8 @@ export function BancoList() {
   const [search, setSearch] = useState('');
   const [disc, setDisc] = useState('');
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
+  const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada' | 'sem_origem'>('');
+  const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingQuestion = useMemo(
@@ -55,6 +57,20 @@ export function BancoList() {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      if (origem) {
+        if (origem === 'sem_origem') {
+          if (q.origem) return false;
+        } else {
+          if (q.origem !== origem) return false;
+        }
+      }
+      if (verif) {
+        if (verif === 'sem_verif') {
+          if (q.verificacao) return false;
+        } else {
+          if (q.verificacao !== verif) return false;
+        }
+      }
       if (txt) {
         const hay = [
           q.tema,
@@ -69,7 +85,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, concursoDiscNomes]);
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -233,6 +249,28 @@ export function BancoList() {
           <option value="objetiva">Objetivas</option>
           <option value="discursiva">Discursivas</option>
         </select>
+        <select
+          value={origem}
+          onChange={(e) => setOrigem(e.target.value as typeof origem)}
+          title="Filtrar por origem"
+        >
+          <option value="">Toda origem</option>
+          <option value="real">📋 Reais</option>
+          <option value="autoral">✏️ Autorais</option>
+          <option value="adaptada">🔧 Adaptadas</option>
+          <option value="sem_origem">— Sem origem (legado)</option>
+        </select>
+        <select
+          value={verif}
+          onChange={(e) => setVerif(e.target.value as typeof verif)}
+          title="Filtrar por verificação"
+        >
+          <option value="">Toda verificação</option>
+          <option value="verificada">✅ Verificadas</option>
+          <option value="pendente">⏳ Pendentes</option>
+          <option value="duvidosa">⚠️ Duvidosas</option>
+          <option value="sem_verif">— Sem status</option>
+        </select>
       </div>
 
       <div className="row gap wrap" style={{ marginBottom: 12 }}>
@@ -295,10 +333,35 @@ export function BancoList() {
                 <div>
                   <div className="preview">{enun.slice(0, 240)}{enun.length > 240 ? '…' : ''}</div>
                   <div className="meta">
+                    {q.origem === 'real' && (
+                      <span
+                        title={`Questão real: ${q.fonte?.banca ?? '?'} ${q.fonte?.ano ?? ''} ${q.fonte?.orgao ?? ''}`}
+                        style={{ background: 'var(--primary-soft)', color: 'var(--primary)', padding: '1px 6px', borderRadius: 4, fontWeight: 500 }}
+                      >
+                        📋 {q.fonte?.banca ?? 'real'}
+                        {q.fonte?.ano ? ` ${q.fonte.ano}` : ''}
+                        {q.fonte?.orgao ? ` · ${q.fonte.orgao}` : ''}
+                      </span>
+                    )}
+                    {q.origem === 'autoral' && (
+                      <span title="Autoral" style={{ opacity: 0.7 }}>✏️ autoral</span>
+                    )}
+                    {q.origem === 'adaptada' && (
+                      <span title="Adaptada" style={{ opacity: 0.7 }}>🔧 adaptada</span>
+                    )}
+                    {q.verificacao === 'verificada' && (
+                      <span title="Verificada">✅</span>
+                    )}
+                    {q.verificacao === 'pendente' && (
+                      <span title="Pendente de revisão" style={{ color: 'var(--warn, #d97706)' }}>⏳</span>
+                    )}
+                    {q.verificacao === 'duvidosa' && (
+                      <span title="Marcada como duvidosa (revisar antes de estudar)" style={{ color: 'var(--danger)' }}>⚠️</span>
+                    )}
                     {q.disciplina_id && <span>{q.disciplina_id}</span>}
                     {q.tema && <span>{q.tema}</span>}
                     <span>{q.type}</span>
-                    {q.banca_estilo && <span>{q.banca_estilo}</span>}
+                    {q.banca_estilo && !q.origem && <span>{q.banca_estilo}</span>}
                     {q.dificuldade != null && <span>dif {q.dificuldade}</span>}
                     {q.payload.notes_user && (
                       <span title="Tem anotações pessoais" aria-label="Tem anotações">
