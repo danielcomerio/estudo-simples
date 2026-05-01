@@ -1,9 +1,20 @@
 export type SRS = {
+  // ===== SM-2 (algoritmo padrão hoje) =====
   easeFactor: number;
   interval: number;       // dias
   repetitions: number;
   dueDate: number;        // epoch ms
   lastReviewed: number | null;
+  // ===== FSRS (etapa 0.5; opcional, populado quando o user opta por
+  //         fsrs como algoritmo). Convive com SM-2 sem perda de dados. =====
+  /** Estabilidade FSRS — quanto tempo a memória persiste sem revisão. */
+  stability?: number;
+  /** Dificuldade FSRS [1, 10] — quão difícil o card é pro user. */
+  difficulty?: number;
+  /** Estado FSRS: 0 New, 1 Learning, 2 Review, 3 Relearning. */
+  state?: number;
+  /** Contador de lapses (vezes que foi para Relearning). */
+  lapses?: number;
 };
 
 export type HistoryEntry = {
