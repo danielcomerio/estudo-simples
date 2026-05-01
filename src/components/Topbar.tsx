@@ -15,6 +15,7 @@ const TABS = [
   { href: '/discursivas', label: 'Discursivas' },
   { href: '/simulado', label: 'Simulado' },
   { href: '/stats', label: 'Estatísticas' },
+  { href: '/concursos', label: 'Concursos' },
   { href: '/configuracoes', label: 'Configurações' },
 ];
 
@@ -24,8 +25,19 @@ export function Topbar({ email }: { email: string | null }) {
   const syncError = useStore((s) => s.syncError);
   const pendingCount = useStore((s) => Object.keys(s.pendingSync).length);
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname?.startsWith(href);
+  // Páginas /disciplinas e /topicos são sub-rotas conceituais de
+  // Concursos — destacam essa tab.
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    if (href === '/concursos') {
+      return (
+        pathname?.startsWith('/concursos') ||
+        pathname?.startsWith('/disciplinas') ||
+        pathname?.startsWith('/topicos')
+      );
+    }
+    return pathname?.startsWith(href);
+  };
 
   const syncLabel =
     syncStatus === 'syncing'
