@@ -531,6 +531,25 @@ function RunningView({
               </ul>
             </div>
           )}
+
+          {payload.notes_user && (
+            <div
+              className="feedback-block"
+              style={{
+                background: 'var(--primary-soft)',
+                borderLeft: '3px solid var(--primary)',
+                paddingLeft: 12,
+              }}
+            >
+              <strong>Suas anotações:</strong>
+              <div
+                style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
+                dangerouslySetInnerHTML={{
+                  __html: renderTextWithCode(payload.notes_user),
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
 

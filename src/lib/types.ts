@@ -25,6 +25,8 @@ export type HistoryEntry = {
   quality?: number;
   selfScore?: number;
   selfMax?: number;
+  /** Nota livre da revisão específica (ex: "errei por leitura, não conteúdo"). */
+  notes?: string;
 };
 
 export type Stats = {
@@ -60,6 +62,8 @@ export type ObjetivaPayload = {
   gabarito?: string;
   explicacao_geral?: string;
   pegadinhas?: string[];
+  /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
+  notes_user?: string;
   [k: string]: unknown;
 };
 
@@ -80,6 +84,8 @@ export type DiscursivaPayload = {
   estrategia_redacao?: string;
   observacoes_corretor?: string;
   apostas_relacionadas?: string[];
+  /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
+  notes_user?: string;
   [k: string]: unknown;
 };
 

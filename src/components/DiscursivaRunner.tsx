@@ -354,6 +354,28 @@ function DiscReveal({
 }) {
   return (
     <div>
+      {payload.notes_user && (
+        <div
+          style={{
+            background: 'var(--primary-soft)',
+            borderLeft: '3px solid var(--primary)',
+            paddingLeft: 12,
+            paddingTop: 8,
+            paddingBottom: 8,
+            marginBottom: 14,
+            borderRadius: '0 var(--radius) var(--radius) 0',
+          }}
+        >
+          <strong>Suas anotações:</strong>
+          <div
+            style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
+            dangerouslySetInnerHTML={{
+              __html: renderTextWithCode(payload.notes_user),
+            }}
+          />
+        </div>
+      )}
+
       {payload.espelho_resposta && (
         <>
           <h3>Espelho de resposta</h3>

@@ -65,6 +65,9 @@ export function QuestionEditDrawer({
       return (question.payload as DiscursivaPayload).espelho_resposta ?? '';
     return '';
   });
+  const [notesUser, setNotesUser] = useState(
+    question.payload.notes_user ?? ''
+  );
   const [alts, setAlts] = useState<EditableAlt[]>(() => {
     if (question.type !== 'objetiva') return [];
     const p = question.payload as ObjetivaPayload;
@@ -148,6 +151,11 @@ export function QuestionEditDrawer({
     if (trim(enun).length > 50_000)
       return { patch: {}, error: 'enunciado: máximo 50.000 caracteres' };
 
+    if (notesUser.length > 10_000)
+      return { patch: {}, error: 'notas: máximo 10.000 caracteres' };
+
+    const notesNorm = notesUser.trim() || undefined;
+
     let payload: ObjetivaPayload | DiscursivaPayload;
     if (question.type === 'objetiva') {
       // Validação de alternativas
@@ -184,6 +192,7 @@ export function QuestionEditDrawer({
         alternativas: altsClean,
         gabarito: corretas[0].letra,
         explicacao_geral: explicacao || undefined,
+        notes_user: notesNorm,
       };
     } else {
       const prevPayload = question.payload as DiscursivaPayload;
@@ -191,6 +200,7 @@ export function QuestionEditDrawer({
         ...prevPayload,
         enunciado_completo: enun,
         espelho_resposta: espelho || prevPayload.espelho_resposta,
+        notes_user: notesNorm,
       };
     }
 
@@ -396,6 +406,27 @@ export function QuestionEditDrawer({
         ) : (
           <DiscursivaEditor espelho={espelho} setEspelho={setEspelho} />
         )}
+
+        {/* Anotações pessoais — sempre disponível */}
+        <label
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            marginBottom: 14,
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>
+            Suas anotações (privadas, max 10k chars)
+          </span>
+          <textarea
+            value={notesUser}
+            onChange={(e) => setNotesUser(e.target.value)}
+            rows={3}
+            maxLength={10_000}
+            placeholder="Ex: pegadinha — FGV troca 'sempre' por 'na maioria dos casos'"
+          />
+        </label>
 
         <div className="row gap right" style={{ marginTop: 18 }}>
           <button type="button" className="ghost" onClick={() => close(false)}>

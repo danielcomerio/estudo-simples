@@ -257,6 +257,16 @@ export function BancoList() {
                     <span>{q.type}</span>
                     {q.banca_estilo && <span>{q.banca_estilo}</span>}
                     {q.dificuldade != null && <span>dif {q.dificuldade}</span>}
+                    {q.payload.notes_user && (
+                      <span title="Tem anotações pessoais" aria-label="Tem anotações">
+                        📝
+                      </span>
+                    )}
+                    {q.tags && q.tags.length > 0 && (
+                      <span title={q.tags.join(', ')}>
+                        🏷 {q.tags.length}
+                      </span>
+                    )}
                     {q.srs?.dueDate && <span title="Próxima revisão">↻ {fmtRelative(q.srs.dueDate)}</span>}
                   </div>
                 </div>
