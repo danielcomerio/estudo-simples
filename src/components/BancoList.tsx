@@ -12,6 +12,7 @@ import { scheduleSync } from '@/lib/sync';
 import { fmtRelative } from '@/lib/format';
 import { useDisciplinas, useTopicos } from '@/lib/hierarchy';
 import { confirmDialog } from './ConfirmDialog';
+import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
 
@@ -33,6 +34,11 @@ export function BancoList() {
   const [disc, setDisc] = useState('');
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingQuestion = useMemo(
+    () => (editingId ? questions.find((q) => q.id === editingId) ?? null : null),
+    [questions, editingId]
+  );
 
   const filtered = useMemo(() => {
     const txt = search.trim().toLowerCase();
@@ -208,6 +214,13 @@ export function BancoList() {
         </button>
       </div>
 
+      {editingQuestion && (
+        <QuestionEditDrawer
+          question={editingQuestion}
+          onClose={() => setEditingId(null)}
+        />
+      )}
+
       <div className="banco-list">
         {!hydrated || firstSyncInFlight ? (
           <div className="empty">
@@ -247,7 +260,16 @@ export function BancoList() {
                     {q.srs?.dueDate && <span title="Próxima revisão">↻ {fmtRelative(q.srs.dueDate)}</span>}
                   </div>
                 </div>
-                <div className="actions">
+                <div className="actions row gap">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setEditingId(q.id)}
+                    aria-label="Editar"
+                    title="Editar"
+                  >
+                    ✎
+                  </button>
                   <button
                     type="button"
                     className="danger"
