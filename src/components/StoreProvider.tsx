@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { hydrate, resetStore } from '@/lib/store';
 import { startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
+import { clearSimuladosCache } from '@/lib/simulado-store';
 import { ConfirmHost } from './ConfirmDialog';
 
 export function StoreProvider({
@@ -48,4 +49,5 @@ export function StoreProvider({
 export function logoutAndReset() {
   resetStore();
   clearHierarchyCache();
+  clearSimuladosCache();
 }
