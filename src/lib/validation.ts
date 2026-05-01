@@ -181,17 +181,42 @@ export function extractItems(parsed: unknown): unknown[] {
   return [];
 }
 
-export function dedupeKey(q: Pick<Question, 'disciplina_id' | 'payload' | 'type'>): string {
-  if (q.type === 'objetiva') {
-    const p = q.payload as ObjetivaPayload;
-    return (q.disciplina_id || '') + '||' + (p.enunciado || '');
-  }
-  const p = q.payload as DiscursivaPayload;
-  return (
-    (q.disciplina_id || '') +
-    '||' +
-    (p.enunciado_completo || p.enunciado || p.comando || '')
-  );
+/**
+ * Mimica a fórmula de `dedup_hash` do DB (migration 0001):
+ *   md5(coalesce(disciplina_id, '') || '||' ||
+ *       coalesce(payload->>'enunciado', payload->>'enunciado_completo', ''))
+ *
+ * Crucial: SQL `coalesce` só pula NULL — strings vazias contam como
+ * "valor presente". JS `||` trata '' como falsy. Antes, o cliente fazia
+ * `enunciado || enunciado_completo` e considerava `enunciado:''` como
+ * "ausente"; o DB considera presente. Resultado: cliente importava 100
+ * discursivas com `enunciado:''` achando que eram únicas; DB rejeitava
+ * 99 como duplicatas (todas com hash de `disc||''`). Bug real, descoberto
+ * com 100 discursivas travadas em pendingSync.
+ *
+ * Esta função usa `?? ` que pula apenas null/undefined, e checa
+ * `typeof === 'string'` pra capturar quando uma chave existe vs. não
+ * existe — replicando fielmente o `payload->>'k'` do PostgreSQL.
+ */
+export function dedupeKey(
+  q: Pick<Question, 'disciplina_id' | 'payload' | 'type'>
+): string {
+  const disc = q.disciplina_id ?? '';
+  const p = q.payload as Record<string, unknown>;
+  const enunRaw = pgJsonString(p, 'enunciado');
+  const enunCompletoRaw = pgJsonString(p, 'enunciado_completo');
+  const enun = enunRaw ?? enunCompletoRaw ?? '';
+  return disc + '||' + enun;
+}
+
+/**
+ * Imita `payload->>'key'` do PostgreSQL: retorna a string se a chave
+ * existe e é uma string (incluindo ''), senão null. Não cobre números/bools
+ * porque payloads de questões têm enunciado sempre como string.
+ */
+function pgJsonString(obj: Record<string, unknown>, key: string): string | null {
+  const v = obj[key];
+  return typeof v === 'string' ? v : null;
 }
 
 export function safeParseJSON(text: string): { value: unknown; error: string | null } {

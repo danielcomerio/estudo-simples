@@ -359,15 +359,52 @@ describe('dedupeKey', () => {
     expect(dedupeKey(q)).toBe(dedupeKey(q));
   });
 
-  it('discursiva usa enunciado_completo > enunciado > comando', () => {
+  it('mimica DB coalesce: enunciado primeiro, depois enunciado_completo', () => {
     const base = { disciplina_id: 'd', type: 'discursiva' as const };
-    const k1 = dedupeKey({ ...base, payload: { enunciado_completo: 'A' } });
-    const k2 = dedupeKey({ ...base, payload: { enunciado: 'A' } });
-    const k3 = dedupeKey({ ...base, payload: { comando: 'A' } });
-    // todos resolvem pra "A" no fim — empatam (comportamento intencional pra
-    // detectar duplicata do mesmo enunciado mesmo se vier em campo diferente)
+    // Prefere enunciado quando ambos existem
+    const k1 = dedupeKey({
+      ...base,
+      payload: { enunciado: 'foo', enunciado_completo: 'bar' },
+    });
+    expect(k1).toBe('d||foo');
+    // Cai pra enunciado_completo se enunciado ausente
+    const k2 = dedupeKey({ ...base, payload: { enunciado_completo: 'bar' } });
+    expect(k2).toBe('d||bar');
+  });
+
+  it('CRÍTICO: enunciado vazio NÃO cai pra enunciado_completo (match SQL coalesce)', () => {
+    // Bug real do user: 100 discursivas com enunciado:'' e conteúdo em
+    // enunciado_completo. JS `||` tratava '' como falsy e usava
+    // enunciado_completo, mas DB tratava '' como valor presente. Cliente
+    // achava que eram únicas; DB rejeitava 99 como duplicatas (todas com
+    // hash de `disc||''`). Esse teste garante que o cliente concorda com
+    // o DB — após o fix, todas essas 100 caem em `disc||''` no cliente
+    // tb, então o dedup local detecta e impede o import.
+    const base = { disciplina_id: 'd', type: 'discursiva' as const };
+    const k = dedupeKey({
+      ...base,
+      payload: { enunciado: '', enunciado_completo: 'bar' },
+    });
+    expect(k).toBe('d||');
+  });
+
+  it('comando NÃO entra no dedup (DB não usa)', () => {
+    const base = { disciplina_id: 'd', type: 'discursiva' as const };
+    const k1 = dedupeKey({ ...base, payload: { comando: 'A' } });
+    const k2 = dedupeKey({ ...base, payload: { comando: 'B' } });
+    // Sem enunciado/enunciado_completo, ambas viram 'd||' — match DB
+    expect(k1).toBe('d||');
+    expect(k2).toBe('d||');
     expect(k1).toBe(k2);
-    expect(k2).toBe(k3);
+  });
+
+  it('objetiva: enunciado vazio fica vazio (match DB)', () => {
+    const k = dedupeKey({
+      disciplina_id: 'p',
+      type: 'objetiva',
+      payload: { enunciado: '', alternativas: [] },
+    });
+    expect(k).toBe('p||');
   });
 
   it('disciplinas diferentes não colidem mesmo com enunciado igual', () => {
@@ -382,5 +419,14 @@ describe('dedupeKey', () => {
       payload: { enunciado: 'X', alternativas: [] },
     });
     expect(a).not.toBe(b);
+  });
+
+  it('disciplina_id null é tratado como string vazia (match DB coalesce)', () => {
+    const k = dedupeKey({
+      disciplina_id: null,
+      type: 'objetiva',
+      payload: { enunciado: 'X', alternativas: [] },
+    });
+    expect(k).toBe('||X');
   });
 });
