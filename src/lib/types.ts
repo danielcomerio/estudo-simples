@@ -91,6 +91,40 @@ export type DiscursivaPayload = {
 
 export type QuestionType = 'objetiva' | 'discursiva';
 
+// =====================================================================
+// Origem / Fonte / Verificação (migration 0003)
+// =====================================================================
+
+/** De onde a questão veio:
+ *  - 'real': prova oficial (banca + ano obrigatórios em fonte)
+ *  - 'autoral': criada pelo user/IA
+ *  - 'adaptada': baseada em real mas modificada
+ *  - undefined/null: legado, antes da migration 0003 */
+export type QuestionOrigem = 'real' | 'autoral' | 'adaptada';
+
+/** Estado de revisão da questão. Útil pra triagem:
+ *  - 'verificada': user revisou e confirmou que tá certa
+ *  - 'pendente': importada mas precisa edição (ex: gabarito faltando)
+ *  - 'duvidosa': pode ter problema (ex: enunciado menciona imagem ausente) */
+export type QuestionVerificacao = 'verificada' | 'pendente' | 'duvidosa';
+
+/** Metadata da fonte original. Preservado em jsonb pra evoluir sem
+ *  migration. Quando origem='real', `banca` (string) e `ano` (number)
+ *  são obrigatórios — DB CHECK valida. */
+export type QuestionFonte = {
+  banca?: string;
+  ano?: number;
+  prova?: string;
+  orgao?: string;
+  orgao_nome?: string;
+  cargo?: string;
+  /** Id da questão no sistema de origem (QConcursos etc) — útil pra
+   *  evitar reimport silencioso e debugar conflitos. */
+  external_id?: string | number;
+  link?: string;
+  [k: string]: unknown;
+};
+
 export type Question = {
   id: string;
   user_id: string;
@@ -117,6 +151,13 @@ export type Question = {
   concurso_id?: string | null;
   /** Tags livres pra cortes ortogonais à hierarquia. */
   tags?: string[];
+  // ===== Campos da migration 0003 (origem/fonte/verificação) =====
+  /** Origem: real | autoral | adaptada. Null = legado. */
+  origem?: QuestionOrigem | null;
+  /** Metadata da fonte (banca, ano, etc.). Vazio = {}. */
+  fonte?: QuestionFonte;
+  /** Estado de revisão (verificada/pendente/duvidosa). Null = não revisada. */
+  verificacao?: QuestionVerificacao | null;
 };
 
 // =====================================================================

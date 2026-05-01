@@ -131,6 +131,12 @@ export function normalizeQuestion(
     topico_id: _topico_id,
     concurso_id: _concurso_id,
     tags: _tags,
+    // Campos da migration 0003: idem — o normalizer de questões reais
+    // (normalizeRealQuestion) seta esses campos explicitamente. Strip
+    // aqui evita lixo cair no payload via spread.
+    origem: _origem,
+    fonte: _fonte,
+    verificacao: _verificacao,
     ...rest
   } = raw;
 

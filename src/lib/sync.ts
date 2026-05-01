@@ -38,6 +38,11 @@ function rowToQuestion(row: Record<string, unknown>): Question {
     topico_id: (row.topico_id as string | null) ?? null,
     concurso_id: (row.concurso_id as string | null) ?? null,
     tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    // Campos da migration 0003 — também opcionais por compatibilidade
+    // com cliente lendo de schema pré-0003. fonte default {}.
+    origem: (row.origem as Question['origem']) ?? null,
+    fonte: (row.fonte as Question['fonte']) ?? {},
+    verificacao: (row.verificacao as Question['verificacao']) ?? null,
   };
 }
 
@@ -46,6 +51,8 @@ function questionToRow(q: Question) {
   // permite null em topico_id/concurso_id; FKs compostos garantem
   // user_id consistente). Sem esses campos no upsert, push apagaria
   // mudanças locais de hierarquia.
+  // Idem 0003 (origem/fonte/verificacao): obrigatório listar pra evitar
+  // gotcha #13 (push apaga, pull ignora).
   return {
     id: q.id,
     user_id: q.user_id,
@@ -61,6 +68,9 @@ function questionToRow(q: Question) {
     topico_id: q.topico_id ?? null,
     concurso_id: q.concurso_id ?? null,
     tags: q.tags ?? [],
+    origem: q.origem ?? null,
+    fonte: q.fonte ?? {},
+    verificacao: q.verificacao ?? null,
   };
 }
 
