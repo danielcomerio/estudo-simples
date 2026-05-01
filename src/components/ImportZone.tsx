@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore, addQuestionsBulk, selectActiveQuestions } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import {
@@ -10,17 +10,57 @@ import {
   safeParseJSON,
   validateQuestion,
 } from '@/lib/validation';
+import { useConcursos, useDisciplinas, useTopicos } from '@/lib/hierarchy';
 import { toast } from './Toast';
 
 type ImportResult = { added: number; skipped: number; errors: string[] };
 
+type AssignOpts = {
+  concursoId: string | null;
+  topicoId: string | null;
+  /** Nome da disciplina derivado do tópico — sobrescreve disciplina_id (string). */
+  discNome: string | null;
+};
+
 export function ImportZone() {
   const userId = useStore((s) => s.userId);
   const existing = useStore(selectActiveQuestions);
+  const { data: concursos } = useConcursos();
+  const { data: disciplinas } = useDisciplinas();
+  const { data: topicos } = useTopicos();
+
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [paste, setPaste] = useState('');
   const [report, setReport] = useState<ImportResult | null>(null);
+
+  // Atribuição opcional aplicada a TODAS as questões do lote
+  const [assignConcursoId, setAssignConcursoId] = useState('');
+  const [assignDiscId, setAssignDiscId] = useState('');
+  const [assignTopicoId, setAssignTopicoId] = useState('');
+
+  const topicosFiltrados = useMemo(
+    () =>
+      (topicos ?? [])
+        .filter((t) => !assignDiscId || t.disciplina_id === assignDiscId)
+        .filter((t) => !t.deleted_at),
+    [topicos, assignDiscId]
+  );
+
+  const buildAssign = (): AssignOpts => {
+    const tid = assignTopicoId || null;
+    const cid = assignConcursoId || null;
+    let discNome: string | null = null;
+    if (tid) {
+      const t = topicos?.find((x) => x.id === tid);
+      const d = t && disciplinas?.find((x) => x.id === t.disciplina_id);
+      discNome = d?.nome ?? null;
+    } else if (assignDiscId) {
+      const d = disciplinas?.find((x) => x.id === assignDiscId);
+      discNome = d?.nome ?? null;
+    }
+    return { concursoId: cid, topicoId: tid, discNome };
+  };
 
   const importText = (text: string): ImportResult => {
     if (!userId) return { added: 0, skipped: 0, errors: ['Sem usuário autenticado'] };
@@ -30,6 +70,7 @@ export function ImportZone() {
     const items = extractItems(value);
     if (items.length === 0) return { added: 0, skipped: 0, errors: ['Nenhum item encontrado.'] };
 
+    const assign = buildAssign();
     const existingKeys = new Set(existing.map(dedupeKey));
     const novos: Parameters<typeof addQuestionsBulk>[0] = [];
     const errors: string[] = [];
@@ -41,7 +82,16 @@ export function ImportZone() {
         errors.push(`Item #${idx + 1}: ${v.errors.join(' | ')}`);
         return;
       }
-      const norm = normalizeQuestion(raw as Record<string, unknown>, v.type);
+      const baseNorm = normalizeQuestion(raw as Record<string, unknown>, v.type);
+      // Aplica atribuição em lote (vinda dos selects acima do dropzone).
+      // discNome sobrescreve disciplina_id da questão pra coerência com
+      // o filtro string atual de /banco — só se houve override explícito.
+      const norm: typeof baseNorm = {
+        ...baseNorm,
+        topico_id: assign.topicoId,
+        concurso_id: assign.concursoId,
+        disciplina_id: assign.discNome ?? baseNorm.disciplina_id,
+      };
       const key = dedupeKey(norm);
       if (existingKeys.has(key)) {
         skipped++;
@@ -96,6 +146,11 @@ export function ImportZone() {
     }
   };
 
+  const temHierarquia =
+    (concursos?.length ?? 0) > 0 ||
+    (disciplinas?.length ?? 0) > 0 ||
+    (topicos?.length ?? 0) > 0;
+
   return (
     <div className="card">
       <h2>Importar questões</h2>
@@ -103,6 +158,108 @@ export function ImportZone() {
         Aceita um único objeto, um array, ou um objeto com a chave <code>questions</code>. Suporta
         objetivas e discursivas (campo <code>tipo: &quot;discursiva&quot;</code>).
       </p>
+
+      {temHierarquia && (
+        <details
+          style={{
+            marginBottom: 12,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            background: 'var(--bg-elev-2)',
+          }}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            Atribuir ao lote (opcional)
+            {(assignConcursoId || assignTopicoId || assignDiscId) && (
+              <span className="muted" style={{ marginLeft: 8, fontSize: '0.85rem' }}>
+                — ativo
+              </span>
+            )}
+          </summary>
+          <div className="row gap wrap" style={{ marginTop: 10 }}>
+            {(concursos?.length ?? 0) > 0 && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>
+                  Concurso
+                </span>
+                <select
+                  value={assignConcursoId}
+                  onChange={(e) => setAssignConcursoId(e.target.value)}
+                  style={{ minWidth: 200 }}
+                >
+                  <option value="">— Nenhum —</option>
+                  {concursos?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(disciplinas?.length ?? 0) > 0 && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>
+                  Disciplina
+                </span>
+                <select
+                  value={assignDiscId}
+                  onChange={(e) => {
+                    setAssignDiscId(e.target.value);
+                    setAssignTopicoId('');
+                  }}
+                  style={{ minWidth: 200 }}
+                >
+                  <option value="">— Manter do JSON —</option>
+                  {disciplinas?.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(topicos?.length ?? 0) > 0 && (
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>
+                  Tópico
+                </span>
+                <select
+                  value={assignTopicoId}
+                  onChange={(e) => setAssignTopicoId(e.target.value)}
+                  style={{ minWidth: 240 }}
+                >
+                  <option value="">— Nenhum —</option>
+                  {topicosFiltrados.map((t) => {
+                    const d = disciplinas?.find((x) => x.id === t.disciplina_id);
+                    const prefix = d && !assignDiscId ? `${d.nome} · ` : '';
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {prefix}
+                        {t.nome}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+            )}
+          </div>
+          {(assignConcursoId || assignTopicoId || assignDiscId) && (
+            <button
+              type="button"
+              className="ghost"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                setAssignConcursoId('');
+                setAssignDiscId('');
+                setAssignTopicoId('');
+              }}
+            >
+              Limpar atribuição
+            </button>
+          )}
+        </details>
+      )}
 
       <div
         className={'dropzone' + (dragOver ? ' dragover' : '')}
