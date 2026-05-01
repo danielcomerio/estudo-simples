@@ -108,6 +108,16 @@ export function SimuladoView() {
   const updateSim = (next: Simulado) => {
     saveSimulado(next);
     setActiveSim(next);
+    // Quando o user abandona, o status sai de 'em_andamento'. Sem essa
+    // checagem o runner continua renderizando o simulado já finalizado
+    // — bug detectado no teste do user (clicava "Abandonar" e nada
+    // acontecia). Abandonado volta pra lista; finalizado_* vai pro
+    // relatório (mas esse fluxo passa por onFinish, não por onUpdate).
+    if (next.status === 'abandonado') {
+      toast('Simulado abandonado.', 'warn');
+      setActiveSim(null);
+      setPhase('list');
+    }
   };
 
   const onFinish = (final: Simulado) => {
