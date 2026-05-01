@@ -13,6 +13,7 @@ const TABS = [
   { href: '/estudar', label: 'Estudar' },
   { href: '/discursivas', label: 'Discursivas' },
   { href: '/stats', label: 'Estatísticas' },
+  { href: '/configuracoes', label: 'Configurações' },
 ];
 
 export function Topbar({ email }: { email: string | null }) {
