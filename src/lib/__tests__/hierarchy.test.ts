@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   HierarchyValidationError,
   validateConcursoInput,
+  validateDisciplinaInput,
   validateText,
   type ConcursoInput,
+  type DisciplinaInput,
 } from '../hierarchy';
 
 describe('validateText', () => {
@@ -200,5 +202,109 @@ describe('validateConcursoInput', () => {
         banca: 42 as unknown as string,
       })
     ).toThrow(/banca.*tipo/);
+  });
+});
+
+describe('validateDisciplinaInput', () => {
+  const valido: DisciplinaInput = { nome: 'Português' };
+
+  it('aceita input mínimo', () => {
+    expect(() => validateDisciplinaInput(valido)).not.toThrow();
+  });
+
+  it('aceita input completo', () => {
+    expect(() =>
+      validateDisciplinaInput({
+        nome: 'Português',
+        peso_default: 2.5,
+        cor: '#22c55e',
+      })
+    ).not.toThrow();
+  });
+
+  it('rejeita nome vazio', () => {
+    expect(() => validateDisciplinaInput({ nome: '' })).toThrow(/nome/);
+    expect(() => validateDisciplinaInput({ nome: '   ' })).toThrow(/nome/);
+  });
+
+  it('rejeita nome > 200 chars', () => {
+    expect(() => validateDisciplinaInput({ nome: 'x'.repeat(201) })).toThrow(
+      /nome/
+    );
+  });
+
+  it('aceita peso_default null/undefined', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: null })
+    ).not.toThrow();
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: undefined })
+    ).not.toThrow();
+  });
+
+  it('rejeita peso_default <= 0', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: 0 })
+    ).toThrow(/peso_default/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: -1 })
+    ).toThrow(/peso_default/);
+  });
+
+  it('rejeita peso_default > 9999 (defesa contra abuso)', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: 1e9 })
+    ).toThrow(/peso_default/);
+  });
+
+  it('rejeita peso_default não-numérico ou NaN/Infinity (input não-confiável)', () => {
+    expect(() =>
+      validateDisciplinaInput({
+        nome: 'x',
+        peso_default: 'forjado' as unknown as number,
+      })
+    ).toThrow(/peso_default.*tipo/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: NaN })
+    ).toThrow(/peso_default.*tipo/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', peso_default: Infinity })
+    ).toThrow(/peso_default.*tipo/);
+  });
+
+  it('aceita cor null/undefined/vazia', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: null })
+    ).not.toThrow();
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: '' })
+    ).not.toThrow();
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: undefined })
+    ).not.toThrow();
+  });
+
+  it('aceita cor hex válida (6 chars maiúsculas/minúsculas)', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: '#aabbcc' })
+    ).not.toThrow();
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: '#ABCDEF' })
+    ).not.toThrow();
+  });
+
+  it('rejeita cor com formato inválido (defesa contra CSS injection)', () => {
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: 'red' })
+    ).toThrow(/cor/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: '#abc' })
+    ).toThrow(/cor/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: 'javascript:alert(1)' })
+    ).toThrow(/cor/);
+    expect(() =>
+      validateDisciplinaInput({ nome: 'x', cor: '#xxxxxx' })
+    ).toThrow(/cor/);
   });
 });
