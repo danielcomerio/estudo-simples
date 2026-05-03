@@ -230,12 +230,47 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
     };
   }
 
-  // Verificação: duvidosa se anulada ou tem hint de imagem
+  // Política do user (revisada): anuladas, desatualizadas e com hint de
+  // imagem são DESCARTADAS na importação. Antes vinham marcadas como
+  // duvidosa, mas o user prefere banco limpo — não vale poluir com
+  // questões que vão precisar revisão e podem nem ser viáveis (imagem
+  // ausente, gabarito incerto, etc).
   const isAnulada = o.anulada === true;
   const isDesatualizada = o.desatualizada === true;
   const possivelImagem = hasImageHint(enunciado);
-  const verificacao =
-    isAnulada || isDesatualizada || possivelImagem ? 'duvidosa' : 'pendente';
+  if (isAnulada) {
+    return {
+      decision: 'descartar',
+      reason: 'questão anulada na prova original (anulada=true)',
+      disciplinaNome,
+      normalized: null,
+      externalId,
+      numero,
+    };
+  }
+  if (isDesatualizada) {
+    return {
+      decision: 'descartar',
+      reason: 'questão marcada como desatualizada (desatualizada=true)',
+      disciplinaNome,
+      normalized: null,
+      externalId,
+      numero,
+    };
+  }
+  if (possivelImagem) {
+    return {
+      decision: 'descartar',
+      reason:
+        'enunciado menciona figura/tabela/gráfico que não está no JSON',
+      disciplinaNome,
+      normalized: null,
+      externalId,
+      numero,
+    };
+  }
+
+  const verificacao = 'pendente';
 
   // Fonte: junta tudo que vem do JSON real
   const fonte: QuestionFonte = {};
@@ -246,8 +281,6 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
   if (typeof o.cargo === 'string') fonte.cargo = o.cargo;
   if (externalId !== null) fonte.external_id = externalId;
   if (typeof o.concursoArea === 'string') fonte.prova = o.concursoArea;
-  if (isAnulada) fonte.anulada = true;
-  if (isDesatualizada) fonte.desatualizada = true;
 
   // Tema vem de assunto
   const tema =
@@ -269,13 +302,7 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
 
   return {
     decision: 'importar',
-    reason: possivelImagem
-      ? 'enunciado menciona imagem/figura/tabela — marcado como duvidoso'
-      : isAnulada
-        ? 'questão anulada na prova original — marcado como duvidoso'
-        : isDesatualizada
-          ? 'desatualizada — marcado como duvidoso'
-          : 'ok',
+    reason: 'ok',
     disciplinaNome,
     normalized: {
       type: 'objetiva',

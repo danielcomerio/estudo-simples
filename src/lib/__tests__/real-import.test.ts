@@ -116,20 +116,31 @@ describe('parseRealItem', () => {
     expect(r.reason).toMatch(/não corresponde/i);
   });
 
-  it('marca duvidosa se anulada=true', () => {
+  it('descarta se anulada=true (política revisada do user)', () => {
     const r = parseRealItem({ ...REAL_OK, anulada: true });
-    expect(r.decision).toBe('importar');
-    expect(r.normalized?.verificacao).toBe('duvidosa');
-    expect(r.normalized?.fonte?.anulada).toBe(true);
+    expect(r.decision).toBe('descartar');
+    expect(r.reason).toMatch(/anulada/i);
   });
 
-  it('marca duvidosa se enunciado tem hint de imagem', () => {
+  it('descarta se desatualizada=true', () => {
+    const r = parseRealItem({ ...REAL_OK, desatualizada: true });
+    expect(r.decision).toBe('descartar');
+    expect(r.reason).toMatch(/desatualizada/i);
+  });
+
+  it('descarta se enunciado tem hint de imagem (sem imagem no JSON)', () => {
     const r = parseRealItem({
       ...REAL_OK,
       enunciado: 'Observe a figura abaixo e responda:',
     });
+    expect(r.decision).toBe('descartar');
+    expect(r.reason).toMatch(/figura|tabela|gr[áa]fico/i);
+  });
+
+  it('importa caso ok marca verificacao=pendente (gabarito ainda precisa confirmar)', () => {
+    const r = parseRealItem(REAL_OK);
     expect(r.decision).toBe('importar');
-    expect(r.normalized?.verificacao).toBe('duvidosa');
+    expect(r.normalized?.verificacao).toBe('pendente');
   });
 
   it('marca correta a alternativa que bate com gabarito', () => {
