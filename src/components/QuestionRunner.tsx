@@ -15,7 +15,7 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { renderRichText, shuffle } from '@/lib/utils';
+import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import type {
@@ -46,6 +46,7 @@ const defaultCfg: SessionConfig = {
   difMin: 1,
   difMax: 5,
   embaralhar: true,
+  interleaving: false,
 };
 
 function buildPool(all: Question[], cfg: SessionConfig): Question[] {
@@ -86,7 +87,15 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
     pool = shuffle(pool);
   }
 
-  return pool.slice(0, Math.max(1, cfg.qtd));
+  const truncated = pool.slice(0, Math.max(1, cfg.qtd));
+
+  // Interleaving: aplicado APÓS sort + truncate. Mantém ordem relativa
+  // dentro de cada disciplina (SRS continua priorizando vencidas dentro
+  // do grupo) mas distribui blocos de disciplina pelo pool.
+  if (cfg.interleaving) {
+    return interleaveByGroup(truncated, (q) => q.disciplina_id ?? '(sem)');
+  }
+  return truncated;
 }
 
 export function QuestionRunner() {
@@ -293,6 +302,19 @@ export function QuestionRunner() {
             onChange={(e) => setCfg({ ...cfg, embaralhar: e.target.checked })}
           />
           <span>Embaralhar alternativas</span>
+        </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.interleaving}
+            onChange={(e) =>
+              setCfg({ ...cfg, interleaving: e.target.checked })
+            }
+          />
+          <span title="Distribui disciplinas pelo pool (em vez de blocos por disciplina). Estudo mostra que melhora retenção e discriminação.">
+            Intercalar disciplinas (interleaving)
+          </span>
         </label>
       </div>
 

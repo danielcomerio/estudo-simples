@@ -258,12 +258,16 @@ export type SessionConfig = {
   difMin: number;
   difMax: number;
   embaralhar: boolean;
+  /** Intercala disciplinas em vez de blocos por disciplina. Estudo
+   *  comprovado: melhora retenção e discriminação (Rohrer 2012). */
+  interleaving?: boolean;
 };
 
 export type DiscSessionConfig = {
   disciplinas: string[];
   qtd: number;
   modo: 'srs' | 'aleatorio' | 'novas';
+  interleaving?: boolean;
 };
 
 // =====================================================================

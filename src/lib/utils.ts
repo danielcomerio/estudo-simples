@@ -133,6 +133,51 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/**
+ * Intercala items de diferentes grupos pra evitar blocos longos do
+ * mesmo grupo. Round-robin ponderado: distribui proporcionalmente
+ * ao tamanho de cada grupo, mas mistura.
+ *
+ * Ex: [P,P,P,P,P,D,D] (5 PT + 2 Dir) com keyFn=disciplina →
+ * algo como [P,D,P,P,D,P,P] (Ds distribuídos no meio dos Ps).
+ *
+ * Pesquisa em educação (Kornell & Bjork 2008, Rohrer 2012) mostra
+ * que interleaving de tópicos similares melhora retenção e
+ * discriminação versus blocked practice.
+ *
+ * Mantém ordem RELATIVA dentro de cada grupo (importante pra modos
+ * SRS — questões mais vencidas continuam vindo primeiro dentro do
+ * grupo).
+ */
+export function interleaveByGroup<T>(items: T[], keyFn: (item: T) => string): T[] {
+  if (items.length <= 1) return items.slice();
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const k = keyFn(item);
+    const arr = groups.get(k);
+    if (arr) arr.push(item);
+    else groups.set(k, [item]);
+  }
+  if (groups.size <= 1) return items.slice();
+
+  // Round-robin: a cada passada, pega 1 item de cada grupo.
+  // Quando um grupo esvazia, é removido da rotação.
+  const queues: T[][] = Array.from(groups.values());
+  const out: T[] = [];
+  while (queues.length > 0) {
+    for (let i = 0; i < queues.length; ) {
+      const q = queues[i];
+      out.push(q.shift()!);
+      if (q.length === 0) {
+        queues.splice(i, 1);
+      } else {
+        i++;
+      }
+    }
+  }
+  return out;
+}
+
 export function debounce<T extends (...args: never[]) => unknown>(
   fn: T,
   ms: number

@@ -15,7 +15,7 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { renderRichText, shuffle } from '@/lib/utils';
+import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { QuestionImages } from './QuestionImages';
 import type {
   DiscSessionConfig,
@@ -42,7 +42,11 @@ function buildPool(all: Question[], cfg: DiscSessionConfig): Question[] {
   } else {
     pool = shuffle(pool);
   }
-  return pool.slice(0, Math.max(1, cfg.qtd));
+  const truncated = pool.slice(0, Math.max(1, cfg.qtd));
+  if (cfg.interleaving) {
+    return interleaveByGroup(truncated, (q) => q.disciplina_id ?? '(sem)');
+  }
+  return truncated;
 }
 
 export function DiscursivaRunner() {
@@ -168,6 +172,18 @@ export function DiscursivaRunner() {
             <option value="aleatorio">Aleatório</option>
             <option value="novas">Só novas</option>
           </select>
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.interleaving}
+            onChange={(e) =>
+              setCfg({ ...cfg, interleaving: e.target.checked })
+            }
+          />
+          <span title="Distribui disciplinas pelo pool em vez de blocos.">
+            Intercalar disciplinas (interleaving)
+          </span>
         </label>
       </div>
       <div className="row gap">
