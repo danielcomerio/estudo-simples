@@ -15,7 +15,7 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { renderTextWithCode, shuffle } from '@/lib/utils';
+import { renderRichText, shuffle } from '@/lib/utils';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -303,7 +303,7 @@ function DiscRunningView({
 
         <div
           className="enunciado"
-          dangerouslySetInnerHTML={{ __html: renderTextWithCode(enun) }}
+          dangerouslySetInnerHTML={{ __html: renderRichText(enun) }}
         />
 
         {quesitos.length > 0 && !revealed && (
@@ -390,7 +390,7 @@ function DiscReveal({
           <div
             style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
             dangerouslySetInnerHTML={{
-              __html: renderTextWithCode(payload.notes_user),
+              __html: renderRichText(payload.notes_user),
             }}
           />
         </div>
@@ -401,7 +401,7 @@ function DiscReveal({
           <h3>Espelho de resposta</h3>
           <div
             className="espelho-block"
-            dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.espelho_resposta) }}
+            dangerouslySetInnerHTML={{ __html: renderRichText(payload.espelho_resposta) }}
           />
         </>
       )}
@@ -415,7 +415,7 @@ function DiscReveal({
               {r.detalhamento && (
                 <div
                   style={{ marginTop: 6 }}
-                  dangerouslySetInnerHTML={{ __html: renderTextWithCode(r.detalhamento) }}
+                  dangerouslySetInnerHTML={{ __html: renderRichText(r.detalhamento) }}
                 />
               )}
             </div>
@@ -450,7 +450,7 @@ function DiscReveal({
           <h3>Estratégia de redação</h3>
           <div
             className="espelho-block warn"
-            dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.estrategia_redacao) }}
+            dangerouslySetInnerHTML={{ __html: renderRichText(payload.estrategia_redacao) }}
           />
         </>
       )}
@@ -460,7 +460,7 @@ function DiscReveal({
           <h3>Observações do corretor</h3>
           <div
             className="espelho-block"
-            dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.observacoes_corretor) }}
+            dangerouslySetInnerHTML={{ __html: renderRichText(payload.observacoes_corretor) }}
           />
         </>
       )}

@@ -10,7 +10,7 @@ import {
   toggleRevisar,
 } from '@/lib/simulado';
 import { confirmDialog } from './ConfirmDialog';
-import { renderTextWithCode, shuffle } from '@/lib/utils';
+import { renderRichText, shuffle } from '@/lib/utils';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -353,7 +353,7 @@ export function SimuladoRunner({
             lineHeight: 1.6,
           }}
           dangerouslySetInnerHTML={{
-            __html: renderTextWithCode(payload.enunciado),
+            __html: renderRichText(payload.enunciado),
           }}
         />
 
@@ -384,7 +384,7 @@ export function SimuladoRunner({
                 <strong style={{ marginRight: 8 }}>{a.letra}</strong>
                 <span
                   dangerouslySetInnerHTML={{
-                    __html: renderTextWithCode(a.texto),
+                    __html: renderRichText(a.texto),
                   }}
                 />
               </button>

@@ -5,6 +5,11 @@
    - tipografia legível com sistema nativo
    ===================================================================== */
 
+/* KaTeX CSS — necessário pra renderização correta de fórmulas LaTeX.
+   Tamanho: ~25KB minificado. Import global porque o CSS é usado via
+   classes inline injetadas pelo katex.renderToString. */
+@import 'katex/dist/katex.min.css';
+
 :root {
   --bg: #0b1220;
   --bg-elev: #111a2e;

@@ -15,7 +15,7 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { renderTextWithCode, shuffle } from '@/lib/utils';
+import { renderRichText, shuffle } from '@/lib/utils';
 import { fmtRelative } from '@/lib/format';
 import type {
   Alternativa,
@@ -506,7 +506,7 @@ function RunningView({
 
         <div
           className="enunciado"
-          dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.enunciado) }}
+          dangerouslySetInnerHTML={{ __html: renderRichText(payload.enunciado) }}
         />
 
         {!answered && (
@@ -592,7 +592,7 @@ function RunningView({
               {correctAlt.texto && (
                 <div
                   style={{ marginTop: 6 }}
-                  dangerouslySetInnerHTML={{ __html: renderTextWithCode(correctAlt.texto) }}
+                  dangerouslySetInnerHTML={{ __html: renderRichText(correctAlt.texto) }}
                 />
               )}
               {correctAlt.explicacao && (
@@ -601,7 +601,7 @@ function RunningView({
                   dangerouslySetInnerHTML={{
                     __html:
                       '<strong>Por que está certa:</strong> ' +
-                      renderTextWithCode(correctAlt.explicacao),
+                      renderRichText(correctAlt.explicacao),
                   }}
                 />
               )}
@@ -614,7 +614,7 @@ function RunningView({
                 dangerouslySetInnerHTML={{
                   __html:
                     `<strong>Por que sua escolha (${chosenAlt.letra}) está errada:</strong> ` +
-                    renderTextWithCode(chosenAlt.explicacao),
+                    renderRichText(chosenAlt.explicacao),
                 }}
               />
             </div>
@@ -625,7 +625,7 @@ function RunningView({
               <strong>Explicação geral:</strong>
               <div
                 style={{ marginTop: 4 }}
-                dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.explicacao_geral) }}
+                dangerouslySetInnerHTML={{ __html: renderRichText(payload.explicacao_geral) }}
               />
             </div>
           )}
@@ -654,7 +654,7 @@ function RunningView({
               <div
                 style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
                 dangerouslySetInnerHTML={{
-                  __html: renderTextWithCode(payload.notes_user),
+                  __html: renderRichText(payload.notes_user),
                 }}
               />
             </div>

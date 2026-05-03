@@ -15,12 +15,14 @@
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.46.1",
+    "katex": "^0.16.45",
     "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "ts-fsrs": "^5.3.2"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

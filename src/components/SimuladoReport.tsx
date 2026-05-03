@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { calcularResultado, isFinishedAfterTimeUp } from '@/lib/simulado';
-import { renderTextWithCode } from '@/lib/utils';
+import { renderRichText } from '@/lib/utils';
 import { updateQuestionLocal } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { useAlgorithm } from '@/lib/settings';
@@ -463,7 +463,7 @@ function ErradaCard({
       <div
         style={{ marginBottom: 10, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}
         dangerouslySetInnerHTML={{
-          __html: renderTextWithCode(p.enunciado),
+          __html: renderRichText(p.enunciado),
         }}
       />
       <div
@@ -540,7 +540,7 @@ function ErradaCard({
           <div
             style={{ marginTop: 4 }}
             dangerouslySetInnerHTML={{
-              __html: renderTextWithCode(p.explicacao_geral),
+              __html: renderRichText(p.explicacao_geral),
             }}
           />
         </div>
@@ -560,7 +560,7 @@ function ErradaCard({
           <div
             style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
             dangerouslySetInnerHTML={{
-              __html: renderTextWithCode(p.notes_user),
+              __html: renderRichText(p.notes_user),
             }}
           />
         </div>
