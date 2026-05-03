@@ -13,6 +13,7 @@ const TABS = [
   { href: '/banco', label: 'Banco' },
   { href: '/estudar', label: 'Estudar' },
   { href: '/discursivas', label: 'Discursivas' },
+  { href: '/cards', label: 'Cards' },
   { href: '/simulado', label: 'Simulado' },
   { href: '/stats', label: 'Estatísticas' },
   { href: '/concursos', label: 'Concursos' },

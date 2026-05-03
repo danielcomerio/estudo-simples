@@ -15,6 +15,17 @@ export type ValidationResult =
 export function detectType(obj: unknown): QuestionType | null {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
   const o = obj as AnyRecord;
+  // Cloze/flashcard explícitos via campo `tipo`
+  if (o.tipo === 'cloze') return 'cloze';
+  if (o.tipo === 'flashcard') return 'flashcard';
+  // Heurística: tem `frente` + `verso` é flashcard
+  if (typeof o.frente === 'string' && typeof o.verso === 'string') {
+    return 'flashcard';
+  }
+  // Heurística: tem `texto` com marcadores {{cN::...}} é cloze
+  if (typeof o.texto === 'string' && /\{\{c\d+::/.test(o.texto)) {
+    return 'cloze';
+  }
   if (
     o.tipo === 'discursiva' ||
     typeof o.tipo_discursiva === 'string' ||
@@ -46,7 +57,22 @@ export function validateQuestion(raw: unknown): ValidationResult {
     errors.push('Campo "disciplina_id" ausente ou inválido.');
   }
 
-  if (type === 'objetiva') {
+  if (type === 'cloze') {
+    if (typeof o.texto !== 'string' || !o.texto.trim()) {
+      errors.push('Cloze sem campo "texto" (use {{c1::resposta}}).');
+    } else if (!/\{\{c\d+::/.test(o.texto)) {
+      errors.push(
+        'Cloze sem nenhuma lacuna marcada (formato {{c1::resposta}}).'
+      );
+    }
+  } else if (type === 'flashcard') {
+    if (typeof o.frente !== 'string' || !o.frente.trim()) {
+      errors.push('Flashcard sem campo "frente".');
+    }
+    if (typeof o.verso !== 'string' || !o.verso.trim()) {
+      errors.push('Flashcard sem campo "verso".');
+    }
+  } else if (type === 'objetiva') {
     if (typeof o.enunciado !== 'string' || !o.enunciado) {
       errors.push('Campo "enunciado" ausente.');
     }
@@ -76,7 +102,7 @@ export function validateQuestion(raw: unknown): ValidationResult {
         }
       });
     }
-  } else {
+  } else if (type === 'discursiva') {
     const hasEnun =
       (typeof o.enunciado_completo === 'string' && o.enunciado_completo) ||
       (typeof o.enunciado === 'string' && o.enunciado) ||
@@ -108,9 +134,7 @@ export function validateQuestion(raw: unknown): ValidationResult {
 export function normalizeQuestion(
   raw: AnyRecord,
   type: QuestionType
-): Omit<Question, 'id' | 'user_id' | 'created_at' | 'updated_at'> & {
-  payload: ObjetivaPayload | DiscursivaPayload;
-} {
+): Omit<Question, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
   const {
     disciplina_id,
     tema,
@@ -140,8 +164,9 @@ export function normalizeQuestion(
     ...rest
   } = raw;
 
-  // payload contém o conteúdo "puro" (enunciado, alternativas, espelho, etc.)
-  const payload = rest as ObjetivaPayload | DiscursivaPayload;
+  // payload contém o conteúdo "puro" (enunciado, alternativas, espelho,
+  // texto/lacunas, frente/verso, etc.)
+  const payload = rest as Question['payload'];
 
   // Garante consistência objetiva: se faltar gabarito mas houver `correta`, deduz; e vice-versa.
   if (type === 'objetiva') {
@@ -209,6 +234,16 @@ export function dedupeKey(
 ): string {
   const disc = q.disciplina_id ?? '';
   const p = q.payload as Record<string, unknown>;
+  // Pra cloze: usa o texto (com marcadores). Pra flashcard: frente.
+  // Pra objetiva/discursiva: enunciado (mimica DB).
+  if (q.type === 'cloze') {
+    const texto = pgJsonString(p, 'texto') ?? '';
+    return disc + '||' + texto;
+  }
+  if (q.type === 'flashcard') {
+    const frente = pgJsonString(p, 'frente') ?? '';
+    return disc + '||' + frente;
+  }
   const enunRaw = pgJsonString(p, 'enunciado');
   const enunCompletoRaw = pgJsonString(p, 'enunciado_completo');
   const enun = enunRaw ?? enunCompletoRaw ?? '';

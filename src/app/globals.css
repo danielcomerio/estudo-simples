@@ -10,6 +10,25 @@
    classes inline injetadas pelo katex.renderToString. */
 @import 'katex/dist/katex.min.css';
 
+/* Cloze: lacunas escondidas e reveladas. Conteúdo é definido inline
+   pelo renderer (____ ou [dica]); CSS só estiliza. */
+.cloze-hidden {
+  display: inline-block;
+  padding: 0 0.4em;
+  background: var(--bg-elev-3, #243049);
+  border-radius: 4px;
+  color: var(--muted, #97a4be);
+  font-style: italic;
+  user-select: none;
+}
+.cloze-revealed {
+  background: var(--primary-soft, rgba(34, 197, 94, 0.18));
+  color: var(--primary, #22c55e);
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
 :root {
   --bg: #0b1220;
   --bg-elev: #111a2e;

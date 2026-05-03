@@ -99,7 +99,29 @@ export type DiscursivaPayload = {
   [k: string]: unknown;
 };
 
-export type QuestionType = 'objetiva' | 'discursiva';
+export type QuestionType = 'objetiva' | 'discursiva' | 'cloze' | 'flashcard';
+
+/** Cloze: texto com lacunas {{c1::resposta}} {{c2::outra}}.
+ *  Renderer esconde inicialmente e revela ao clicar. */
+export type ClozePayload = {
+  /** Texto base com marcadores {{cN::texto}}. N é o índice da
+   *  lacuna; texto é o que aparece quando revelada. */
+  texto: string;
+  /** Explicação opcional após revelar. */
+  explicacao?: string;
+  notes_user?: string;
+  imagens?: string[];
+  [k: string]: unknown;
+};
+
+/** Flashcard: frente/verso. Autoavaliação após virar. */
+export type FlashcardPayload = {
+  frente: string;
+  verso: string;
+  notes_user?: string;
+  imagens?: string[];
+  [k: string]: unknown;
+};
 
 // =====================================================================
 // Origem / Fonte / Verificação (migration 0003)
@@ -143,7 +165,7 @@ export type Question = {
   tema: string | null;
   banca_estilo: string | null;
   dificuldade: number | null;
-  payload: ObjetivaPayload | DiscursivaPayload;
+  payload: ObjetivaPayload | DiscursivaPayload | ClozePayload | FlashcardPayload;
   srs: SRS;
   stats: Stats;
   created_at: string;       // ISO

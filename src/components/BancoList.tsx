@@ -25,8 +25,19 @@ import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
 
 function previewOf(q: Question): string {
   if (q.type === 'objetiva') return (q.payload as ObjetivaPayload).enunciado || '';
-  const p = q.payload as DiscursivaPayload;
-  return p.enunciado_completo || p.enunciado || p.comando || '';
+  if (q.type === 'discursiva') {
+    const p = q.payload as DiscursivaPayload;
+    return p.enunciado_completo || p.enunciado || p.comando || '';
+  }
+  if (q.type === 'cloze') {
+    const p = q.payload as { texto?: string };
+    return (p.texto ?? '').replace(/\{\{c\d+::([^}]+?)(?:::[^}]+?)?\}\}/g, '$1');
+  }
+  if (q.type === 'flashcard') {
+    const p = q.payload as { frente?: string };
+    return p.frente ?? '';
+  }
+  return '';
 }
 
 export function BancoList() {
