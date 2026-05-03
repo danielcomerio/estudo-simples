@@ -258,7 +258,7 @@ export function BancoList() {
         >
           <option value="">Toda origem</option>
           <option value="real">📋 Reais</option>
-          <option value="autoral">✏️ Autorais (inclui legado)</option>
+          <option value="autoral">✏️ Autorais</option>
           <option value="adaptada">🔧 Adaptadas</option>
         </select>
         <select
