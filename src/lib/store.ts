@@ -1,11 +1,15 @@
 'use client';
 
 import { useRef, useSyncExternalStore } from 'react';
+import LZString from 'lz-string';
 import type { Question } from './types';
 import { uid } from './utils';
 
 const STORAGE_KEY = 'estudo-simples:v2';
 const STORAGE_KEY_USER = 'estudo-simples:v2:user';
+/** Marca o início da string comprimida, distinguindo de JSON cru
+ *  (compatibilidade pra ler estados salvos antes da compressão). */
+const COMPRESSED_PREFIX = 'LZ:';
 
 export type StoreState = {
   /** Questões locais (todas, inclusive as soft-deleted ainda não confirmadas). */
@@ -44,11 +48,47 @@ function persist() {
   if (typeof window === 'undefined') return;
   try {
     const { hydrated: _h, syncStatus: _s, syncError: _e, ...persistable } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(persistable));
+    const json = JSON.stringify(persistable);
+    // Compressão LZ — typical ratio em JSON de questões ~70-80%.
+    // Permite ~3-4x mais conteúdo no mesmo localStorage de 5-10MB.
+    // Prefixo 'LZ:' marca como comprimido pra hydrate detectar.
+    const compressed = COMPRESSED_PREFIX + LZString.compressToUTF16(json);
+    localStorage.setItem(STORAGE_KEY, compressed);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.error('localStorage cheio');
+      console.error('localStorage cheio mesmo após compressão — migrar pra IndexedDB');
     }
+  }
+}
+
+/** Lê e descomprime se necessário. Compatível com formato legado
+ *  (JSON cru) — assim users que tinham state antigo migram silenciosamente. */
+function readPersisted(): Partial<StoreState> | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    let json: string;
+    if (raw.startsWith(COMPRESSED_PREFIX)) {
+      const decompressed = LZString.decompressFromUTF16(
+        raw.slice(COMPRESSED_PREFIX.length)
+      );
+      if (!decompressed) return null;
+      json = decompressed;
+    } else {
+      // Formato legado: JSON cru. Será re-salvo comprimido na próxima mutação.
+      json = raw;
+    }
+    const parsed = JSON.parse(json);
+    if (parsed && Array.isArray(parsed.questions)) return parsed;
+    return null;
+  } catch (e) {
+    // Estado corrompido — preserva backup e segue limpo.
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) localStorage.setItem(STORAGE_KEY + ':backup-' + Date.now(), raw);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    return null;
   }
 }
 
@@ -81,21 +121,7 @@ export function hydrate(userId: string | null) {
     } catch {}
   }
 
-  let loaded: Partial<StoreState> = {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.questions)) loaded = parsed;
-    }
-  } catch (e) {
-    // estado corrompido — preserva backup e segue limpo
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) localStorage.setItem(STORAGE_KEY + ':backup-' + Date.now(), raw);
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
-  }
+  const loaded = readPersisted() ?? {};
 
   state = {
     ...initial,
