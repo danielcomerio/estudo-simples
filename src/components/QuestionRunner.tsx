@@ -328,6 +328,7 @@ function RunningView({
   const payload = q.payload as ObjetivaPayload;
   const [answered, setAnswered] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
+  const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(session.tempoLimite);
   const startedAtRef = useRef(Date.now());
   const ratedRef = useRef(false);
@@ -345,6 +346,7 @@ function RunningView({
   useEffect(() => {
     setAnswered(false);
     setChosen(null);
+    setConfidence(null);
     setTimeLeft(session.tempoLimite);
     startedAtRef.current = Date.now();
     ratedRef.current = false;
@@ -382,6 +384,9 @@ function RunningView({
         result: isCorrect ? ('correct' as const) : timeOut ? ('timeout' as const) : ('wrong' as const),
         answer: letra,
         timeMs: elapsed,
+        // Confidence só é registrada se o user marcou explicitamente.
+        // Sem isso /stats agrega só sobre as marcadas — fonte limpa.
+        ...(confidence !== null && { confidence }),
       },
     ];
 
@@ -503,6 +508,54 @@ function RunningView({
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderTextWithCode(payload.enunciado) }}
         />
+
+        {!answered && (
+          <div
+            role="radiogroup"
+            aria-label="Confiança antes de responder"
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              margin: '8px 0 12px',
+              padding: '8px 10px',
+              background: 'var(--bg-elev-2)',
+              borderRadius: 'var(--radius)',
+              fontSize: '0.85rem',
+            }}
+          >
+            <span className="muted" style={{ marginRight: 4 }}>
+              Quão certo você tá? <em>(opcional, ajuda a calibrar)</em>
+            </span>
+            {[
+              { v: 1 as const, label: '🤔 Chutei', tip: 'Não sei, marquei no chute' },
+              { v: 2 as const, label: '😐 Incerto', tip: 'Tenho ideia mas não tenho certeza' },
+              { v: 3 as const, label: '💪 Confiante', tip: 'Tenho certeza' },
+            ].map((opt) => {
+              const isOn = confidence === opt.v;
+              return (
+                <button
+                  key={opt.v}
+                  type="button"
+                  title={opt.tip}
+                  onClick={() => setConfidence(isOn ? null : opt.v)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius)',
+                    border: '1px solid ' + (isOn ? 'var(--primary)' : 'var(--border)'),
+                    background: isOn ? 'var(--primary-soft)' : 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    color: 'var(--text)',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="alternativas">
           {alts.map((a) => {

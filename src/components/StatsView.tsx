@@ -155,6 +155,8 @@ export function StatsView() {
 
       <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
+      <CalibracaoSection questions={questions} />
+
       <ConcursosOverview />
 
       <div className="card">
@@ -342,6 +344,124 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Calibração metacognitiva: agrega histórico de questões por nível de
+ * confidence (1=chutei, 2=incerto, 3=confiante) e mostra % acerto em
+ * cada um. Útil pra detectar:
+ *  - Overconfidence: errou muitas das "💪 Confiante" → você "sabe
+ *    coisas que não são verdade"
+ *  - Sob-estimar: acertou muitas das "🤔 Chutei" → você sabe mais do
+ *    que pensa, pode arriscar mais
+ *
+ * Esconde a seção quando ainda não há registros — só vale após user
+ * ter usado o rating algumas vezes.
+ */
+function CalibracaoSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const buckets = {
+      1: { total: 0, correct: 0 },
+      2: { total: 0, correct: 0 },
+      3: { total: 0, correct: 0 },
+    };
+    for (const q of questions) {
+      const hist = q.stats?.history ?? [];
+      for (const h of hist) {
+        if (h.confidence === undefined) continue;
+        const b = buckets[h.confidence];
+        if (!b) continue;
+        b.total += 1;
+        if (h.result === 'correct') b.correct += 1;
+      }
+    }
+    return buckets;
+  }, [questions]);
+
+  const totalRatings = stats[1].total + stats[2].total + stats[3].total;
+  if (totalRatings === 0) return null;
+
+  const pct = (b: { total: number; correct: number }) =>
+    b.total === 0 ? null : Math.round((b.correct / b.total) * 100);
+
+  // Heurísticas de calibração (simples, não estatística rigorosa)
+  const overconfidence = stats[3].total >= 5 && pct(stats[3])! < 70;
+  const lucky = stats[1].total >= 5 && pct(stats[1])! > 50;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 8px' }}>Calibração metacognitiva</h2>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12, fontSize: '0.88rem' }}>
+        % acerto por nível de confiança que você marcou ANTES de
+        responder. Ajuda a identificar onde sua intuição é confiável e
+        onde não é.
+      </p>
+      <div className="row gap wrap" style={{ fontSize: '0.95rem' }}>
+        <CalibracaoBucket label="🤔 Chutei" stats={stats[1]} pct={pct(stats[1])} />
+        <CalibracaoBucket label="😐 Incerto" stats={stats[2]} pct={pct(stats[2])} />
+        <CalibracaoBucket label="💪 Confiante" stats={stats[3]} pct={pct(stats[3])} />
+      </div>
+      {overconfidence && (
+        <p style={{ marginTop: 12, fontSize: '0.88rem', color: 'var(--danger)' }}>
+          ⚠ Overconfidence detectada: você errou {100 - pct(stats[3])!}% das
+          questões marcadas "Confiante". Reveja com calma quando bater
+          essa sensação — não é sinal seguro.
+        </p>
+      )}
+      {lucky && (
+        <p style={{ marginTop: 12, fontSize: '0.88rem', color: 'var(--primary)' }}>
+          💡 Você acertou {pct(stats[1])}% das questões marcadas "Chutei" —
+          mais do que o esperado por sorte. Talvez você saiba mais do
+          que pensa; tente arriscar mais antes de pular.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function CalibracaoBucket({
+  label,
+  stats,
+  pct,
+}: {
+  label: string;
+  stats: { total: number; correct: number };
+  pct: number | null;
+}) {
+  const cor =
+    pct === null
+      ? 'var(--muted)'
+      : pct >= 70
+        ? 'var(--primary)'
+        : pct >= 50
+          ? 'var(--warn, #d97706)'
+          : 'var(--danger)';
+  return (
+    <div
+      style={{
+        flex: '1 1 160px',
+        background: 'var(--bg-elev-2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '10px 12px',
+      }}
+    >
+      <div style={{ fontWeight: 500 }}>{label}</div>
+      <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>
+        {stats.total} resposta(s)
+      </div>
+      <div style={{ marginTop: 4, fontSize: '1.4rem', fontWeight: 600, color: cor }}>
+        {pct === null ? '—' : `${pct}%`}
+      </div>
+      <div className="muted" style={{ fontSize: '0.78rem' }}>
+        acertos
+      </div>
+    </div>
   );
 }
 

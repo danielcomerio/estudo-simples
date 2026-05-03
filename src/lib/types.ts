@@ -27,6 +27,11 @@ export type HistoryEntry = {
   selfMax?: number;
   /** Nota livre da revisão específica (ex: "errei por leitura, não conteúdo"). */
   notes?: string;
+  /** Confidence rating informado ANTES de revelar gabarito.
+   *  1 = chutei, 2 = incerto, 3 = confiante.
+   *  Usado pra calibração metacognitiva: errar uma "confiante"
+   *  é sinal de overconfidence; acertar uma "chutei" é sorte. */
+  confidence?: 1 | 2 | 3;
 };
 
 export type Stats = {
