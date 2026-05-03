@@ -42,6 +42,10 @@ export function BancoList() {
   const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
   const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Paginação visual: render só os primeiros N pra evitar travar com
+  // milhares de cards. User pode "carregar mais" pra estender.
+  const PAGE_SIZE = 100;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
   const editingQuestion = useMemo(
     () => (editingId ? questions.find((q) => q.id === editingId) ?? null : null),
@@ -50,6 +54,12 @@ export function BancoList() {
 
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
+
+  // Reset paginação quando filtros mudam
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}`;
+  useMemo(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [filtersKey]);
 
   const filtered = useMemo(() => {
     const txt = search.trim().toLowerCase();
@@ -320,7 +330,7 @@ export function BancoList() {
             </p>
           </div>
         ) : (
-          filtered.map((q) => {
+          filtered.slice(0, visibleCount).map((q) => {
             const enun = previewOf(q);
             return (
               <div key={q.id} className="banco-item">
@@ -401,6 +411,39 @@ export function BancoList() {
           })
         )}
       </div>
+
+      {filtered.length > visibleCount && (
+        <div
+          className="row gap"
+          style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: 12,
+            padding: 12,
+            background: 'var(--bg-elev-2)',
+            borderRadius: 'var(--radius)',
+          }}
+        >
+          <span className="muted" style={{ fontSize: '0.88rem' }}>
+            Mostrando {visibleCount} de {filtered.length} questão(ões)
+          </span>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+          >
+            Carregar mais {Math.min(PAGE_SIZE, filtered.length - visibleCount)}
+          </button>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setVisibleCount(filtered.length)}
+            title="Pode travar a página com muitas"
+          >
+            Ver tudo
+          </button>
+        </div>
+      )}
     </div>
   );
 }

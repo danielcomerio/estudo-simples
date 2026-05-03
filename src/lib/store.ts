@@ -44,14 +44,18 @@ function notify() {
   listeners.forEach((l) => l());
 }
 
-function persist() {
+/** Variável de debounce — múltiplas mutações em sequência viram 1
+ *  persist. Compressão de ~5MB de JSON leva centenas de ms; sem
+ *  debounce, rate em sequência (ex: studar 10 questões rápido)
+ *  trava a UI. Threshold curto (200ms) preserva durabilidade — uma
+ *  mutação no max 200ms antes de persistir. */
+let persistTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function persistNow() {
   if (typeof window === 'undefined') return;
   try {
     const { hydrated: _h, syncStatus: _s, syncError: _e, ...persistable } = state;
     const json = JSON.stringify(persistable);
-    // Compressão LZ — typical ratio em JSON de questões ~70-80%.
-    // Permite ~3-4x mais conteúdo no mesmo localStorage de 5-10MB.
-    // Prefixo 'LZ:' marca como comprimido pra hydrate detectar.
     const compressed = COMPRESSED_PREFIX + LZString.compressToUTF16(json);
     localStorage.setItem(STORAGE_KEY, compressed);
   } catch (e) {
@@ -59,6 +63,28 @@ function persist() {
       console.error('localStorage cheio mesmo após compressão — migrar pra IndexedDB');
     }
   }
+}
+
+function persist() {
+  if (typeof window === 'undefined') return;
+  if (persistTimeout) clearTimeout(persistTimeout);
+  persistTimeout = setTimeout(() => {
+    persistTimeout = null;
+    persistNow();
+  }, 200);
+}
+
+// Garante persist no fechamento da aba (evento beforeunload) caso
+// haja mutação pendente. UI tem tempo de salvar antes do navegador
+// matar a página.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (persistTimeout) {
+      clearTimeout(persistTimeout);
+      persistTimeout = null;
+      persistNow();
+    }
+  });
 }
 
 /** Lê e descomprime se necessário. Compatível com formato legado
