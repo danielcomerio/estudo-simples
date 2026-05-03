@@ -39,7 +39,7 @@ export function BancoList() {
   const [search, setSearch] = useState('');
   const [disc, setDisc] = useState('');
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
-  const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada' | 'sem_origem'>('');
+  const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
   const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,8 +58,10 @@ export function BancoList() {
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
       if (origem) {
-        if (origem === 'sem_origem') {
-          if (q.origem) return false;
+        // 'autoral' inclui legado (sem campo origem) — questões pré-migration
+        // 0003 foram todas criadas pelo user, então conceitualmente autorais.
+        if (origem === 'autoral') {
+          if (q.origem && q.origem !== 'autoral') return false;
         } else {
           if (q.origem !== origem) return false;
         }
@@ -256,9 +258,8 @@ export function BancoList() {
         >
           <option value="">Toda origem</option>
           <option value="real">📋 Reais</option>
-          <option value="autoral">✏️ Autorais</option>
+          <option value="autoral">✏️ Autorais (inclui legado)</option>
           <option value="adaptada">🔧 Adaptadas</option>
-          <option value="sem_origem">— Sem origem (legado)</option>
         </select>
         <select
           value={verif}

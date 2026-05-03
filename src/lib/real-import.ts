@@ -259,6 +259,14 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
     gabarito,
   };
 
+  // Preserva campos opcionais ricos do JSON real quando presentes
+  if (typeof o.explicacao_geral === 'string' && o.explicacao_geral.trim()) {
+    payload.explicacao_geral = o.explicacao_geral;
+  }
+  if (typeof o.concursoEdicao === 'string' && o.concursoEdicao.trim()) {
+    fonte.edicao = o.concursoEdicao.replace(/^"|"$/g, '');
+  }
+
   return {
     decision: 'importar',
     reason: possivelImagem
