@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { calcularResultado, isFinishedAfterTimeUp } from '@/lib/simulado';
 import { renderRichText } from '@/lib/utils';
+import { QuestionImages } from './QuestionImages';
 import { updateQuestionLocal } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { useAlgorithm } from '@/lib/settings';
@@ -466,6 +467,7 @@ function ErradaCard({
           __html: renderRichText(p.enunciado),
         }}
       />
+      <QuestionImages urls={p.imagens} size="compact" />
       <div
         style={{
           display: 'grid',

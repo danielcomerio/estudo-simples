@@ -16,6 +16,7 @@ import {
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
 import { renderRichText, shuffle } from '@/lib/utils';
+import { QuestionImages } from './QuestionImages';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -305,6 +306,8 @@ function DiscRunningView({
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderRichText(enun) }}
         />
+
+        <QuestionImages urls={payload.imagens} />
 
         {quesitos.length > 0 && !revealed && (
           <div>

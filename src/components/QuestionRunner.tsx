@@ -16,6 +16,7 @@ import {
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
 import { renderRichText, shuffle } from '@/lib/utils';
+import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import type {
   Alternativa,
@@ -508,6 +509,8 @@ function RunningView({
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderRichText(payload.enunciado) }}
         />
+
+        <QuestionImages urls={payload.imagens} />
 
         {!answered && (
           <div

@@ -69,6 +69,9 @@ export type ObjetivaPayload = {
   pegadinhas?: string[];
   /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
   notes_user?: string;
+  /** URLs públicas de imagens (Supabase Storage). Renderizadas no
+   *  enunciado em ordem. Útil pra questões de prova com gráfico/tabela. */
+  imagens?: string[];
   [k: string]: unknown;
 };
 
@@ -91,6 +94,8 @@ export type DiscursivaPayload = {
   apostas_relacionadas?: string[];
   /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
   notes_user?: string;
+  /** URLs públicas de imagens (Supabase Storage). */
+  imagens?: string[];
   [k: string]: unknown;
 };
 

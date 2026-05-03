@@ -4,6 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { updateQuestionLocal, useStore, selectActiveQuestions } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { dedupeKey } from '@/lib/validation';
+import {
+  IMAGE_LIMITS,
+  StorageError,
+  deleteQuestionImage,
+  uploadQuestionImage,
+} from '@/lib/storage';
 import type {
   Alternativa,
   DiscursivaPayload,
@@ -108,6 +114,11 @@ export function QuestionEditDrawer({
   );
   const [fLink, setFLink] = useState(
     typeof initialFonte.link === 'string' ? initialFonte.link : ''
+  );
+
+  // Imagens — URLs públicas no Storage. Init do payload se houver.
+  const [imagens, setImagens] = useState<string[]>(() =>
+    Array.isArray(question.payload.imagens) ? question.payload.imagens : []
   );
 
   const [submitting, setSubmitting] = useState(false);
@@ -224,6 +235,7 @@ export function QuestionEditDrawer({
         gabarito: corretas[0].letra,
         explicacao_geral: explicacao || undefined,
         notes_user: notesNorm,
+        imagens: imagens.length > 0 ? imagens : undefined,
       };
     } else {
       const prevPayload = question.payload as DiscursivaPayload;
@@ -232,6 +244,7 @@ export function QuestionEditDrawer({
         enunciado_completo: enun,
         espelho_resposta: espelho || prevPayload.espelho_resposta,
         notes_user: notesNorm,
+        imagens: imagens.length > 0 ? imagens : undefined,
       };
     }
 
@@ -311,6 +324,45 @@ export function QuestionEditDrawer({
     scheduleSync(500);
     setSubmitting(false);
     close(true);
+  };
+
+  // === Imagens ===
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleAddImages = async (files: FileList | File[]) => {
+    if (uploading) return;
+    const arr = Array.from(files);
+    if (!arr.length) return;
+    if (imagens.length + arr.length > IMAGE_LIMITS.maxPerQuestion) {
+      toast(
+        `Máximo ${IMAGE_LIMITS.maxPerQuestion} imagens por questão.`,
+        'error'
+      );
+      return;
+    }
+    setUploading(true);
+    const novos: string[] = [];
+    const errors: string[] = [];
+    for (const file of arr) {
+      try {
+        const url = await uploadQuestionImage(file, question.id, question.user_id);
+        novos.push(url);
+      } catch (e) {
+        const msg = e instanceof StorageError ? e.message : String(e);
+        errors.push(`${file.name}: ${msg}`);
+      }
+    }
+    if (novos.length) setImagens((cur) => [...cur, ...novos]);
+    if (errors.length) toast('Falhas: ' + errors.join('; '), 'error');
+    else if (novos.length) toast(`${novos.length} imagem(ns) adicionada(s).`, 'success');
+    setUploading(false);
+  };
+
+  const handleRemoveImage = async (url: string) => {
+    setImagens((cur) => cur.filter((u) => u !== url));
+    // Remove do storage em background — não bloqueia UI
+    void deleteQuestionImage(url);
   };
 
   const addAlt = () => {
@@ -473,6 +525,118 @@ export function QuestionEditDrawer({
         ) : (
           <DiscursivaEditor espelho={espelho} setEspelho={setEspelho} />
         )}
+
+        {/* Imagens — sempre disponível, rendered no enunciado */}
+        <details
+          style={{
+            marginBottom: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            background: 'var(--bg-elev-2)',
+          }}
+          open={imagens.length > 0}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            Imagens
+            {imagens.length > 0 && (
+              <span className="muted" style={{ marginLeft: 8, fontSize: '0.85rem' }}>
+                — {imagens.length} anexada(s)
+              </span>
+            )}
+          </summary>
+          <div style={{ marginTop: 12 }}>
+            <p className="muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+              Anexe imagens de gráficos, tabelas ou figuras citados no
+              enunciado. Aparecem no estudo, simulado e relatório. Max{' '}
+              {IMAGE_LIMITS.maxPerQuestion} por questão; cada uma até 5MB
+              (PNG/JPEG/WEBP/GIF).
+            </p>
+            {imagens.length > 0 && (
+              <ul
+                style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: '0 0 12px',
+                  display: 'flex',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {imagens.map((url) => (
+                  <li
+                    key={url}
+                    style={{
+                      position: 'relative',
+                      width: 120,
+                      height: 90,
+                      borderRadius: 'var(--radius)',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg-elev)',
+                    }}
+                  >
+                    <img
+                      src={url}
+                      alt="anexo"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveImage(url)}
+                      title="Remover"
+                      aria-label="Remover imagem"
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        background: 'rgba(0,0,0,0.7)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 22,
+                        height: 22,
+                        cursor: 'pointer',
+                        fontSize: 14,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) void handleAddImages(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={
+                uploading || imagens.length >= IMAGE_LIMITS.maxPerQuestion
+              }
+            >
+              {uploading
+                ? 'Subindo…'
+                : imagens.length >= IMAGE_LIMITS.maxPerQuestion
+                  ? 'Limite atingido'
+                  : '+ Adicionar imagem'}
+            </button>
+          </div>
+        </details>
 
         {/* Origem / Fonte / Verificação — colapsável */}
         <details

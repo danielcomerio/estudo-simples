@@ -11,6 +11,7 @@ import {
 } from '@/lib/simulado';
 import { confirmDialog } from './ConfirmDialog';
 import { renderRichText, shuffle } from '@/lib/utils';
+import { QuestionImages } from './QuestionImages';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -356,6 +357,8 @@ export function SimuladoRunner({
             __html: renderRichText(payload.enunciado),
           }}
         />
+
+        <QuestionImages urls={payload.imagens} />
 
         <div
           className="alternativas"
