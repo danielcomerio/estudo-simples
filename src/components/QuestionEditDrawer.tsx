@@ -9,6 +9,9 @@ import type {
   DiscursivaPayload,
   ObjetivaPayload,
   Question,
+  QuestionFonte,
+  QuestionOrigem,
+  QuestionVerificacao,
 } from '@/lib/types';
 import { toast } from './Toast';
 
@@ -78,6 +81,34 @@ export function QuestionEditDrawer({
       explicacao: a.explicacao ?? '',
     }));
   });
+
+  // Origem / fonte / verificação (migration 0003)
+  const [origem, setOrigem] = useState<'' | QuestionOrigem>(question.origem ?? '');
+  const [verif, setVerif] = useState<'' | QuestionVerificacao>(
+    question.verificacao ?? ''
+  );
+  const initialFonte = question.fonte ?? {};
+  const [fBanca, setFBanca] = useState(
+    typeof initialFonte.banca === 'string' ? initialFonte.banca : ''
+  );
+  const [fAno, setFAno] = useState(
+    typeof initialFonte.ano === 'number' ? String(initialFonte.ano) : ''
+  );
+  const [fOrgao, setFOrgao] = useState(
+    typeof initialFonte.orgao === 'string' ? initialFonte.orgao : ''
+  );
+  const [fOrgaoNome, setFOrgaoNome] = useState(
+    typeof initialFonte.orgao_nome === 'string' ? initialFonte.orgao_nome : ''
+  );
+  const [fCargo, setFCargo] = useState(
+    typeof initialFonte.cargo === 'string' ? initialFonte.cargo : ''
+  );
+  const [fProva, setFProva] = useState(
+    typeof initialFonte.prova === 'string' ? initialFonte.prova : ''
+  );
+  const [fLink, setFLink] = useState(
+    typeof initialFonte.link === 'string' ? initialFonte.link : ''
+  );
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -204,6 +235,39 @@ export function QuestionEditDrawer({
       };
     }
 
+    // Origem / fonte / verificação
+    let fonte: QuestionFonte = { ...(question.fonte ?? {}) };
+    // Limpa campos que o user pode ter esvaziado e re-popula com inputs
+    delete fonte.banca;
+    delete fonte.ano;
+    delete fonte.orgao;
+    delete fonte.orgao_nome;
+    delete fonte.cargo;
+    delete fonte.prova;
+    delete fonte.link;
+    if (trim(fBanca)) fonte.banca = trim(fBanca);
+    if (fAno.trim()) {
+      const n = Number(fAno);
+      if (!Number.isInteger(n) || n < 1980 || n > 2100)
+        return { patch: {}, error: 'fonte.ano: inteiro entre 1980 e 2100' };
+      fonte.ano = n;
+    }
+    if (trim(fOrgao)) fonte.orgao = trim(fOrgao);
+    if (trim(fOrgaoNome)) fonte.orgao_nome = trim(fOrgaoNome);
+    if (trim(fCargo)) fonte.cargo = trim(fCargo);
+    if (trim(fProva)) fonte.prova = trim(fProva);
+    if (trim(fLink)) {
+      if (!/^https?:\/\/.+/i.test(trim(fLink)))
+        return { patch: {}, error: 'fonte.link: deve começar com http:// ou https://' };
+      fonte.link = trim(fLink);
+    }
+    if (origem === 'real') {
+      if (!fonte.banca)
+        return { patch: {}, error: 'origem real exige fonte.banca' };
+      if (typeof fonte.ano !== 'number')
+        return { patch: {}, error: 'origem real exige fonte.ano (número)' };
+    }
+
     const patch: Partial<Question> = {
       disciplina_id: trim(discId) || null,
       tema: trim(tema) || null,
@@ -211,6 +275,9 @@ export function QuestionEditDrawer({
       dificuldade,
       tags,
       payload,
+      origem: origem || null,
+      fonte,
+      verificacao: verif || null,
     };
 
     // Dedup check
@@ -406,6 +473,170 @@ export function QuestionEditDrawer({
         ) : (
           <DiscursivaEditor espelho={espelho} setEspelho={setEspelho} />
         )}
+
+        {/* Origem / Fonte / Verificação — colapsável */}
+        <details
+          style={{
+            marginBottom: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            background: 'var(--bg-elev-2)',
+          }}
+          open={origem === 'real' || !!verif}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            Origem & verificação
+            {origem && (
+              <span className="muted" style={{ marginLeft: 8, fontSize: '0.85rem' }}>
+                — {origem}{verif ? ` · ${verif}` : ''}
+              </span>
+            )}
+          </summary>
+          <div style={{ marginTop: 12 }}>
+            <div className="form-grid">
+              <label>
+                <span>Origem</span>
+                <select
+                  value={origem}
+                  onChange={(e) => setOrigem(e.target.value as typeof origem)}
+                >
+                  <option value="">— não classificada —</option>
+                  <option value="real">📋 Real (de prova oficial)</option>
+                  <option value="autoral">✏️ Autoral (criada por mim/IA)</option>
+                  <option value="adaptada">🔧 Adaptada (real modificada)</option>
+                </select>
+              </label>
+              <label>
+                <span>Verificação</span>
+                <select
+                  value={verif}
+                  onChange={(e) => setVerif(e.target.value as typeof verif)}
+                >
+                  <option value="">— sem status —</option>
+                  <option value="verificada">✅ Verificada</option>
+                  <option value="pendente">⏳ Pendente</option>
+                  <option value="duvidosa">⚠️ Duvidosa</option>
+                </select>
+              </label>
+            </div>
+
+            {(origem === 'real' || origem === 'adaptada' || fBanca || fAno) && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 10,
+                  background: 'var(--bg-elev)',
+                  borderRadius: 'var(--radius)',
+                }}
+              >
+                <p
+                  className="muted"
+                  style={{ margin: '0 0 8px', fontSize: '0.82rem' }}
+                >
+                  Fonte da prova
+                  {origem === 'real' && (
+                    <strong> — banca e ano são obrigatórios pra origem real</strong>
+                  )}
+                </p>
+                <div className="form-grid">
+                  <label>
+                    <span>Banca {origem === 'real' && '*'}</span>
+                    <input
+                      type="text"
+                      value={fBanca}
+                      onChange={(e) => setFBanca(e.target.value)}
+                      maxLength={100}
+                      placeholder="ex: FGV, CESPE, FCC"
+                    />
+                  </label>
+                  <label>
+                    <span>Ano {origem === 'real' && '*'}</span>
+                    <input
+                      type="number"
+                      min={1980}
+                      max={2100}
+                      step={1}
+                      value={fAno}
+                      onChange={(e) => setFAno(e.target.value)}
+                      placeholder="ex: 2025"
+                    />
+                  </label>
+                  <label>
+                    <span>Órgão (sigla)</span>
+                    <input
+                      type="text"
+                      value={fOrgao}
+                      onChange={(e) => setFOrgao(e.target.value)}
+                      maxLength={200}
+                      placeholder="ex: MPE RJ"
+                    />
+                  </label>
+                  <label>
+                    <span>Cargo</span>
+                    <input
+                      type="text"
+                      value={fCargo}
+                      onChange={(e) => setFCargo(e.target.value)}
+                      maxLength={200}
+                      placeholder="ex: Analista"
+                    />
+                  </label>
+                </div>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    marginTop: 8,
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>Órgão (nome completo)</span>
+                  <input
+                    type="text"
+                    value={fOrgaoNome}
+                    onChange={(e) => setFOrgaoNome(e.target.value)}
+                    maxLength={300}
+                    placeholder="ex: Ministério Público do Estado do Rio de Janeiro"
+                  />
+                </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    marginTop: 8,
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>Prova / área</span>
+                  <input
+                    type="text"
+                    value={fProva}
+                    onChange={(e) => setFProva(e.target.value)}
+                    maxLength={300}
+                    placeholder="ex: Tecnologia da Informação"
+                  />
+                </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    marginTop: 8,
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>Link (opcional)</span>
+                  <input
+                    type="url"
+                    value={fLink}
+                    onChange={(e) => setFLink(e.target.value)}
+                    placeholder="https://..."
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        </details>
 
         {/* Anotações pessoais — sempre disponível */}
         <label
