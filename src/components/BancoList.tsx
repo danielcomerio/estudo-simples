@@ -9,6 +9,7 @@ import {
   updateQuestionLocal,
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
+import Link from 'next/link';
 import { fmtRelative } from '@/lib/format';
 import {
   matchActiveConcurso,
@@ -303,6 +304,26 @@ export function BancoList() {
         <button type="button" onClick={exportJSON} disabled={questions.length === 0}>
           Exportar JSON
         </button>
+        {(() => {
+          const pendentesCount = questions.filter(
+            (q) => q.type === 'objetiva' && q.verificacao === 'pendente'
+          ).length;
+          if (pendentesCount === 0) return null;
+          return (
+            <Link
+              href="/revisar"
+              className="ghost"
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                fontSize: '0.88rem',
+              }}
+            >
+              ⏳ Revisar {pendentesCount} pendente(s)
+            </Link>
+          );
+        })()}
       </div>
 
       {editingQuestion && (
