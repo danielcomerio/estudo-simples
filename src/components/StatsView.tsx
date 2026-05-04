@@ -164,6 +164,8 @@ export function StatsView() {
 
       <NemesisSection questions={questions} />
 
+      <OrigemDistSection questions={questions} />
+
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
@@ -359,6 +361,140 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Distribuição por origem: barra horizontal segmentada com %
+ * de cada categoria (real / autoral / adaptada / legado).
+ * Mostra também tipos: objetiva / discursiva / cloze / flashcard.
+ */
+function OrigemDistSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const total = questions.length;
+  if (total === 0) return null;
+
+  const origem: Record<string, number> = {
+    real: 0,
+    autoral: 0,
+    adaptada: 0,
+    legado: 0,
+  };
+  const tipos: Record<string, number> = {
+    objetiva: 0,
+    discursiva: 0,
+    cloze: 0,
+    flashcard: 0,
+  };
+  for (const q of questions) {
+    if (q.origem === 'real') origem.real += 1;
+    else if (q.origem === 'autoral') origem.autoral += 1;
+    else if (q.origem === 'adaptada') origem.adaptada += 1;
+    else origem.legado += 1;
+    tipos[q.type] = (tipos[q.type] ?? 0) + 1;
+  }
+
+  const colors: Record<string, string> = {
+    real: 'var(--primary)',
+    autoral: '#22c55e',
+    adaptada: '#f59e0b',
+    legado: 'var(--muted)',
+    objetiva: 'var(--primary)',
+    discursiva: '#a855f7',
+    cloze: '#ec4899',
+    flashcard: '#06b6d4',
+  };
+
+  const labels: Record<string, string> = {
+    real: '📋 Real',
+    autoral: '✏️ Autoral',
+    adaptada: '🔧 Adaptada',
+    legado: '— Legado (sem origem)',
+    objetiva: 'Objetiva',
+    discursiva: 'Discursiva',
+    cloze: 'Cloze',
+    flashcard: 'Flashcard',
+  };
+
+  return (
+    <div className="card">
+      <h2>Composição do banco</h2>
+
+      <h3 style={{ fontSize: '0.95rem', margin: '12px 0 6px' }}>Por origem</h3>
+      <SegmentedBar buckets={origem} colors={colors} labels={labels} total={total} />
+
+      <h3 style={{ fontSize: '0.95rem', margin: '18px 0 6px' }}>Por tipo</h3>
+      <SegmentedBar buckets={tipos} colors={colors} labels={labels} total={total} />
+    </div>
+  );
+}
+
+function SegmentedBar({
+  buckets,
+  colors,
+  labels,
+  total,
+}: {
+  buckets: Record<string, number>;
+  colors: Record<string, string>;
+  labels: Record<string, string>;
+  total: number;
+}) {
+  const entries = Object.entries(buckets).filter(([, v]) => v > 0);
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          height: 22,
+          borderRadius: 6,
+          overflow: 'hidden',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {entries.map(([k, v]) => (
+          <div
+            key={k}
+            style={{
+              width: `${(v / total) * 100}%`,
+              background: colors[k] ?? 'var(--muted)',
+            }}
+            title={`${labels[k] ?? k}: ${v} (${Math.round((v / total) * 100)}%)`}
+          />
+        ))}
+      </div>
+      <ul
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: '8px 0 0',
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',
+          fontSize: '0.85rem',
+        }}
+      >
+        {entries.map(([k, v]) => (
+          <li key={k} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: 10,
+                height: 10,
+                background: colors[k] ?? 'var(--muted)',
+                borderRadius: 2,
+              }}
+            />
+            <span>{labels[k] ?? k}:</span>
+            <strong>{v}</strong>
+            <span className="muted">({Math.round((v / total) * 100)}%)</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
