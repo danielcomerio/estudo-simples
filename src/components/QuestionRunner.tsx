@@ -37,6 +37,8 @@ type SessionState = {
   wrong: number;
   skipped: number;
   startedAt: number;
+  /** Modo livre: stats contam, SRS não muda. Default false. */
+  free?: boolean;
 };
 
 const defaultCfg: SessionConfig = {
@@ -48,6 +50,7 @@ const defaultCfg: SessionConfig = {
   difMax: 5,
   embaralhar: true,
   interleaving: false,
+  free: false,
 };
 
 function buildPool(all: Question[], cfg: SessionConfig): Question[] {
@@ -217,6 +220,7 @@ export function QuestionRunner() {
       wrong: 0,
       skipped: 0,
       startedAt: Date.now(),
+      free: cfg.free,
     });
     setPhase('running');
   };
@@ -395,6 +399,17 @@ export function QuestionRunner() {
             Intercalar disciplinas (interleaving)
           </span>
         </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.free}
+            onChange={(e) => setCfg({ ...cfg, free: e.target.checked })}
+          />
+          <span title="Stats contam normalmente, mas o agendamento SRS NÃO muda. Útil pra revisão pré-prova ou prática extra sem 'puxar' as próximas revisões pra perto.">
+            Modo livre (não muda agendamento SRS)
+          </span>
+        </label>
       </div>
 
       <div className="row gap">
@@ -511,9 +526,13 @@ function RunningView({
   const rate = (quality: number) => {
     if (ratedRef.current) return;
     ratedRef.current = true;
-    const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-    applyReview(card, quality, algorithm);
-    updateQuestionLocal(q.id, { srs: card.srs });
+    // Modo livre: NÃO aplica SRS. Stats já foram contabilizadas em
+    // submit(). Útil pra revisão pré-prova sem interferir no schedule.
+    if (!session.free) {
+      const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
+      applyReview(card, quality, algorithm);
+      updateQuestionLocal(q.id, { srs: card.srs });
+    }
     scheduleSync(800);
     next();
   };

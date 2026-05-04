@@ -283,6 +283,10 @@ export type SessionConfig = {
   /** Intercala disciplinas em vez de blocos por disciplina. Estudo
    *  comprovado: melhora retenção e discriminação (Rohrer 2012). */
   interleaving?: boolean;
+  /** Modo livre: stats são contabilizadas mas SRS NÃO é alterado.
+   *  Útil pra revisão pré-prova ou simulação sem interferir no
+   *  schedule de longo prazo. */
+  free?: boolean;
 };
 
 export type DiscSessionConfig = {
