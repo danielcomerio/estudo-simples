@@ -59,6 +59,7 @@ export function BancoList() {
     '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
   >('');
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
+  const [notasFilter, setNotasFilter] = useState<'' | 'com' | 'sem'>('');
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
@@ -139,7 +140,7 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação + foco quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
     setFocusedIdx(-1);
@@ -197,6 +198,12 @@ export function BancoList() {
         if (imgFilter === 'com' && !has) return false;
         if (imgFilter === 'sem' && has) return false;
       }
+      if (notasFilter) {
+        const notas = (q.payload as { notes_user?: string }).notes_user;
+        const has = typeof notas === 'string' && notas.trim().length > 0;
+        if (notasFilter === 'com' && !has) return false;
+        if (notasFilter === 'sem' && has) return false;
+      }
       if (srsFilter) {
         const due = q.srs?.dueDate ?? 0;
         const lastReviewed = q.srs?.lastReviewed;
@@ -243,7 +250,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -657,6 +664,7 @@ export function BancoList() {
         if (verif) ativos.push('verificação');
         if (srsFilter) ativos.push('SRS');
         if (imgFilter) ativos.push('imagem');
+        if (notasFilter) ativos.push('notas');
         const hasAtivos = ativos.length > 0;
         const hasPresets = presets.length > 0;
         if (!hasAtivos && !hasPresets) return null;
@@ -687,6 +695,7 @@ export function BancoList() {
                     setVerif('');
                     setSrsFilter('');
                     setImgFilter('');
+                    setNotasFilter('');
                   }}
                 >
                   🧹 Limpar todos
@@ -808,6 +817,15 @@ export function BancoList() {
           <option value="">Imagens (qq)</option>
           <option value="com">🖼 Com imagem</option>
           <option value="sem">— Sem imagem</option>
+        </select>
+        <select
+          value={notasFilter}
+          onChange={(e) => setNotasFilter(e.target.value as typeof notasFilter)}
+          title="Filtrar por anotação pessoal (notes_user)"
+        >
+          <option value="">Notas (qq)</option>
+          <option value="com">📝 Com anotação</option>
+          <option value="sem">— Sem anotação</option>
         </select>
         <select
           value={sortBy}
