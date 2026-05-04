@@ -580,6 +580,12 @@ export function BancoList() {
         searchRef.current?.select();
         return;
       }
+      // n cria nova questão
+      if ((e.key === 'n' || e.key === 'N') && !inField) {
+        e.preventDefault();
+        setCreating(true);
+        return;
+      }
       if (inField) return;
       if (editingId) return; // drawer aberto
 
