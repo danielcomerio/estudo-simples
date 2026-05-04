@@ -785,6 +785,23 @@ export function BancoList() {
                   </div>
                 </div>
                 <div className="actions row gap">
+                  {(q.type === 'objetiva' ||
+                    q.type === 'cloze' ||
+                    q.type === 'flashcard') && (
+                    <Link
+                      href={
+                        q.type === 'objetiva'
+                          ? `/estudar?qid=${q.id}`
+                          : `/cards?qid=${q.id}`
+                      }
+                      title="Estudar só esta"
+                      aria-label="Estudar só esta"
+                    >
+                      <button type="button" className="ghost">
+                        ▶
+                      </button>
+                    </Link>
+                  )}
                   <button
                     type="button"
                     className="ghost"

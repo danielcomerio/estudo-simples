@@ -139,11 +139,32 @@ export function QuestionRunner() {
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
 
   // Query params: ?modo=srs&qtd=10&auto=1 → preset + auto-start
-  // Útil pros quick actions do Painel.
+  // Útil pros quick actions do Painel. Também ?qid=ID pra estudar
+  // 1 questão específica.
   const searchParams = useSearchParams();
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (autoStartedRef.current || phase !== 'config') return;
+    // Se qid presente, monta pool com aquela única questão
+    const qid = searchParams.get('qid');
+    if (qid) {
+      const q = allRaw.find((x) => x.id === qid && x.type === 'objetiva');
+      if (q) {
+        autoStartedRef.current = true;
+        setSession({
+          pool: [q],
+          idx: 0,
+          embaralhar: false,
+          tempoLimite: 0,
+          correct: 0,
+          wrong: 0,
+          skipped: 0,
+          startedAt: Date.now(),
+        });
+        setPhase('running');
+        return;
+      }
+    }
     const modo = searchParams.get('modo');
     const qtd = searchParams.get('qtd');
     const auto = searchParams.get('auto');
@@ -182,7 +203,7 @@ export function QuestionRunner() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, objCount]);
+  }, [searchParams, objCount, allRaw]);
 
   const start = () => {
     const pool = buildPool(all, cfg);

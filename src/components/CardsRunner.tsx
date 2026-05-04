@@ -1,6 +1,7 @@
 'use client';
 
-import { Dispatch, SetStateAction, useEffect, useMemo, useState } from 'react';
+import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   selectActiveQuestions,
   updateQuestionLocal,
@@ -108,6 +109,25 @@ export function CardsRunner() {
     window.addEventListener('beforeunload', onBU);
     return () => window.removeEventListener('beforeunload', onBU);
   }, [phase]);
+
+  // Auto-start de 1 card via ?qid=ID
+  const searchParams = useSearchParams();
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current || phase !== 'config') return;
+    const qid = searchParams.get('qid');
+    if (!qid) return;
+    const q = allRaw.find(
+      (x) => x.id === qid && (x.type === 'cloze' || x.type === 'flashcard')
+    );
+    if (q) {
+      autoStartedRef.current = true;
+      setPool([q]);
+      setIdx(0);
+      setPhase('running');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, allRaw]);
 
   const totalCards = useMemo(
     () => all.filter((q) => q.type === 'cloze' || q.type === 'flashcard').length,
