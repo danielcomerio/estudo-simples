@@ -155,6 +155,8 @@ export function StatsView() {
 
       <SemanaSection questions={questions} />
 
+      <BancasSection questions={questions} />
+
       <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
       <CalibracaoSection questions={questions} />
@@ -346,6 +348,82 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Stats agregadas por banca. Banca extraída de:
+ *  1. fonte.banca (origem='real' garante)
+ *  2. banca_estilo (autorais marcadas com estilo de banca)
+ *  3. fallback "(sem banca)"
+ *
+ * Útil pra concursos com múltiplas bancas (FGV+CESPE+FCC etc).
+ */
+function BancasSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const m = new Map<
+      string,
+      { total: number; attempts: number; correct: number; due: number }
+    >();
+    const now = Date.now();
+    for (const q of questions) {
+      const banca =
+        (typeof q.fonte?.banca === 'string' && q.fonte.banca) ||
+        q.banca_estilo ||
+        '(sem banca)';
+      let agg = m.get(banca);
+      if (!agg) {
+        agg = { total: 0, attempts: 0, correct: 0, due: 0 };
+        m.set(banca, agg);
+      }
+      agg.total += 1;
+      agg.attempts += q.stats?.attempts ?? 0;
+      agg.correct += q.stats?.correct ?? 0;
+      if ((q.srs?.dueDate ?? 0) < now) agg.due += 1;
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total);
+  }, [questions]);
+
+  if (stats.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2>Por banca</h2>
+      <div className="stats-table">
+        <div className="head">Banca</div>
+        <div className="head">Total</div>
+        <div className="head col-hide-sm">Tentativas</div>
+        <div className="head col-hide-sm">% Acerto</div>
+        <div className="head">Vencendo</div>
+        {stats.map(([banca, s]) => (
+          <BancaRow key={banca} banca={banca} s={s} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BancaRow({
+  banca,
+  s,
+}: {
+  banca: string;
+  s: { total: number; attempts: number; correct: number; due: number };
+}) {
+  return (
+    <>
+      <div className="row-cell">{banca}</div>
+      <div className="row-cell">{s.total}</div>
+      <div className="row-cell col-hide-sm">{s.attempts}</div>
+      <div className="row-cell col-hide-sm">
+        {fmtPercent(s.correct, s.attempts)}
+      </div>
+      <div className="row-cell">{s.due}</div>
+    </>
   );
 }
 
