@@ -153,6 +153,8 @@ export function StatsView() {
         )}
       </div>
 
+      <SemanaSection questions={questions} />
+
       <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
       <CalibracaoSection questions={questions} />
@@ -344,6 +346,162 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Comparativo semana atual vs semana anterior:
+ *  - Questões revisadas
+ *  - % acerto
+ *  - Tempo investido (min)
+ * Indicador ↑/↓ + delta absoluto.
+ *
+ * "Semana" = últimos 7 dias rolando (não calendário). Anterior = 7-14d.
+ */
+function SemanaSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const semana = 7 * 24 * 60 * 60 * 1000;
+    const inicioAtual = now - semana;
+    const inicioAnterior = now - 2 * semana;
+
+    let curRev = 0,
+      curCorrect = 0,
+      curMs = 0;
+    let prevRev = 0,
+      prevCorrect = 0,
+      prevMs = 0;
+
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const isCur = h.date >= inicioAtual && h.date < now;
+        const isPrev = h.date >= inicioAnterior && h.date < inicioAtual;
+        if (!isCur && !isPrev) continue;
+        if (isCur) {
+          curRev++;
+          if (h.result === 'correct' || h.result === 'self_pass') curCorrect++;
+          curMs += h.timeMs ?? 0;
+        } else {
+          prevRev++;
+          if (h.result === 'correct' || h.result === 'self_pass') prevCorrect++;
+          prevMs += h.timeMs ?? 0;
+        }
+      }
+    }
+    return {
+      curRev,
+      curCorrect,
+      curMs,
+      prevRev,
+      prevCorrect,
+      prevMs,
+      curPct: curRev > 0 ? Math.round((curCorrect / curRev) * 100) : null,
+      prevPct: prevRev > 0 ? Math.round((prevCorrect / prevRev) * 100) : null,
+    };
+  }, [questions]);
+
+  if (stats.curRev === 0 && stats.prevRev === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 8px' }}>Esta semana vs anterior</h2>
+      <div
+        className="row gap wrap"
+        style={{ marginTop: 8, fontSize: '0.95rem' }}
+      >
+        <SemanaMetric
+          label="Revisões"
+          atual={stats.curRev}
+          anterior={stats.prevRev}
+        />
+        <SemanaMetric
+          label="% Acerto"
+          atual={stats.curPct}
+          anterior={stats.prevPct}
+          unit="%"
+          higherIsBetter
+        />
+        <SemanaMetric
+          label="Tempo (min)"
+          atual={Math.round(stats.curMs / 60000)}
+          anterior={Math.round(stats.prevMs / 60000)}
+        />
+      </div>
+      <p
+        className="muted"
+        style={{ marginTop: 8, fontSize: '0.78rem', fontStyle: 'italic' }}
+      >
+        Janela rolante: últimos 7 dias vs 7-14 dias atrás.
+      </p>
+    </div>
+  );
+}
+
+function SemanaMetric({
+  label,
+  atual,
+  anterior,
+  unit = '',
+  higherIsBetter = true,
+}: {
+  label: string;
+  atual: number | null;
+  anterior: number | null;
+  unit?: string;
+  higherIsBetter?: boolean;
+}) {
+  const valid = atual !== null && anterior !== null;
+  const delta = valid ? atual - anterior : null;
+  const showDelta = delta !== null && anterior !== 0;
+  const better =
+    showDelta && (higherIsBetter ? delta > 0 : delta < 0);
+  const worse = showDelta && (higherIsBetter ? delta < 0 : delta > 0);
+  const arrow = !showDelta ? '' : delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
+  const cor = better
+    ? 'var(--primary)'
+    : worse
+      ? 'var(--danger)'
+      : 'var(--muted)';
+
+  return (
+    <div
+      style={{
+        flex: '1 1 140px',
+        background: 'var(--bg-elev-2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '10px 12px',
+      }}
+    >
+      <div className="muted" style={{ fontSize: '0.82rem' }}>
+        {label}
+      </div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 600, marginTop: 2 }}>
+        {atual ?? '—'}
+        {unit}
+      </div>
+      <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>
+        anterior: {anterior ?? '—'}
+        {unit}
+      </div>
+      {showDelta && delta !== 0 && (
+        <div
+          style={{
+            color: cor,
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            marginTop: 2,
+          }}
+        >
+          {arrow} {Math.abs(delta)}
+          {unit}
+        </div>
+      )}
+    </div>
   );
 }
 
