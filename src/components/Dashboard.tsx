@@ -36,6 +36,69 @@ export function Dashboard() {
   }
 
   const total = questions.length;
+
+  // Empty state: usuário recém-chegado sem nenhuma questão.
+  // Mostra onboarding em 3 passos em vez do painel padrão zerado.
+  if (total === 0) {
+    return (
+      <>
+        <div
+          className="card"
+          style={{ background: 'var(--primary-soft)', border: '1px solid var(--primary)' }}
+        >
+          <h2 style={{ margin: '0 0 8px' }}>👋 Bem-vindo ao Estudo Simples</h2>
+          <p style={{ margin: 0 }}>
+            Você ainda não tem questões. Vamos começar:
+          </p>
+        </div>
+
+        <div className="card">
+          <h2 style={{ margin: '0 0 12px' }}>Em 3 passos</h2>
+          <ol style={{ paddingLeft: 20, lineHeight: 1.8 }}>
+            <li>
+              <strong>Crie seu concurso</strong> em{' '}
+              <Link href="/concursos">/concursos</Link> — banca, órgão,
+              cargo, data da prova. Vincula as disciplinas que vão cair
+              (com peso e qtd_questoes_prova esperada). Aí no topbar você
+              seleciona ele como ativo pra filtrar tudo.
+            </li>
+            <li>
+              <strong>Importe questões</strong> em{' '}
+              <Link href="/banco">/banco</Link>. Suporta JSON formato
+              autoral (`disciplina_id` + `enunciado` + `alternativas`)
+              ou formato real (extração tipo QConcursos: `materia` +
+              `concursoAno` + `gabarito`). Detecta automático e abre
+              wizard com mapping de disciplinas.
+            </li>
+            <li>
+              <strong>Comece a estudar</strong> em{' '}
+              <Link href="/estudar">/estudar</Link> (objetivas) ou{' '}
+              <Link href="/discursivas">/discursivas</Link>. SRS prioriza
+              vencidas; ative interleaving pra misturar disciplinas. Pra
+              memorização decoreba, use{' '}
+              <Link href="/cards">/cards</Link> (Cloze + Flashcard).
+            </li>
+          </ol>
+          <p
+            className="muted"
+            style={{ marginTop: 14, fontSize: '0.88rem', fontStyle: 'italic' }}
+          >
+            Dica: pra entender o app a fundo, leia o{' '}
+            <a
+              href="https://github.com/estudo-simples/estudo-simples/blob/main/README.md"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              README
+            </a>{' '}
+            (se você é o desenvolvedor) ou simplesmente vá explorando — todas as
+            ações são reversíveis.
+          </p>
+        </div>
+      </>
+    );
+  }
+
   const tomorrow = startOfDay(Date.now()) + DAY_MS;
   const dueToday = questions.filter((q) => (q.srs?.dueDate ?? 0) < tomorrow).length;
   const totalAttempts = questions.reduce((s, q) => s + (q.stats?.attempts || 0), 0);
