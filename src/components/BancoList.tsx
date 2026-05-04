@@ -62,6 +62,64 @@ export function BancoList() {
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
+  // Filtros salvos como preset (localStorage). Não sincroniza entre
+  // dispositivos — preferência local.
+  type Preset = {
+    nome: string;
+    search: string;
+    disc: string;
+    tipo: typeof tipo;
+    origem: typeof origem;
+    verif: typeof verif;
+    srsFilter: typeof srsFilter;
+    imgFilter: typeof imgFilter;
+  };
+  const PRESET_KEY = 'estudo-simples:banco:presets';
+  const [presets, setPresets] = useState<Preset[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(PRESET_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) return arr;
+      }
+    } catch {}
+    return [];
+  });
+  const persistPresets = (next: Preset[]) => {
+    setPresets(next);
+    try {
+      localStorage.setItem(PRESET_KEY, JSON.stringify(next));
+    } catch {}
+  };
+  const saveCurrentAsPreset = () => {
+    const nome = window.prompt('Nome do preset:', '');
+    if (!nome || !nome.trim()) return;
+    const novo: Preset = {
+      nome: nome.trim(),
+      search,
+      disc,
+      tipo,
+      origem,
+      verif,
+      srsFilter,
+      imgFilter,
+    };
+    persistPresets([...presets.filter((p) => p.nome !== novo.nome), novo]);
+    toast(`Preset "${novo.nome}" salvo.`, 'success');
+  };
+  const applyPreset = (p: Preset) => {
+    setSearch(p.search);
+    setDisc(p.disc);
+    setTipo(p.tipo);
+    setOrigem(p.origem);
+    setVerif(p.verif);
+    setSrsFilter(p.srsFilter);
+    setImgFilter(p.imgFilter);
+  };
+  const removePreset = (nome: string) => {
+    persistPresets(presets.filter((p) => p.nome !== nome));
+  };
   // Atalhos de teclado: índice da questão "focada" na lista filtrada.
   // -1 = sem foco. j/k navega, Enter edita, espaço seleciona, x exclui.
   const [focusedIdx, setFocusedIdx] = useState(-1);
@@ -580,7 +638,9 @@ export function BancoList() {
         if (verif) ativos.push('verificação');
         if (srsFilter) ativos.push('SRS');
         if (imgFilter) ativos.push('imagem');
-        if (ativos.length === 0) return null;
+        const hasAtivos = ativos.length > 0;
+        const hasPresets = presets.length > 0;
+        if (!hasAtivos && !hasPresets) return null;
         return (
           <div
             style={{
@@ -592,27 +652,72 @@ export function BancoList() {
               fontSize: '0.85rem',
             }}
           >
-            <span className="muted">
-              {ativos.length} filtro(s) ativo(s): {ativos.join(', ')}
-            </span>
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => {
-                setSearch('');
-                setDisc('');
-                setTipo('');
-                setOrigem('');
-                setVerif('');
-                setSrsFilter('');
-                setImgFilter('');
-              }}
-            >
-              🧹 Limpar todos
-            </button>
-            <span className="muted">
-              ({filtered.length} de {questions.length} questões)
-            </span>
+            {hasAtivos && (
+              <>
+                <span className="muted">
+                  {ativos.length} filtro(s) ativo(s): {ativos.join(', ')}
+                </span>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    setSearch('');
+                    setDisc('');
+                    setTipo('');
+                    setOrigem('');
+                    setVerif('');
+                    setSrsFilter('');
+                    setImgFilter('');
+                  }}
+                >
+                  🧹 Limpar todos
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={saveCurrentAsPreset}
+                  title="Salvar combinação atual de filtros como preset"
+                >
+                  💾 Salvar como preset
+                </button>
+                <span className="muted">
+                  ({filtered.length} de {questions.length})
+                </span>
+              </>
+            )}
+            {hasPresets && (
+              <>
+                <span className="muted">Presets:</span>
+                {presets.map((p) => (
+                  <span
+                    key={p.nome}
+                    style={{ display: 'inline-flex', gap: 2, alignItems: 'center' }}
+                  >
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => applyPreset(p)}
+                      style={{ padding: '2px 8px', fontSize: '0.82rem' }}
+                    >
+                      {p.nome}
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => removePreset(p.nome)}
+                      title={`Remover preset "${p.nome}"`}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '0.78rem',
+                        opacity: 0.6,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </>
+            )}
           </div>
         );
       })()}
