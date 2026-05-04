@@ -1,6 +1,7 @@
 'use client';
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   useStore,
   selectActiveQuestions,
@@ -125,6 +126,52 @@ export function QuestionRunner() {
   const [session, setSession] = useState<SessionState | null>(null);
 
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
+
+  // Query params: ?modo=srs&qtd=10&auto=1 → preset + auto-start
+  // Útil pros quick actions do Painel.
+  const searchParams = useSearchParams();
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (autoStartedRef.current || phase !== 'config') return;
+    const modo = searchParams.get('modo');
+    const qtd = searchParams.get('qtd');
+    const auto = searchParams.get('auto');
+    if (!modo && !qtd && !auto) return;
+    const validModos: SessionConfig['modo'][] = [
+      'srs',
+      'aleatorio',
+      'dificuldade',
+      'erros',
+      'novas',
+    ];
+    const newCfg: SessionConfig = { ...cfg };
+    if (modo && (validModos as string[]).includes(modo)) {
+      newCfg.modo = modo as SessionConfig['modo'];
+    }
+    if (qtd) {
+      const n = parseInt(qtd, 10);
+      if (Number.isFinite(n) && n > 0) newCfg.qtd = Math.min(500, n);
+    }
+    setCfg(newCfg);
+    if (auto === '1' && objCount > 0) {
+      autoStartedRef.current = true;
+      const pool = buildPool(all, newCfg);
+      if (pool.length) {
+        setSession({
+          pool,
+          idx: 0,
+          embaralhar: newCfg.embaralhar,
+          tempoLimite: newCfg.tempo,
+          correct: 0,
+          wrong: 0,
+          skipped: 0,
+          startedAt: Date.now(),
+        });
+        setPhase('running');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, objCount]);
 
   const start = () => {
     const pool = buildPool(all, cfg);

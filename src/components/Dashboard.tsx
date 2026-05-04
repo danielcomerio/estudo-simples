@@ -83,6 +83,18 @@ export function Dashboard() {
   }
   const dueChips = Object.entries(dueByDisc).sort((a, b) => b[1] - a[1]);
 
+  // Counts pra quick actions
+  const erradasRecentes = questions.filter((q) => {
+    const h = q.stats?.history || [];
+    return h.slice(-5).some((r) => r.result === 'wrong' || r.result === 'timeout');
+  }).length;
+  const pendentes = questions.filter(
+    (q) => q.type === 'objetiva' && q.verificacao === 'pendente'
+  ).length;
+  const novasNuncaEstudadas = questions.filter(
+    (q) => !q.srs?.lastReviewed && q.type === 'objetiva'
+  ).length;
+
   return (
     <>
       <div className="grid-cards">
@@ -109,11 +121,72 @@ export function Dashboard() {
       </div>
 
       <div className="card">
-        <h2>Atalhos</h2>
+        <h2>Comece agora</h2>
         <div className="row gap wrap">
-          <Link href="/estudar"><button className="primary" type="button">Iniciar sessão de estudo</button></Link>
-          <Link href="/banco"><button type="button">Importar questões</button></Link>
-          <Link href="/discursivas"><button type="button">Praticar discursivas</button></Link>
+          {dueToday > 0 && (
+            <Link
+              href={`/estudar?modo=srs&qtd=${Math.min(20, dueToday)}&auto=1`}
+            >
+              <button className="primary" type="button">
+                🎯 Estudar {Math.min(20, dueToday)} vencendo
+              </button>
+            </Link>
+          )}
+          {erradasRecentes > 0 && (
+            <Link
+              href={`/estudar?modo=erros&qtd=${Math.min(20, erradasRecentes)}&auto=1`}
+            >
+              <button type="button">
+                🔁 Revisar {Math.min(20, erradasRecentes)} erradas recentes
+              </button>
+            </Link>
+          )}
+          {novasNuncaEstudadas > 0 && (
+            <Link
+              href={`/estudar?modo=novas&qtd=${Math.min(10, novasNuncaEstudadas)}&auto=1`}
+            >
+              <button type="button">
+                ✨ Estudar {Math.min(10, novasNuncaEstudadas)} novas
+              </button>
+            </Link>
+          )}
+          {pendentes > 0 && (
+            <Link href="/revisar">
+              <button type="button">⏳ Revisar {pendentes} pendentes</button>
+            </Link>
+          )}
+        </div>
+
+        <div
+          className="row gap wrap"
+          style={{ marginTop: 12, fontSize: '0.88rem' }}
+        >
+          <span className="muted">Outras:</span>
+          <Link href="/estudar">
+            <button type="button" className="ghost">
+              Configurar sessão
+            </button>
+          </Link>
+          <Link href="/discursivas">
+            <button type="button" className="ghost">
+              Discursivas
+            </button>
+          </Link>
+          <Link href="/cards">
+            <button type="button" className="ghost">
+              Cards (Cloze + Flashcard)
+            </button>
+          </Link>
+          <Link href="/simulado">
+            <button type="button" className="ghost">
+              Simulado
+            </button>
+          </Link>
+          <Link href="/banco">
+            <button type="button" className="ghost">
+              Importar
+            </button>
+          </Link>
         </div>
       </div>
 
