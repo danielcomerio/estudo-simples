@@ -6,6 +6,8 @@ import { Topbar } from '@/components/Topbar';
 import { ToastHost } from '@/components/Toast';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { GlobalDropZone } from '@/components/GlobalDropZone';
+import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { OnboardingTour } from '@/components/OnboardingTour';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -59,6 +61,8 @@ export default async function RootLayout({
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
             <OfflineBanner />
             <GlobalDropZone />
+            <PomodoroTimer />
+            <OnboardingTour />
             <main id="main-content" className="page">
               {children}
             </main>
