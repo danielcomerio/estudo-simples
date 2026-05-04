@@ -26,6 +26,7 @@ import { logoutAndReset } from './StoreProvider';
 import { syncNow } from '@/lib/sync';
 import { setTheme, useTheme } from '@/lib/settings';
 import { ActiveConcursoSelector } from './ActiveConcursoSelector';
+import { ShortcutsHelp } from './ShortcutsHelp';
 
 const TABS = [
   { href: '/', label: 'Painel' },
@@ -93,6 +94,8 @@ export function Topbar({ email }: { email: string | null }) {
       </nav>
 
       <div className="right">
+        <ShortcutsHelp />
+
         <ThemeToggleQuick />
 
         <ActiveConcursoSelector />
