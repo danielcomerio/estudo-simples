@@ -17,15 +17,15 @@ function SubmitButton() {
 }
 
 function GuestSubmit() {
-  const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       className="ghost"
-      disabled={pending}
+      formAction={enterAsGuest}
+      formNoValidate
       style={{ width: '100%' }}
     >
-      {pending ? 'Entrando…' : '👤 Entrar como visitante'}
+      👤 Entrar como visitante
     </button>
   );
 }
@@ -47,7 +47,7 @@ export default function SignupPage() {
               border: '1px solid var(--primary)',
               borderRadius: 'var(--radius)',
               padding: '10px 12px',
-              marginBottom: 12,
+              marginBottom: 4,
               fontSize: '0.9rem',
             }}
           >
@@ -117,27 +117,23 @@ export default function SignupPage() {
         <p className="auth-foot">
           Já tem conta? <Link href="/login">Entrar</Link>
         </p>
-      </form>
 
-      {!isGuest && (
-        <form
-          action={enterAsGuest}
-          className="auth-form"
-          style={{ marginTop: 14 }}
-        >
-          <hr
-            style={{
-              margin: '0 0 14px',
-              border: 0,
-              borderTop: '1px solid var(--border)',
-            }}
-          />
-          <GuestSubmit />
-          <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
-            Demo local — dados ficam só neste navegador.
-          </p>
-        </form>
-      )}
+        {!isGuest && (
+          <>
+            <hr
+              style={{
+                margin: '14px 0 12px',
+                border: 0,
+                borderTop: '1px solid var(--border)',
+              }}
+            />
+            <GuestSubmit />
+            <p className="muted" style={{ fontSize: '0.78rem', marginTop: 4 }}>
+              Demo local — dados ficam só neste navegador.
+            </p>
+          </>
+        )}
+      </form>
     </main>
   );
 }
