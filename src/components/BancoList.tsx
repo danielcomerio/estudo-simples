@@ -586,6 +586,12 @@ export function BancoList() {
         setCreating(true);
         return;
       }
+      // r vai pra /revisar (bulk-fill de gabarito pendentes)
+      if ((e.key === 'r' || e.key === 'R') && !inField) {
+        e.preventDefault();
+        window.location.href = '/revisar';
+        return;
+      }
       if (inField) return;
       if (editingId) return; // drawer aberto
 
@@ -797,7 +803,22 @@ export function BancoList() {
         );
       })()}
 
-      <div className="row gap wrap" style={{ marginBottom: 14 }}>
+      <div
+        className="row gap wrap banco-filters"
+        style={{
+          marginBottom: 14,
+          position: 'sticky',
+          top: 'var(--topbar-h, 60px)',
+          zIndex: 20,
+          background: 'var(--bg-elev)',
+          paddingTop: 8,
+          paddingBottom: 8,
+          margin: '-8px -2px 14px',
+          paddingLeft: 2,
+          paddingRight: 2,
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <h2 style={{ margin: 0, marginRight: 'auto' }}>Banco atual</h2>
         <input
           ref={searchRef}
