@@ -232,6 +232,9 @@ export function Dashboard() {
         <Heatmap days={days} level={level} today={today} />
       </div>
 
+      <PrevisaoSection questions={questions} today={today} />
+
+
       <div className="card">
         <h2>Vencendo hoje, por disciplina</h2>
         <div className="chips">
@@ -247,6 +250,101 @@ export function Dashboard() {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Heatmap de PREVISÃO: próximos 30 dias com quantas questões vencem
+ * em cada dia. Útil pra ver carga futura ("antes da prova vou ter
+ * picos de N revisões/dia").
+ *
+ * Atrasadas (dueDate < hoje) viram primeira coluna especial (vermelha).
+ * Cada coluna = 1 dia. Altura proporcional ao count, normalizada pelo
+ * pico do mês.
+ */
+function PrevisaoSection({
+  questions,
+  today,
+}: {
+  questions: { srs?: { dueDate?: number } }[];
+  today: number;
+}) {
+  const buckets = new Array(31).fill(0); // 0=atrasadas, 1..30=próximos dias
+  for (const q of questions) {
+    const due = q.srs?.dueDate ?? 0;
+    if (!due) continue;
+    if (due < today) {
+      buckets[0] += 1;
+      continue;
+    }
+    const diff = Math.floor((due - today) / DAY_MS);
+    if (diff <= 30) buckets[diff] += 1;
+  }
+  const max = Math.max(1, ...buckets);
+  const total = buckets.reduce((s, n) => s + n, 0);
+  if (total === 0) return null;
+
+  return (
+    <div className="card">
+      <h2>Previsão — próximos 30 dias</h2>
+      <p className="muted" style={{ marginTop: -4, fontSize: '0.88rem' }}>
+        Quantas questões vão vencer em cada dia. Útil pra antecipar dias
+        de carga alta (e atrasadas que precisam recuperar).
+      </p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
+          height: 80,
+          gap: 2,
+          marginTop: 10,
+        }}
+      >
+        {buckets.map((n, i) => {
+          const isAtrasadas = i === 0;
+          const isHoje = i === 1;
+          const heightPct = (n / max) * 100;
+          const cor = isAtrasadas
+            ? 'var(--danger)'
+            : isHoje
+              ? 'var(--warn, #d97706)'
+              : 'var(--primary)';
+          const dia =
+            i === 0
+              ? 'Atrasadas'
+              : i === 1
+                ? 'Hoje'
+                : `+${i - 1}d`;
+          return (
+            <div
+              key={i}
+              title={`${dia}: ${n} questão(ões)`}
+              style={{
+                flex: 1,
+                height: `${Math.max(2, heightPct)}%`,
+                background: cor,
+                borderRadius: '2px 2px 0 0',
+                position: 'relative',
+                cursor: 'default',
+              }}
+            />
+          );
+        })}
+      </div>
+      <div
+        className="muted"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          marginTop: 6,
+          fontSize: '0.78rem',
+        }}
+      >
+        <span>🔴 atrasadas: {buckets[0]}</span>
+        <span>📅 hoje: {buckets[1]}</span>
+        <span>+30d</span>
+      </div>
+    </div>
   );
 }
 
