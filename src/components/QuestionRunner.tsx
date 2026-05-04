@@ -27,6 +27,7 @@ import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
+import { NoteInline } from './NoteInline';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -1048,24 +1049,7 @@ function RunningView({
             </div>
           )}
 
-          {payload.notes_user && (
-            <div
-              className="feedback-block"
-              style={{
-                background: 'var(--primary-soft)',
-                borderLeft: '3px solid var(--primary)',
-                paddingLeft: 12,
-              }}
-            >
-              <strong>Suas anotações:</strong>
-              <div
-                style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}
-                dangerouslySetInnerHTML={{
-                  __html: renderRichText(payload.notes_user),
-                }}
-              />
-            </div>
-          )}
+          <NoteInline q={q} />
         </div>
       )}
 

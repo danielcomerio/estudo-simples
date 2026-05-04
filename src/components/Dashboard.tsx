@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useStore, selectActiveQuestions, selectDisciplinas } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
@@ -14,6 +16,7 @@ export function Dashboard() {
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
   const dailyGoal = useDailyGoal();
+  const router = useRouter();
 
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
@@ -188,6 +191,26 @@ export function Dashboard() {
     return c / a < 0.3;
   }).length;
 
+  // Sessão recomendada (mesma fórmula do card "Hoje, recomendado").
+  const recVencendo = Math.min(15, dueToday);
+  const recErradas = Math.min(5, erradasRecentes);
+  const recNovas = Math.min(5, novasNuncaEstudadas);
+  const totalRec = recVencendo + recErradas + recNovas;
+
+  // Atalho P (capital): inicia sessão recomendada se houver
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'P' && totalRec > 0) {
+        e.preventDefault();
+        router.push(`/estudar?modo=srs&qtd=${totalRec}&auto=1`);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [totalRec, router]);
+
   return (
     <>
       <div className="grid-cards">
@@ -288,19 +311,8 @@ export function Dashboard() {
         )}
       </div>
 
-      {(() => {
-        // Sessão recomendada: dueToday + erradasRecentes(até 5) + algumas
-        // novas se ainda houver espaço. Tempo estimado: 90s/questão.
-        const recVencendo = Math.min(15, dueToday);
-        const recErradas = Math.min(5, erradasRecentes);
-        const recNovas = Math.min(5, novasNuncaEstudadas);
-        const totalRec = recVencendo + recErradas + recNovas;
-        if (totalRec === 0) return null;
+      {totalRec > 0 && (() => {
         const minEstim = Math.ceil((totalRec * 90) / 60);
-        // (meta diária é renderizada acima — ver bloco de meta)
-        // Compõe sessão: prioriza vencidas (modo srs com qtd =
-        // recVencendo+recErradas+recNovas; embaralha)
-        const totalQtd = totalRec;
         return (
           <div
             className="card"
@@ -317,9 +329,9 @@ export function Dashboard() {
               {recErradas > 0 && ` · ${recErradas} erradas recentes`}
               {recNovas > 0 && ` · ${recNovas} novas`}
             </p>
-            <Link href={`/estudar?modo=srs&qtd=${totalQtd}&auto=1`}>
+            <Link href={`/estudar?modo=srs&qtd=${totalRec}&auto=1`}>
               <button type="button" className="primary">
-                Começar agora ({totalRec})
+                Começar agora (P)
               </button>
             </Link>
           </div>

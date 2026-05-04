@@ -1225,6 +1225,30 @@ export function BancoList() {
                         🏷 {q.tags.length}
                       </span>
                     )}
+                    {(q.stats?.attempts ?? 0) >= 3 && (() => {
+                      const a = q.stats!.attempts;
+                      const c = q.stats!.correct ?? 0;
+                      const pct = Math.round((c / a) * 100);
+                      const cor =
+                        pct >= 70
+                          ? '#22c55e'
+                          : pct >= 40
+                            ? '#f59e0b'
+                            : '#ef4444';
+                      return (
+                        <span
+                          title={`${c}/${a} acertos`}
+                          style={{
+                            color: cor,
+                            fontWeight: 500,
+                            background: 'transparent',
+                            border: `1px solid ${cor}`,
+                          }}
+                        >
+                          {pct}%
+                        </span>
+                      );
+                    })()}
                     {q.stats?.history && q.stats.history.length > 0 && (
                       <span
                         className="mini-spark"

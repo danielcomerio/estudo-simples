@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
+import { startOfDay } from '@/lib/utils';
 import {
   matchActiveConcurso,
   useActiveConcursoFilter,
@@ -176,6 +177,8 @@ export function StatsView() {
       <NemesisSection questions={questions} />
 
       <AprendizadoSection questions={questions} />
+
+      <CargaProximaSection questions={questions} />
 
       <OrigemDistSection questions={questions} />
 
@@ -2001,6 +2004,128 @@ function AprendizadoSection({
             ajuda a fixar.
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Carga de revisões agendadas nos próximos 30 dias. Ajuda planejar:
+ * dias com pico ficam visíveis em vermelho. Inclui "atrasadas" no
+ * dia 0 (se houver).
+ */
+function CargaProximaSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const now = Date.now();
+    const today = startOfDay(now);
+    const days: { date: number; count: number; isOverdue?: boolean }[] = [];
+    let atrasadas = 0;
+    for (let i = 0; i < 30; i++) {
+      days.push({ date: today + i * DAY_MS, count: 0 });
+    }
+    for (const q of questions) {
+      const due = q.srs?.dueDate ?? 0;
+      if (!due) continue;
+      if (due < today) {
+        atrasadas++;
+        continue;
+      }
+      const dayIdx = Math.floor((startOfDay(due) - today) / DAY_MS);
+      if (dayIdx >= 0 && dayIdx < days.length) days[dayIdx].count++;
+    }
+    const max = Math.max(1, ...days.map((d) => d.count));
+    return { days, atrasadas, max };
+  }, [questions]);
+
+  if (data.days.every((d) => d.count === 0) && data.atrasadas === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>📅 Carga próxima (30 dias)</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 12px', fontSize: '0.85rem' }}
+      >
+        Quantas revisões estão agendadas pra cada dia. Picos altos
+        valem antecipar parte pra equilibrar.
+      </p>
+      {data.atrasadas > 0 && (
+        <div
+          style={{
+            marginBottom: 10,
+            padding: '6px 10px',
+            background: 'var(--danger-soft, #4a1d1d)',
+            border: '1px solid var(--danger, #ef4444)',
+            borderRadius: 'var(--radius)',
+            fontSize: '0.88rem',
+          }}
+        >
+          🔴 <strong>{data.atrasadas}</strong> atrasada(s) — vence(ram)
+          antes de hoje.
+        </div>
+      )}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(30, 1fr)',
+          gap: 2,
+          alignItems: 'end',
+        }}
+      >
+        {data.days.map((d, i) => {
+          const intensity = d.count === 0 ? 0 : 0.2 + (d.count / data.max) * 0.8;
+          const day = new Date(d.date);
+          const dayLabel = `${day.getDate()}/${day.getMonth() + 1}`;
+          const heightPct = d.count === 0 ? 0 : (d.count / data.max) * 100;
+          const cor =
+            d.count > data.max * 0.66
+              ? '#ef4444'
+              : d.count > data.max * 0.33
+                ? '#f59e0b'
+                : '#22c55e';
+          return (
+            <div
+              key={i}
+              title={`${dayLabel}: ${d.count} revisão(ões)`}
+              style={{
+                height: 60,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                gap: 2,
+              }}
+            >
+              <div
+                style={{
+                  height: `${heightPct}%`,
+                  background: `${cor}${Math.round(intensity * 255)
+                    .toString(16)
+                    .padStart(2, '0')}`,
+                  border: d.count > 0 ? `1px solid ${cor}` : 'none',
+                  borderRadius: 2,
+                  minHeight: d.count > 0 ? 3 : 0,
+                }}
+              />
+              {(i === 0 || (i + 1) % 7 === 0) && (
+                <div
+                  style={{
+                    fontSize: '0.6rem',
+                    color: 'var(--muted)',
+                    textAlign: 'center',
+                  }}
+                >
+                  {dayLabel}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

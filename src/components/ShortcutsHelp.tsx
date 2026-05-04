@@ -93,6 +93,10 @@ export function ShortcutsHelp() {
               <Row k="?" desc="Abre/fecha esta ajuda" />
             </Section>
 
+            <Section title="/ (painel)">
+              <Row k="P" desc="Começa sessão recomendada (se houver)" />
+            </Section>
+
             <Section title="/banco">
               <Row k="/" desc="Foca a busca" />
               <Row k="j ou ↓" desc="Próxima questão (foca)" />
