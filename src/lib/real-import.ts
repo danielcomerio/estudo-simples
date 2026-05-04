@@ -15,7 +15,6 @@
 
 import type {
   Alternativa,
-  DiscursivaPayload,
   ObjetivaPayload,
   Question,
   QuestionFonte,
@@ -390,9 +389,7 @@ export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
 export type NormalizedItem = Omit<
   Question,
   'id' | 'user_id' | 'created_at' | 'updated_at'
-> & {
-  payload: ObjetivaPayload | DiscursivaPayload;
-};
+>;
 
 export type BatchParseResult = {
   /** Itens prontos pra import (já passaram dedup contra DB existente). */
@@ -420,30 +417,22 @@ export type BatchParseResult = {
  * NÃO grava nada. Caller usa BatchParseResult pra montar UI de preview
  * + mapping de disciplinas e depois chama applyMappingAndImport.
  */
-export function parseImportBatch(
-  rawText: string,
-  existingDedupeKeys: Set<string>
-): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
-  const { value, error } = safeParseJSON(rawText);
-  if (error) return { error: 'JSON inválido: ' + error };
-  const items = extractItems(value);
-  if (items.length === 0) return { error: 'Nenhum item encontrado' };
-
-  const result: BatchParseResult = {
-    toImport: [],
-    realDiscarded: [],
-    autoralErrors: [],
-    unknownCount: 0,
-    duplicateInDbCount: 0,
-    duplicateInBatchCount: 0,
-    novasDisciplinaNomes: [],
-    realCount: 0,
-    autoralCount: 0,
-  };
-
-  const seenInBatch = new Set<string>();
-  const novasDisciplinasSet = new Set<string>();
-
+/**
+ * Núcleo de processamento de items: aplica detect+parse+dedup pra
+ * cada item, mutando o `result` e os sets compartilhados. Reutilizado
+ * por parseImportBatch (1 arquivo) e parseImportBatchMulti (N arquivos).
+ *
+ * `errorPrefix` aparece nas mensagens de erro pra identificar de qual
+ * arquivo o problema veio (em multi-file).
+ */
+function processItems(
+  items: unknown[],
+  result: BatchParseResult,
+  seenInBatch: Set<string>,
+  novasDisciplinasSet: Set<string>,
+  existingDedupeKeys: Set<string>,
+  errorPrefix = ''
+): void {
   items.forEach((raw, idx) => {
     const fmt = detectFormat(raw);
 
@@ -471,7 +460,9 @@ export function parseImportBatch(
       result.autoralCount += 1;
       const v = validateQuestion(raw);
       if (!v.ok) {
-        result.autoralErrors.push(`Item #${idx + 1}: ${v.errors.join(' | ')}`);
+        result.autoralErrors.push(
+          `${errorPrefix}Item #${idx + 1}: ${v.errors.join(' | ')}`
+        );
         return;
       }
       const norm = normalizeQuestion(raw as Record<string, unknown>, v.type);
@@ -491,6 +482,86 @@ export function parseImportBatch(
       result.unknownCount += 1;
     }
   });
+}
+
+function emptyBatchResult(): BatchParseResult {
+  return {
+    toImport: [],
+    realDiscarded: [],
+    autoralErrors: [],
+    unknownCount: 0,
+    duplicateInDbCount: 0,
+    duplicateInBatchCount: 0,
+    novasDisciplinaNomes: [],
+    realCount: 0,
+    autoralCount: 0,
+  };
+}
+
+export function parseImportBatch(
+  rawText: string,
+  existingDedupeKeys: Set<string>
+): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
+  const { value, error } = safeParseJSON(rawText);
+  if (error) return { error: 'JSON inválido: ' + error };
+  const items = extractItems(value);
+  if (items.length === 0) return { error: 'Nenhum item encontrado' };
+
+  const result = emptyBatchResult();
+  const seenInBatch = new Set<string>();
+  const novasDisciplinasSet = new Set<string>();
+  processItems(items, result, seenInBatch, novasDisciplinasSet, existingDedupeKeys);
+  result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
+  return { ok: result };
+}
+
+/**
+ * Multi-file: processa N arquivos de uma vez, agregando num único
+ * BatchParseResult. Dedup cruzado entre arquivos (mesma questão em 2
+ * arquivos vira 1 import).
+ *
+ * Cada arquivo individual pode falhar (JSON inválido, vazio) sem
+ * derrubar o batch — vai pra autoralErrors com prefixo de arquivo.
+ *
+ * Retorna erro só se TODOS os arquivos falharam ou nenhum item foi
+ * encontrado em nenhum.
+ */
+export function parseImportBatchMulti(
+  files: Array<{ name: string; text: string }>,
+  existingDedupeKeys: Set<string>
+): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
+  if (files.length === 0) return { error: 'Nenhum arquivo' };
+
+  const result = emptyBatchResult();
+  const seenInBatch = new Set<string>();
+  const novasDisciplinasSet = new Set<string>();
+  let anyParsed = false;
+
+  for (const file of files) {
+    const { value, error } = safeParseJSON(file.text);
+    if (error) {
+      result.autoralErrors.push(`[${file.name}] JSON inválido: ${error}`);
+      continue;
+    }
+    const items = extractItems(value);
+    if (items.length === 0) {
+      result.autoralErrors.push(`[${file.name}] Nenhum item encontrado`);
+      continue;
+    }
+    anyParsed = true;
+    processItems(
+      items,
+      result,
+      seenInBatch,
+      novasDisciplinasSet,
+      existingDedupeKeys,
+      `[${file.name}] `
+    );
+  }
+
+  if (!anyParsed) {
+    return { error: 'Nenhum arquivo válido encontrado' };
+  }
 
   result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
   return { ok: result };

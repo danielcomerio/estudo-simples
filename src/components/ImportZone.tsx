@@ -13,6 +13,7 @@ import {
 import {
   applyDisciplinaMapping,
   parseImportBatch,
+  parseImportBatchMulti,
   suggestDisciplinaMapping,
   type BatchParseResult,
   type NormalizedItem,
@@ -79,7 +80,9 @@ export function ImportZone() {
     return { concursoId: cid, topicoId: tid, discNome };
   };
 
-  const startPreview = (text: string) => {
+  const setupPreview = (
+    runParse: () => ReturnType<typeof parseImportBatch>
+  ) => {
     setError(null);
     setPreview(null);
     setDiscMapping(new Map());
@@ -88,13 +91,8 @@ export function ImportZone() {
       setError('Sem usuário autenticado.');
       return;
     }
-    if (!text || !text.trim()) {
-      setError('Vazio.');
-      return;
-    }
 
-    const existingKeys = new Set(existing.map(dedupeKey));
-    const result = parseImportBatch(text, existingKeys);
+    const result = runParse();
     if (result.error) {
       setError(result.error);
       return;
@@ -112,9 +110,26 @@ export function ImportZone() {
       if (s.sugestaoExistenteNome) {
         map.set(s.novoNome, s.sugestaoExistenteNome);
       }
-      // Sem sugestão: deixa fora do map → mantém nome original
     }
     setDiscMapping(map);
+  };
+
+  const startPreview = (text: string) => {
+    if (!text || !text.trim()) {
+      setError('Vazio.');
+      return;
+    }
+    const existingKeys = new Set(existing.map(dedupeKey));
+    setupPreview(() => parseImportBatch(text, existingKeys));
+  };
+
+  const startPreviewMulti = (files: Array<{ name: string; text: string }>) => {
+    if (files.length === 0) {
+      setError('Nenhum arquivo.');
+      return;
+    }
+    const existingKeys = new Set(existing.map(dedupeKey));
+    setupPreview(() => parseImportBatchMulti(files, existingKeys));
   };
 
   const handleFiles = async (files: FileList | File[]) => {
@@ -125,12 +140,21 @@ export function ImportZone() {
       toast('Nenhum arquivo JSON.', 'warn');
       return;
     }
-    if (arr.length > 1) {
-      toast('Importe um arquivo por vez (preview multi-arquivo ainda não).', 'warn');
+    if (arr.length === 1) {
+      const text = await arr[0].text();
+      startPreview(text);
       return;
     }
-    const text = await arr[0].text();
-    startPreview(text);
+    // Multi-file: lê todos em paralelo, agrega num único preview
+    try {
+      const contents = await Promise.all(
+        arr.map(async (f) => ({ name: f.name, text: await f.text() }))
+      );
+      startPreviewMulti(contents);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError('Falha ao ler arquivos: ' + msg);
+    }
   };
 
   const confirmImport = () => {
@@ -303,12 +327,13 @@ export function ImportZone() {
             }}
           >
             <span className="icon" aria-hidden>⬆</span>
-            <strong>Arraste UM arquivo JSON aqui</strong>
-            <span>ou clique para selecionar</span>
+            <strong>Arraste arquivos JSON aqui</strong>
+            <span>ou clique para selecionar (vários OK)</span>
             <input
               ref={inputRef}
               type="file"
               accept=".json,application/json"
+              multiple
               hidden
               onChange={(e) => {
                 if (e.target.files?.length) void handleFiles(e.target.files);

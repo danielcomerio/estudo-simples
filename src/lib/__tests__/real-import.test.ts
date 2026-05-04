@@ -3,6 +3,8 @@ import {
   detectFormat,
   hasImageHint,
   jaccardSimilarity,
+  parseImportBatch,
+  parseImportBatchMulti,
   parseRealItem,
   suggestDisciplinaMapping,
   tokenize,
@@ -215,6 +217,90 @@ describe('jaccardSimilarity', () => {
     const s = jaccardSimilarity(a, b);
     expect(s).toBeGreaterThan(0.3);
     expect(s).toBeLessThan(1);
+  });
+});
+
+describe('parseImportBatchMulti', () => {
+  const autoral = (id: string, enun: string) =>
+    JSON.stringify({
+      tipo: 'objetiva',
+      disciplina_id: 'd',
+      enunciado: enun,
+      gabarito: 'A',
+      alternativas: [
+        { letra: 'A', texto: 'a', correta: true },
+        { letra: 'B', texto: 'b' },
+      ],
+    });
+
+  it('agrega 2 arquivos', () => {
+    const r = parseImportBatchMulti(
+      [
+        { name: 'a.json', text: '[' + autoral('1', 'q1') + ']' },
+        { name: 'b.json', text: '[' + autoral('2', 'q2') + ']' },
+      ],
+      new Set()
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.ok!.toImport).toHaveLength(2);
+    expect(r.ok!.autoralCount).toBe(2);
+  });
+
+  it('dedup cruzado entre arquivos', () => {
+    const sameQ = autoral('1', 'mesma');
+    const r = parseImportBatchMulti(
+      [
+        { name: 'a.json', text: '[' + sameQ + ']' },
+        { name: 'b.json', text: '[' + sameQ + ']' },
+      ],
+      new Set()
+    );
+    expect(r.ok!.toImport).toHaveLength(1);
+    expect(r.ok!.duplicateInBatchCount).toBe(1);
+  });
+
+  it('arquivo inválido vira erro mas não derruba batch', () => {
+    const r = parseImportBatchMulti(
+      [
+        { name: 'broken.json', text: '{ não é json' },
+        { name: 'ok.json', text: '[' + autoral('2', 'ok') + ']' },
+      ],
+      new Set()
+    );
+    expect(r.ok!.toImport).toHaveLength(1);
+    expect(r.ok!.autoralErrors.some((e) => e.includes('broken.json'))).toBe(true);
+  });
+
+  it('todos arquivos inválidos → erro geral', () => {
+    const r = parseImportBatchMulti(
+      [
+        { name: 'a.json', text: '???' },
+        { name: 'b.json', text: '[]' },
+      ],
+      new Set()
+    );
+    expect(r.error).toBeTruthy();
+  });
+
+  it('lista vazia → erro', () => {
+    const r = parseImportBatchMulti([], new Set());
+    expect(r.error).toBe('Nenhum arquivo');
+  });
+
+  it('respeita existingDedupeKeys', () => {
+    const existing = parseImportBatch('[' + autoral('1', 'q1') + ']', new Set());
+    const keys = new Set(
+      (existing.ok?.toImport ?? []).map((i) => {
+        const p = i.payload as { enunciado?: string };
+        return (i.disciplina_id ?? '') + '||' + (p.enunciado ?? '');
+      })
+    );
+    const r = parseImportBatchMulti(
+      [{ name: 'a.json', text: '[' + autoral('1', 'q1') + ']' }],
+      keys
+    );
+    expect(r.ok!.toImport).toHaveLength(0);
+    expect(r.ok!.duplicateInDbCount).toBe(1);
   });
 });
 
