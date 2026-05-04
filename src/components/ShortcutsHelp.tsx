@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { getTheme, setTheme } from '@/lib/settings';
+import { toast } from './Toast';
 
 /**
  * Modal de ajuda listando todos os atalhos de teclado por contexto.
@@ -14,6 +16,15 @@ export function ShortcutsHelp() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
+      // Ctrl+Shift+L cicla tema (funciona mesmo dentro de inputs)
+      if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) {
+        e.preventDefault();
+        const cur = getTheme();
+        const next = cur === 'auto' ? 'light' : cur === 'light' ? 'dark' : 'auto';
+        setTheme(next);
+        toast(`Tema: ${next}`, 'success');
+        return;
+      }
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === '?') {
         e.preventDefault();
@@ -78,6 +89,7 @@ export function ShortcutsHelp() {
               <Row k="Ctrl+K" desc="Abre/fecha command palette" />
               <Row k="Ctrl+P" desc="Idem (alternativo)" />
               <Row k="Ctrl+I" desc="Vai pra /banco (atalho de import)" />
+              <Row k="Ctrl+Shift+L" desc="Cicla tema (auto / claro / escuro)" />
               <Row k="?" desc="Abre/fecha esta ajuda" />
             </Section>
 

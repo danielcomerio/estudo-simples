@@ -968,6 +968,21 @@ label.check-row input {
   overflow: hidden;
   color: var(--text);
 }
+.banco-item.compact {
+  padding: 6px 10px;
+}
+.banco-item.compact .preview {
+  font-size: 0.85rem;
+  -webkit-line-clamp: 1;
+}
+.banco-item.compact .meta {
+  font-size: 0.72rem;
+  margin-top: 3px;
+  gap: 4px;
+}
+.banco-item.compact .meta span {
+  padding: 1px 5px;
+}
 .banco-item .meta {
   font-size: 0.78rem;
   color: var(--muted);

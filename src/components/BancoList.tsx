@@ -99,6 +99,22 @@ export function BancoList() {
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
+  const [compact, setCompact] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem('estudo-simples:banco:compact') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        'estudo-simples:banco:compact',
+        compact ? '1' : '0'
+      );
+    } catch {}
+  }, [compact]);
   // Filtros salvos como preset (localStorage). Não sincroniza entre
   // dispositivos — preferência local.
   type Preset = {
@@ -948,6 +964,15 @@ export function BancoList() {
           <option value="acerto_asc">↑ Menor % acerto</option>
           <option value="dificuldade_desc">↓ Mais difíceis</option>
         </select>
+        <button
+          type="button"
+          className={compact ? 'primary' : 'ghost'}
+          onClick={() => setCompact((v) => !v)}
+          title={compact ? 'Sair do modo compacto' : 'Ativar modo compacto (mais itens por tela)'}
+          aria-pressed={compact}
+        >
+          {compact ? '⊞ Compacto' : '⊟ Compacto'}
+        </button>
       </div>
 
       <div className="row gap wrap" style={{ marginBottom: 12 }}>
@@ -1065,7 +1090,7 @@ export function BancoList() {
             return (
               <div
                 key={q.id}
-                className="banco-item"
+                className={'banco-item' + (compact ? ' compact' : '')}
                 data-banco-idx={i}
                 style={
                   isFocused
@@ -1094,7 +1119,8 @@ export function BancoList() {
                     className="preview"
                     dangerouslySetInnerHTML={{
                       __html: highlightSearch(
-                        enun.slice(0, 240) + (enun.length > 240 ? '…' : ''),
+                        enun.slice(0, compact ? 100 : 240) +
+                          (enun.length > (compact ? 100 : 240) ? '…' : ''),
                         search
                       ),
                     }}
@@ -1170,6 +1196,14 @@ export function BancoList() {
                             />
                           );
                         })}
+                      </span>
+                    )}
+                    {q.srs?.lastReviewed && (
+                      <span
+                        className="muted"
+                        title={`Última revisão: ${new Date(q.srs.lastReviewed).toLocaleString('pt-BR')}`}
+                      >
+                        ✓ {fmtRelative(q.srs.lastReviewed)}
                       </span>
                     )}
                     {q.srs?.dueDate && (() => {
