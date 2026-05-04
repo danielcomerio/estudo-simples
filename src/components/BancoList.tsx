@@ -22,6 +22,7 @@ import {
 import { setActiveConcursoId } from '@/lib/settings';
 import { confirmDialog } from './ConfirmDialog';
 import { QuestionCreateDrawer } from './QuestionCreateDrawer';
+import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
@@ -185,6 +186,7 @@ export function BancoList() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const editingQuestion = useMemo(
     () => (editingId ? questions.find((q) => q.id === editingId) ?? null : null),
     [questions, editingId]
@@ -1026,6 +1028,14 @@ export function BancoList() {
         >
           + Nova
         </button>
+        <button
+          type="button"
+          onClick={() => setBrowsing(true)}
+          disabled={sorted.length === 0}
+          title="Navegar pelas questões filtradas como flashcard, sem afetar SRS"
+        >
+          📖 Modo leitura
+        </button>
         <button type="button" onClick={selectAllFiltered}>
           Selecionar tudo (filtrado)
         </button>
@@ -1106,6 +1116,13 @@ export function BancoList() {
 
       {creating && (
         <QuestionCreateDrawer onClose={() => setCreating(false)} />
+      )}
+
+      {browsing && sorted.length > 0 && (
+        <BancoBrowse
+          questions={sorted}
+          onClose={() => setBrowsing(false)}
+        />
       )}
 
       <div className="banco-list">
