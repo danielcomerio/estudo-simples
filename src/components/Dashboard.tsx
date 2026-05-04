@@ -120,6 +120,43 @@ export function Dashboard() {
         </div>
       </div>
 
+      {(() => {
+        // Sessão recomendada: dueToday + erradasRecentes(até 5) + algumas
+        // novas se ainda houver espaço. Tempo estimado: 90s/questão.
+        const recVencendo = Math.min(15, dueToday);
+        const recErradas = Math.min(5, erradasRecentes);
+        const recNovas = Math.min(5, novasNuncaEstudadas);
+        const totalRec = recVencendo + recErradas + recNovas;
+        if (totalRec === 0) return null;
+        const minEstim = Math.ceil((totalRec * 90) / 60);
+        // Compõe sessão: prioriza vencidas (modo srs com qtd =
+        // recVencendo+recErradas+recNovas; embaralha)
+        const totalQtd = totalRec;
+        return (
+          <div
+            className="card"
+            style={{
+              background: 'var(--primary-soft)',
+              border: '1px solid var(--primary)',
+            }}
+          >
+            <h2 style={{ margin: '0 0 6px' }}>🎯 Hoje, recomendado</h2>
+            <p style={{ margin: '0 0 10px', fontSize: '0.95rem' }}>
+              <strong>{totalRec}</strong> questão(ões){' '}
+              <span className="muted">(~{minEstim} min)</span>
+              {recVencendo > 0 && ` · ${recVencendo} vencendo`}
+              {recErradas > 0 && ` · ${recErradas} erradas recentes`}
+              {recNovas > 0 && ` · ${recNovas} novas`}
+            </p>
+            <Link href={`/estudar?modo=srs&qtd=${totalQtd}&auto=1`}>
+              <button type="button" className="primary">
+                Começar agora ({totalRec})
+              </button>
+            </Link>
+          </div>
+        );
+      })()}
+
       <div className="card">
         <h2>Comece agora</h2>
         <div className="row gap wrap">
