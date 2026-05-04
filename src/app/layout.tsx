@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   title: 'Estudo Simples',
   description: 'Repetição espaçada para concursos públicos.',
   applicationName: 'Estudo Simples',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'Estudo Simples',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export const viewport: Viewport = {
