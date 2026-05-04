@@ -6,6 +6,7 @@ import { startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
 import { applyTheme, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
+import { CommandPalette } from './CommandPalette';
 import { ConfirmHost } from './ConfirmDialog';
 
 export function StoreProvider({
@@ -57,6 +58,7 @@ export function StoreProvider({
     <>
       {children}
       <ConfirmHost />
+      <CommandPalette />
     </>
   );
 }
