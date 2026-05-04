@@ -11,6 +11,8 @@ import {
 import { scheduleSync } from '@/lib/sync';
 import Link from 'next/link';
 import { fmtRelative } from '@/lib/format';
+import { DAY_MS } from '@/lib/srs';
+import { startOfDay } from '@/lib/utils';
 import {
   matchActiveConcurso,
   useActiveConcursoFilter,
@@ -53,6 +55,9 @@ export function BancoList() {
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
   const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
   const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
+  const [srsFilter, setSrsFilter] = useState<
+    '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
+  >('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Paginação visual: render só os primeiros N pra evitar travar com
   // milhares de cards. User pode "carregar mais" pra estender.
@@ -68,17 +73,36 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
   }, [filtersKey]);
 
   const filtered = useMemo(() => {
     const txt = search.trim().toLowerCase();
+    const now = Date.now();
+    const tomorrow = startOfDay(now) + DAY_MS;
+    const sevenDaysAgo = now - 7 * DAY_MS;
     return questions.filter((q) => {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      if (srsFilter) {
+        const due = q.srs?.dueDate ?? 0;
+        const lastReviewed = q.srs?.lastReviewed;
+        const createdAt = q.created_at ? new Date(q.created_at).getTime() : 0;
+        if (srsFilter === 'atrasadas') {
+          if (due >= startOfDay(now)) return false;
+        } else if (srsFilter === 'hoje') {
+          if (due >= tomorrow || due < startOfDay(now)) return false;
+        } else if (srsFilter === 'novas') {
+          if (lastReviewed) return false;
+        } else if (srsFilter === 'recentes') {
+          if (createdAt < sevenDaysAgo) return false;
+        } else if (srsFilter === 'sem_estudo') {
+          if ((q.stats?.attempts ?? 0) > 0) return false;
+        }
+      }
       if (origem) {
         // 'autoral' inclui legado (sem campo origem) — questões pré-migration
         // 0003 foram todas criadas pelo user, então conceitualmente autorais.
@@ -109,7 +133,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, concursoDiscNomes]);
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -292,6 +316,18 @@ export function BancoList() {
           <option value="pendente">⏳ Pendentes</option>
           <option value="duvidosa">⚠️ Duvidosas</option>
           <option value="sem_verif">— Sem status</option>
+        </select>
+        <select
+          value={srsFilter}
+          onChange={(e) => setSrsFilter(e.target.value as typeof srsFilter)}
+          title="Filtrar por estado de revisão (SRS)"
+        >
+          <option value="">Todo estado SRS</option>
+          <option value="atrasadas">🔴 Atrasadas</option>
+          <option value="hoje">📅 Vencendo hoje</option>
+          <option value="novas">✨ Nunca estudadas</option>
+          <option value="sem_estudo">○ Zero tentativas</option>
+          <option value="recentes">🆕 Importadas últimos 7d</option>
         </select>
       </div>
 
