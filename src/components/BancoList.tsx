@@ -186,6 +186,27 @@ export function BancoList() {
     toast('Selecionadas excluídas.', 'success');
   };
 
+  const bulkSetVerificacao = async (
+    valor: 'verificada' | 'pendente' | 'duvidosa' | null
+  ) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const label = valor ?? 'sem status';
+    const ok = await confirmDialog({
+      title: 'Marcar verificação em lote',
+      message: `Marcar ${selected.size} questão(ões) como "${label}"?`,
+    });
+    if (!ok) return;
+    for (const id of selected) {
+      updateQuestionLocal(id, { verificacao: valor });
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`${selected.size} marcada(s) como ${label}.`, 'success');
+  };
+
   const deleteAllFiltered = async () => {
     if (filtered.length === 0) {
       toast('Filtro vazio.', 'warn');
@@ -345,6 +366,10 @@ export function BancoList() {
         <button type="button" className="danger" onClick={deleteSelected}>
           Excluir selecionadas
         </button>
+        <BulkVerificacaoMenu
+          disabled={selected.size === 0}
+          onPick={bulkSetVerificacao}
+        />
         <button type="button" className="danger" onClick={deleteAllFiltered}>
           Excluir TUDO no filtro
         </button>
@@ -511,6 +536,101 @@ export function BancoList() {
             Ver tudo
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Dropdown pra marcar verificação em lote nas questões selecionadas.
+ * Cada opção abre confirmDialog antes de aplicar.
+ */
+function BulkVerificacaoMenu({
+  disabled,
+  onPick,
+}: {
+  disabled: boolean;
+  onPick: (
+    valor: 'verificada' | 'pendente' | 'duvidosa' | null
+  ) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const opcoes: Array<{
+    label: string;
+    valor: 'verificada' | 'pendente' | 'duvidosa' | null;
+  }> = [
+    { label: '✅ Verificada', valor: 'verificada' },
+    { label: '⏳ Pendente', valor: 'pendente' },
+    { label: '⚠️ Duvidosa', valor: 'duvidosa' },
+    { label: '— Sem status', valor: null },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        title="Marcar verificação em lote"
+      >
+        Marcar como… ▾
+      </button>
+      {open && (
+        <ul
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            background: 'var(--bg-elev-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            listStyle: 'none',
+            margin: 0,
+            padding: 4,
+            minWidth: 180,
+            zIndex: 50,
+          }}
+        >
+          {opcoes.map((opt) => (
+            <li key={opt.label}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={async () => {
+                  setOpen(false);
+                  await onPick(opt.valor);
+                }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '8px 10px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                  borderRadius: 'var(--radius)',
+                }}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
