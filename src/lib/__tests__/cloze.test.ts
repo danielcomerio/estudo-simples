@@ -75,4 +75,19 @@ describe('renderClozeHTML', () => {
     const html = renderClozeHTML('A {{c1::x::dica}} B', 'hidden');
     expect(html).toBe('A <span class="cloze-hidden">[dica]</span> B');
   });
+
+  it('mode número N: revela só os primeiros N marcadores', () => {
+    const text = '{{c1::A}} {{c2::B}} {{c3::C}}';
+    expect(renderClozeHTML(text, 0)).toContain('cloze-hidden');
+    expect(renderClozeHTML(text, 0)).not.toContain('cloze-revealed');
+    const r1 = renderClozeHTML(text, 1);
+    expect(r1.match(/cloze-revealed/g)?.length).toBe(1);
+    expect(r1.match(/cloze-hidden/g)?.length).toBe(2);
+    const r2 = renderClozeHTML(text, 2);
+    expect(r2.match(/cloze-revealed/g)?.length).toBe(2);
+    expect(r2.match(/cloze-hidden/g)?.length).toBe(1);
+    const r3 = renderClozeHTML(text, 3);
+    expect(r3.match(/cloze-revealed/g)?.length).toBe(3);
+    expect(r3.includes('cloze-hidden')).toBe(false);
+  });
 });

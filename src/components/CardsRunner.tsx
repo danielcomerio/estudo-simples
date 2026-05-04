@@ -284,23 +284,36 @@ function CardView({
   onNext: () => void;
   onQuit: () => void;
 }) {
-  const [revealed, setRevealed] = useState(false);
+  // Pra cloze: revelados = quantas lacunas já foram reveladas (0..N).
+  //   Quando >= total, equivale a "totalmente revelado" (autoavaliação).
+  // Pra flashcard: 0 = frente / >=1 = verso revelado.
+  const [revealed, setRevealed] = useState(0);
   const algorithm = useAlgorithm();
+
+  const totalBlanks = useMemo(() => {
+    if (q.type !== 'cloze') return 1;
+    const p = q.payload as ClozePayload;
+    const matches = (p.texto ?? '').match(/\{\{c\d+::/g);
+    return matches?.length ?? 0;
+  }, [q.id, q.type, q.payload]);
+
+  // "Totalmente revelado" = mostrou tudo, hora de autoavaliar
+  const allRevealed = revealed >= totalBlanks;
 
   // Reset ao trocar
   useEffect(() => {
-    setRevealed(false);
+    setRevealed(0);
   }, [q.id]);
 
-  // Atalhos: espaço/enter pra revelar; depois 1-4 pra rate
+  // Atalhos: espaço/enter pra revelar próximo; após tudo revelado, 1-4 pra rate
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (!revealed) {
+      if (!allRevealed) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
-          setRevealed(true);
+          setRevealed((r) => r + 1);
         }
       } else {
         if (e.key === '1') rate(0);
@@ -312,7 +325,7 @@ function CardView({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revealed, q.id]);
+  }, [allRevealed, q.id]);
 
   const rate = (quality: number) => {
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
@@ -356,25 +369,42 @@ function CardView({
       </div>
 
       {q.type === 'cloze' ? (
-        <ClozeBody payload={q.payload as ClozePayload} revealed={revealed} />
+        <ClozeBody
+          payload={q.payload as ClozePayload}
+          revealedCount={revealed}
+          totalBlanks={totalBlanks}
+        />
       ) : (
         <FlashcardBody
           payload={q.payload as FlashcardPayload}
-          revealed={revealed}
+          revealed={allRevealed}
         />
       )}
 
       <QuestionImages urls={(q.payload as { imagens?: string[] }).imagens} />
 
-      {!revealed ? (
+      {!allRevealed ? (
         <div className="row gap" style={{ marginTop: 18 }}>
           <button
             type="button"
             className="primary"
-            onClick={() => setRevealed(true)}
+            onClick={() => setRevealed((r) => r + 1)}
           >
-            {q.type === 'cloze' ? 'Revelar lacunas' : 'Virar (verso)'} (Enter)
+            {q.type === 'cloze'
+              ? totalBlanks > 1
+                ? `Revelar próxima (${revealed + 1}/${totalBlanks}) [Enter]`
+                : 'Revelar [Enter]'
+              : 'Virar (verso) [Enter]'}
           </button>
+          {q.type === 'cloze' && totalBlanks > 1 && revealed > 0 && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => setRevealed(totalBlanks)}
+            >
+              Revelar todas
+            </button>
+          )}
         </div>
       ) : (
         <div
@@ -405,15 +435,18 @@ function CardView({
 
 function ClozeBody({
   payload,
-  revealed,
+  revealedCount,
+  totalBlanks,
 }: {
   payload: ClozePayload;
-  revealed: boolean;
+  revealedCount: number;
+  totalBlanks: number;
 }) {
   const html = useMemo(
-    () => renderClozeHTML(payload.texto ?? '', revealed ? 'revealed' : 'hidden'),
-    [payload.texto, revealed]
+    () => renderClozeHTML(payload.texto ?? '', revealedCount),
+    [payload.texto, revealedCount]
   );
+  const allRevealed = revealedCount >= totalBlanks;
   return (
     <div>
       <div
@@ -427,7 +460,7 @@ function ClozeBody({
         }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      {revealed && payload.explicacao && (
+      {allRevealed && payload.explicacao && (
         <div
           style={{
             marginTop: 12,

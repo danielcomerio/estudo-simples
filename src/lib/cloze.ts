@@ -66,40 +66,42 @@ export function parseCloze(texto: string): ParsedCloze {
 }
 
 /**
- * Renderiza HTML com lacunas estilizadas:
- *  - mode='hidden': lacunas viram <span class="cloze-hidden">____</span>
- *    (ou a dica se houver, em formato [dica])
- *  - mode='revealed': lacunas viram <span class="cloze-revealed">resposta</span>
+ * Renderiza HTML com lacunas estilizadas. Modo:
+ *  - 'hidden': todas escondidas (____)
+ *  - 'revealed': todas reveladas
+ *  - número N: revela só os primeiros N marcadores (ordem de aparição),
+ *    resto escondido. Permite reveal incremental.
  *
  * Texto é HTML-escapado fora dos marcadores. Resposta também é
  * escapada (defesa contra XSS via input).
  */
 export function renderClozeHTML(
   texto: string,
-  mode: 'hidden' | 'revealed'
+  mode: 'hidden' | 'revealed' | number
 ): string {
   if (!texto) return '';
-  // Substitui placeholders por marcadores especiais ANTES do escape pra
-  // não perder as classes ao escapar. Estratégia: parse manual.
   CLOZE_RE.lastIndex = 0;
   const out: string[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
+  let blankIdx = 0; // contagem de lacunas pra reveal incremental
   while ((m = CLOZE_RE.exec(texto)) !== null) {
-    // Texto antes do marcador
     out.push(escapeHtml(texto.slice(lastIndex, m.index)).replace(/\n/g, '<br>'));
     const resposta = m[2];
     const dica = m[3];
-    if (mode === 'revealed') {
+    const showAsRevealed =
+      mode === 'revealed' ||
+      (typeof mode === 'number' && blankIdx < mode);
+    if (showAsRevealed) {
       out.push(`<span class="cloze-revealed">${escapeHtml(resposta)}</span>`);
     } else {
       const inner = dica ? `[${escapeHtml(dica)}]` : '____';
       out.push(`<span class="cloze-hidden">${inner}</span>`);
     }
+    blankIdx++;
     lastIndex = m.index + m[0].length;
   }
   CLOZE_RE.lastIndex = 0;
-  // Resto do texto
   out.push(escapeHtml(texto.slice(lastIndex)).replace(/\n/g, '<br>'));
   return out.join('');
 }
