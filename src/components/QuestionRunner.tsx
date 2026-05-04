@@ -125,6 +125,17 @@ export function QuestionRunner() {
   const [cfg, setCfg] = useState<SessionConfig>(defaultCfg);
   const [session, setSession] = useState<SessionState | null>(null);
 
+  // beforeunload protege fechar/recarregar aba durante sessão
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const onBU = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBU);
+    return () => window.removeEventListener('beforeunload', onBU);
+  }, [phase]);
+
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
 
   // Query params: ?modo=srs&qtd=10&auto=1 → preset + auto-start

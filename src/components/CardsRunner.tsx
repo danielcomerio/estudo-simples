@@ -99,6 +99,16 @@ export function CardsRunner() {
   const [pool, setPool] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
 
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const onBU = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBU);
+    return () => window.removeEventListener('beforeunload', onBU);
+  }, [phase]);
+
   const totalCards = useMemo(
     () => all.filter((q) => q.type === 'cloze' || q.type === 'flashcard').length,
     [all]
