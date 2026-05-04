@@ -358,6 +358,19 @@ h4 {
   border-color: var(--border-strong);
   font-weight: 500;
 }
+.tab-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 1px 6px;
+  background: #f59e0b;
+  color: #1a1a1a;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+}
 
 .topbar .right {
   display: flex;
@@ -410,6 +423,22 @@ h4 {
   50% {
     opacity: 0.4;
   }
+}
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--primary);
+  color: var(--primary-fg, #fff);
+  padding: 8px 14px;
+  z-index: 100;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius) 0;
+}
+.skip-link:focus {
+  left: 0;
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 .offline-banner {
   position: sticky;

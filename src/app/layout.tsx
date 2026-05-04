@@ -40,9 +40,14 @@ export default async function RootLayout({
       <body>
         {user ? (
           <StoreProvider userId={user.id} userEmail={user.email ?? null}>
+            <a href="#main-content" className="skip-link">
+              Pular para o conteúdo
+            </a>
             <Topbar email={user.email ?? null} />
             <OfflineBanner />
-            <main className="page">{children}</main>
+            <main id="main-content" className="page">
+              {children}
+            </main>
             <ToastHost />
           </StoreProvider>
         ) : (

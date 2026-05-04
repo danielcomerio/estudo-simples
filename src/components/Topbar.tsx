@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { useStore } from '@/lib/store';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useStore, selectActiveQuestions } from '@/lib/store';
+import { DAY_MS } from '@/lib/srs';
+import { startOfDay } from '@/lib/utils';
 import { logout } from '@/app/auth/actions';
 import { logoutAndReset } from './StoreProvider';
 import { syncNow } from '@/lib/sync';
@@ -29,8 +31,16 @@ export function Topbar({ email }: { email: string | null }) {
   const syncStatus = useStore((s) => s.syncStatus);
   const syncError = useStore((s) => s.syncError);
   const pendingCount = useStore((s) => Object.keys(s.pendingSync).length);
+  const questions = useStore(selectActiveQuestions);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef<HTMLElement>(null);
+
+  const dueObjetivas = useMemo(() => {
+    const tomorrow = startOfDay(Date.now()) + DAY_MS;
+    return questions.filter(
+      (q) => q.type === 'objetiva' && (q.srs?.dueDate ?? 0) < tomorrow
+    ).length;
+  }, [questions]);
 
   // Fecha menu mobile ao mudar de rota
   useEffect(() => {
@@ -94,19 +104,31 @@ export function Topbar({ email }: { email: string | null }) {
         className={'tabs' + (mobileOpen ? ' tabs-open' : '')}
         role="tablist"
       >
-        {TABS.map((t) => (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={'tab' + (isActive(t.href) ? ' active' : '')}
-            role="tab"
-            aria-selected={isActive(t.href)}
-            prefetch
-            onClick={() => setMobileOpen(false)}
-          >
-            {t.label}
-          </Link>
-        ))}
+        {TABS.map((t) => {
+          const showBadge = t.href === '/estudar' && dueObjetivas > 0;
+          return (
+            <Link
+              key={t.href}
+              href={t.href}
+              className={'tab' + (isActive(t.href) ? ' active' : '')}
+              role="tab"
+              aria-selected={isActive(t.href)}
+              prefetch
+              onClick={() => setMobileOpen(false)}
+            >
+              {t.label}
+              {showBadge && (
+                <span
+                  className="tab-badge"
+                  aria-label={`${dueObjetivas} questões vencendo`}
+                  title={`${dueObjetivas} vencendo`}
+                >
+                  {dueObjetivas > 9 ? '9+' : dueObjetivas}
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="right">

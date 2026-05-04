@@ -1140,6 +1140,38 @@ export function BancoList() {
                         🏷 {q.tags.length}
                       </span>
                     )}
+                    {q.stats?.history && q.stats.history.length > 0 && (
+                      <span
+                        className="mini-spark"
+                        title={`Últimas ${Math.min(5, q.stats.history.length)} respostas`}
+                        aria-hidden
+                      >
+                        {q.stats.history.slice(-5).map((h, idx) => {
+                          const r = h.result;
+                          const cor =
+                            r === 'correct' || r === 'self_pass'
+                              ? '#22c55e'
+                              : r === 'wrong'
+                                ? '#ef4444'
+                                : r === 'timeout'
+                                  ? '#f59e0b'
+                                  : 'var(--muted)';
+                          return (
+                            <span
+                              key={idx}
+                              style={{
+                                display: 'inline-block',
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: cor,
+                                marginRight: 2,
+                              }}
+                            />
+                          );
+                        })}
+                      </span>
+                    )}
                     {q.srs?.dueDate && (() => {
                       const due = q.srs.dueDate;
                       const now = Date.now();
