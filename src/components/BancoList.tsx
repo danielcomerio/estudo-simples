@@ -25,6 +25,37 @@ import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
 
+/**
+ * Destaca termos da busca no preview. Tokens com prefixos
+ * (tag:foo / disc:bar / banca:FGV) NÃO são highlighted no enunciado
+ * — só os termos livres. Escapa HTML antes de inserir mark.
+ */
+function highlightSearch(text: string, search: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const tokens = search
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter(
+      (t) =>
+        !t.startsWith('tag:') && !t.startsWith('disc:') && !t.startsWith('banca:')
+    );
+  if (tokens.length === 0) return escaped;
+  // Regex case-insensitive com todos os termos
+  const escapedTokens = tokens
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .filter(Boolean);
+  if (escapedTokens.length === 0) return escaped;
+  const re = new RegExp('(' + escapedTokens.join('|') + ')', 'gi');
+  return escaped.replace(
+    re,
+    '<mark style="background:var(--primary-soft);color:var(--primary);padding:0 2px;border-radius:2px;">$1</mark>'
+  );
+}
+
 function previewOf(q: Question): string {
   if (q.type === 'objetiva') return (q.payload as ObjetivaPayload).enunciado || '';
   if (q.type === 'discursiva') {
@@ -970,7 +1001,15 @@ export function BancoList() {
                   aria-label="Selecionar"
                 />
                 <div>
-                  <div className="preview">{enun.slice(0, 240)}{enun.length > 240 ? '…' : ''}</div>
+                  <div
+                    className="preview"
+                    dangerouslySetInnerHTML={{
+                      __html: highlightSearch(
+                        enun.slice(0, 240) + (enun.length > 240 ? '…' : ''),
+                        search
+                      ),
+                    }}
+                  />
                   <div className="meta">
                     {q.origem === 'real' && (
                       <span
