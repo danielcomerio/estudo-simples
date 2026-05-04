@@ -58,6 +58,7 @@ export function BancoList() {
   const [srsFilter, setSrsFilter] = useState<
     '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
   >('');
+  const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
   // Atalhos de teclado: índice da questão "focada" na lista filtrada.
   // -1 = sem foco. j/k navega, Enter edita, espaço seleciona, x exclui.
   const [focusedIdx, setFocusedIdx] = useState(-1);
@@ -77,7 +78,7 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação + foco quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
     setFocusedIdx(-1);
@@ -92,6 +93,12 @@ export function BancoList() {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      if (imgFilter) {
+        const imgs = (q.payload as { imagens?: string[] }).imagens;
+        const has = Array.isArray(imgs) && imgs.length > 0;
+        if (imgFilter === 'com' && !has) return false;
+        if (imgFilter === 'sem' && has) return false;
+      }
       if (srsFilter) {
         const due = q.srs?.dueDate ?? 0;
         const lastReviewed = q.srs?.lastReviewed;
@@ -138,7 +145,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, concursoDiscNomes]);
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -546,6 +553,15 @@ export function BancoList() {
           <option value="novas">✨ Nunca estudadas</option>
           <option value="sem_estudo">○ Zero tentativas</option>
           <option value="recentes">🆕 Importadas últimos 7d</option>
+        </select>
+        <select
+          value={imgFilter}
+          onChange={(e) => setImgFilter(e.target.value as typeof imgFilter)}
+          title="Filtrar por presença de imagens"
+        >
+          <option value="">Imagens (qq)</option>
+          <option value="com">🖼 Com imagem</option>
+          <option value="sem">— Sem imagem</option>
         </select>
       </div>
 

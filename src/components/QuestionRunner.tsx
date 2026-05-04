@@ -505,6 +505,12 @@ function RunningView({
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (!answered) {
+        // Tab pula questão (skip soft, não conta como erro)
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          skip();
+          return;
+        }
         const k = e.key.toUpperCase();
         const alt = alts.find((a) => a.letra.toUpperCase() === k);
         if (alt) {
@@ -756,8 +762,13 @@ function RunningView({
 
       <div className="row gap right" style={{ marginTop: 16 }}>
         {!answered && (
-          <button type="button" onClick={skip}>
-            Pular
+          <button
+            type="button"
+            className="ghost"
+            onClick={skip}
+            title="Pular (Tab) — não conta como tentativa nem erro"
+          >
+            Pular (Tab)
           </button>
         )}
       </div>
