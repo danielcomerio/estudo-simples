@@ -58,6 +58,10 @@ export function BancoList() {
   const [srsFilter, setSrsFilter] = useState<
     '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
   >('');
+  // Atalhos de teclado: índice da questão "focada" na lista filtrada.
+  // -1 = sem foco. j/k navega, Enter edita, espaço seleciona, x exclui.
+  const [focusedIdx, setFocusedIdx] = useState(-1);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Paginação visual: render só os primeiros N pra evitar travar com
   // milhares de cards. User pode "carregar mais" pra estender.
@@ -72,10 +76,11 @@ export function BancoList() {
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
 
-  // Reset paginação quando filtros mudam
+  // Reset paginação + foco quando filtros mudam
   const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
+    setFocusedIdx(-1);
   }, [filtersKey]);
 
   const filtered = useMemo(() => {
@@ -290,6 +295,84 @@ export function BancoList() {
     toast(`${filtered.length} questão(ões) exportada(s) (filtro aplicado).`, 'success');
   };
 
+  // Atalhos de teclado globais na página
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      // / sempre foca a busca
+      if (e.key === '/' && !inField) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      if (inField) return;
+      if (editingId) return; // drawer aberto
+
+      const visible = Math.min(filtered.length, visibleCount);
+      if (visible === 0) return;
+
+      switch (e.key) {
+        case 'j':
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusedIdx((i) => Math.min(visible - 1, i + 1));
+          break;
+        case 'k':
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusedIdx((i) => Math.max(0, i < 0 ? 0 : i - 1));
+          break;
+        case 'g': // gg → topo (Vim-like)
+          e.preventDefault();
+          setFocusedIdx(0);
+          break;
+        case 'G':
+          e.preventDefault();
+          setFocusedIdx(visible - 1);
+          break;
+        case 'Enter': {
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          setEditingId(filtered[focusedIdx].id);
+          break;
+        }
+        case ' ': // espaço seleciona
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          toggle(filtered[focusedIdx].id);
+          break;
+        case 'x':
+        case 'Delete': {
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          const q = filtered[focusedIdx];
+          void deleteOne(q.id);
+          break;
+        }
+        case 'Escape':
+          if (focusedIdx >= 0) {
+            e.preventDefault();
+            setFocusedIdx(-1);
+          }
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, visibleCount, focusedIdx, editingId]);
+
+  // Scroll automático pra manter o item focado visível
+  useEffect(() => {
+    if (focusedIdx < 0) return;
+    const el = document.querySelector(
+      `[data-banco-idx="${focusedIdx}"]`
+    ) as HTMLElement | null;
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [focusedIdx]);
+
   const exportSelectedJSON = () => {
     if (selected.size === 0) {
       toast('Nada selecionado.', 'warn');
@@ -341,11 +424,13 @@ export function BancoList() {
       <div className="row gap wrap" style={{ marginBottom: 14 }}>
         <h2 style={{ margin: 0, marginRight: 'auto' }}>Banco atual</h2>
         <input
+          ref={searchRef}
           type="search"
-          placeholder="Buscar por tema/enunciado…"
+          placeholder="Buscar (atalho: /)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ maxWidth: 280 }}
+          title="Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui"
         />
         <select value={disc} onChange={(e) => setDisc(e.target.value)}>
           <option value="">Todas as disciplinas</option>
@@ -473,10 +558,30 @@ export function BancoList() {
             </p>
           </div>
         ) : (
-          filtered.slice(0, visibleCount).map((q) => {
+          filtered.slice(0, visibleCount).map((q, i) => {
             const enun = previewOf(q);
+            const isFocused = i === focusedIdx;
             return (
-              <div key={q.id} className="banco-item">
+              <div
+                key={q.id}
+                className="banco-item"
+                data-banco-idx={i}
+                style={
+                  isFocused
+                    ? {
+                        outline: '2px solid var(--primary)',
+                        outlineOffset: 2,
+                        background: 'var(--bg-elev)',
+                      }
+                    : undefined
+                }
+                onClick={(e) => {
+                  // Click na linha (fora dos botões/checkbox) move foco
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button') || target.closest('input')) return;
+                  setFocusedIdx(i);
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={selected.has(q.id)}
