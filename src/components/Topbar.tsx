@@ -1,25 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-function ThemeToggleQuick() {
-  const t = useTheme();
-  const next = t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto';
-  const icon = t === 'auto' ? '🖥' : t === 'light' ? '☀️' : '🌙';
-  return (
-    <button
-      type="button"
-      className="ghost icon"
-      onClick={() => setTheme(next)}
-      title={`Tema: ${t} (clique pra ${next})`}
-      aria-label="Alternar tema"
-      style={{ fontSize: '1rem' }}
-    >
-      {icon}
-    </button>
-  );
-}
-
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/lib/store';
 import { logout } from '@/app/auth/actions';
 import { logoutAndReset } from './StoreProvider';
@@ -45,6 +28,25 @@ export function Topbar({ email }: { email: string | null }) {
   const syncStatus = useStore((s) => s.syncStatus);
   const syncError = useStore((s) => s.syncError);
   const pendingCount = useStore((s) => Object.keys(s.pendingSync).length);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileRef = useRef<HTMLElement>(null);
+
+  // Fecha menu mobile ao mudar de rota
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Click-outside fecha menu mobile
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (mobileRef.current && !mobileRef.current.contains(e.target as Node)) {
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [mobileOpen]);
 
   // Páginas /disciplinas e /topicos são sub-rotas conceituais de
   // Concursos — destacam essa tab.
@@ -72,13 +74,25 @@ export function Topbar({ email }: { email: string | null }) {
             : 'sincronizado';
 
   return (
-    <header className="topbar">
+    <header className="topbar" ref={mobileRef}>
       <div className="brand">
+        <button
+          type="button"
+          className="ghost icon hamburger"
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label="Menu"
+          aria-expanded={mobileOpen}
+        >
+          {mobileOpen ? '✕' : '☰'}
+        </button>
         <span className="logo" aria-hidden />
         <h1>Estudo Simples</h1>
       </div>
 
-      <nav className="tabs" role="tablist">
+      <nav
+        className={'tabs' + (mobileOpen ? ' tabs-open' : '')}
+        role="tablist"
+      >
         {TABS.map((t) => (
           <Link
             key={t.href}
@@ -87,6 +101,7 @@ export function Topbar({ email }: { email: string | null }) {
             role="tab"
             aria-selected={isActive(t.href)}
             prefetch
+            onClick={() => setMobileOpen(false)}
           >
             {t.label}
           </Link>
@@ -107,10 +122,14 @@ export function Topbar({ email }: { email: string | null }) {
           title={syncError || 'Sincronizar agora'}
         >
           <span className="dot" />
-          {syncLabel}
+          <span className="sync-label">{syncLabel}</span>
         </button>
 
-        {email && <span className="user-mail" title={email}>{email}</span>}
+        {email && (
+          <span className="user-mail" title={email}>
+            {email}
+          </span>
+        )}
 
         <form
           action={async () => {
@@ -118,11 +137,34 @@ export function Topbar({ email }: { email: string | null }) {
             await logout();
           }}
         >
-          <button type="submit" className="ghost icon" title="Sair" aria-label="Sair">
+          <button
+            type="submit"
+            className="ghost icon"
+            title="Sair"
+            aria-label="Sair"
+          >
             ↪
           </button>
         </form>
       </div>
     </header>
+  );
+}
+
+function ThemeToggleQuick() {
+  const t = useTheme();
+  const next = t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto';
+  const icon = t === 'auto' ? '🖥' : t === 'light' ? '☀️' : '🌙';
+  return (
+    <button
+      type="button"
+      className="ghost icon"
+      onClick={() => setTheme(next)}
+      title={`Tema: ${t} (clique pra ${next})`}
+      aria-label="Alternar tema"
+      style={{ fontSize: '1rem' }}
+    >
+      {icon}
+    </button>
   );
 }
