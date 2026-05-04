@@ -171,6 +171,70 @@ export function setState(updater: (s: StoreState) => StoreState, opts?: { skipPe
   notify();
 }
 
+/**
+ * Migra dados criados como visitante pra uma conta recém-criada.
+ *
+ * Lê o estado persistido (que ainda tem userId='guest' nas questions),
+ * re-tagger user_id pra newUserId em cada questão, marca todas como
+ * pendingSync (pra próxima sync subir tudo), e atualiza
+ * STORAGE_KEY_USER. Hydrate subsequente vai ler como se fosse do user
+ * real.
+ *
+ * Idempotente: se o estado já está com newUserId, não duplica.
+ */
+export async function migrateGuestToUser(newUserId: string): Promise<{
+  migrated: number;
+}> {
+  if (typeof window === 'undefined') return { migrated: 0 };
+  if (!newUserId || newUserId === 'guest') return { migrated: 0 };
+
+  const persisted = (await readPersisted()) ?? {};
+  const oldQuestions = persisted.questions ?? [];
+  if (oldQuestions.length === 0) {
+    // Nada a migrar; só atualiza marker
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, newUserId);
+    } catch {}
+    return { migrated: 0 };
+  }
+
+  const newQuestions = oldQuestions.map((q) => ({
+    ...q,
+    user_id: newUserId,
+  }));
+  // Marca tudo como pendente — push subsequente envia ao servidor.
+  const newPending: Record<string, true> = {};
+  for (const q of newQuestions) newPending[q.id] = true;
+
+  const newPersisted: Partial<StoreState> = {
+    ...persisted,
+    questions: newQuestions,
+    pendingSync: newPending,
+    // Reseta lastPullAt — a primeira sync vai puxar do servidor (que
+    // tá vazio pro user novo) e somar com nosso local via merge.
+    lastPullAt: null,
+  };
+
+  // Persiste imediatamente
+  if (idbAvailable()) {
+    try {
+      await idbSet(IDB_KEY_STATE, newPersisted);
+    } catch {}
+  } else {
+    try {
+      const json = JSON.stringify(newPersisted);
+      const compressed = COMPRESSED_PREFIX + LZString.compressToUTF16(json);
+      localStorage.setItem(STORAGE_KEY, compressed);
+    } catch {}
+  }
+
+  try {
+    localStorage.setItem(STORAGE_KEY_USER, newUserId);
+  } catch {}
+
+  return { migrated: newQuestions.length };
+}
+
 export async function hydrate(userId: string | null): Promise<void> {
   if (typeof window === 'undefined') return;
 

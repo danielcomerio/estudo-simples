@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { hydrate, resetStore } from '@/lib/store';
-import { startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
+import { hydrate, migrateGuestToUser, resetStore } from '@/lib/store';
+import { scheduleSync, startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
 import { applyTheme, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
+import { toast } from './Toast';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmHost } from './ConfirmDialog';
 
@@ -32,6 +33,33 @@ export function StoreProvider({
     // initial state), refazendo trabalho.
     let cancelled = false;
     void (async () => {
+      // Migração de visitante → conta recém-criada: cookie
+      // 'es-migrate-guest=1' é setado pelo signup quando user pediu.
+      // Roda ANTES de hydrate pra reescrever user_id em cada questão.
+      const wantsMigrate =
+        userId !== 'guest' &&
+        document.cookie
+          .split(';')
+          .some((c) => c.trim().startsWith('es-migrate-guest=1'));
+      if (wantsMigrate) {
+        try {
+          const { migrated } = await migrateGuestToUser(userId);
+          if (migrated > 0) {
+            toast(
+              `${migrated} questão(ões) migradas pra sua nova conta.`,
+              'success'
+            );
+            // Limpa o cookie marker e o de visitante
+            document.cookie =
+              'es-migrate-guest=; path=/; max-age=0; sameSite=lax';
+            document.cookie = 'es-guest=; path=/; max-age=0; sameSite=lax';
+            // Agenda push pra subir as questões
+            scheduleSync(800);
+          }
+        } catch (e) {
+          console.warn('Falha na migração de visitante:', e);
+        }
+      }
       await hydrate(userId);
       if (cancelled) return;
       startBackgroundSync();

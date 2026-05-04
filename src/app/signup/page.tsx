@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { enterAsGuest, signup, type AuthState } from '../auth/actions';
+import { useIsGuest } from '@/lib/settings';
 
 const initial: AuthState = { error: null, message: null };
 
@@ -15,14 +16,65 @@ function SubmitButton() {
   );
 }
 
+function GuestSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      className="ghost"
+      disabled={pending}
+      style={{ width: '100%' }}
+    >
+      {pending ? 'Entrando…' : '👤 Entrar como visitante'}
+    </button>
+  );
+}
+
 export default function SignupPage() {
   const [state, formAction] = useFormState(signup, initial);
+  const isGuest = useIsGuest();
 
   return (
     <main className="auth-shell">
       <form action={formAction} className="auth-form">
         <h1>Criar conta</h1>
         <p className="muted">Crie sua instância pessoal de estudo.</p>
+
+        {isGuest && (
+          <div
+            style={{
+              background: 'var(--primary-soft)',
+              border: '1px solid var(--primary)',
+              borderRadius: 'var(--radius)',
+              padding: '10px 12px',
+              marginBottom: 12,
+              fontSize: '0.9rem',
+            }}
+          >
+            <strong>Migrar dados do visitante</strong>
+            <label
+              style={{
+                display: 'flex',
+                gap: 8,
+                marginTop: 6,
+                alignItems: 'flex-start',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                name="migrate"
+                value="1"
+                defaultChecked
+                style={{ marginTop: 4 }}
+              />
+              <span>
+                Mover as questões e progresso que você já criou neste
+                navegador para a nova conta. (Recomendado.)
+              </span>
+            </label>
+          </div>
+        )}
 
         <label>
           <span>Email</span>
@@ -65,28 +117,27 @@ export default function SignupPage() {
         <p className="auth-foot">
           Já tem conta? <Link href="/login">Entrar</Link>
         </p>
-
-        <hr
-          style={{
-            margin: '18px 0 14px',
-            border: 0,
-            borderTop: '1px solid var(--border)',
-          }}
-        />
-
-        <button
-          type="button"
-          formAction={enterAsGuest}
-          className="ghost"
-          style={{ width: '100%' }}
-          title="Acessa sem criar conta. Os dados ficam só neste navegador."
-        >
-          👤 Entrar como visitante
-        </button>
-        <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
-          Demo local — dados não sincronizam entre dispositivos.
-        </p>
       </form>
+
+      {!isGuest && (
+        <form
+          action={enterAsGuest}
+          className="auth-form"
+          style={{ marginTop: 14 }}
+        >
+          <hr
+            style={{
+              margin: '0 0 14px',
+              border: 0,
+              borderTop: '1px solid var(--border)',
+            }}
+          />
+          <GuestSubmit />
+          <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+            Demo local — dados ficam só neste navegador.
+          </p>
+        </form>
+      )}
     </main>
   );
 }

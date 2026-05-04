@@ -6,6 +6,7 @@ import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
 const GUEST_COOKIE = 'es-guest';
+const MIGRATE_COOKIE = 'es-migrate-guest';
 
 export type AuthState = { error: string | null; message: string | null };
 
@@ -31,6 +32,12 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   if (error) {
     return { ...initial, error: traduzirErroAuth(error.message) };
   }
+  // Login pra conta existente: NUNCA migra dados de visitante (user
+  // pediu explicitamente — risco de poluir conta com lixo de demos).
+  // Limpa flag de visitante pra hydrate detectar troca e zerar local.
+  const c = await cookies();
+  c.delete(GUEST_COOKIE);
+  c.delete(MIGRATE_COOKIE);
   revalidatePath('/', 'layout');
   redirect(next);
 }
@@ -39,6 +46,7 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
   const email = String(formData.get('email') || '').trim();
   const password = String(formData.get('password') || '');
   const password2 = String(formData.get('password2') || '');
+  const wantsMigrate = formData.get('migrate') === '1';
 
   if (!email || !password) return { ...initial, error: 'Preencha email e senha.' };
   if (password.length < 8) return { ...initial, error: 'Senha deve ter ao menos 8 caracteres.' };
@@ -55,8 +63,24 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
   });
   if (error) return { ...initial, error: traduzirErroAuth(error.message) };
 
-  // Se a confirmação de email estiver desligada no Supabase, já vem session.
+  const c = await cookies();
+  // Se confirmação de email estiver desligada, já vem session → auto-login.
   if (data.session) {
+    if (wantsMigrate) {
+      // Sinaliza pro StoreProvider migrar dados do guest local pra
+      // nova conta (lê via document.cookie no client; expires curto).
+      c.set(MIGRATE_COOKIE, '1', {
+        path: '/',
+        maxAge: 60 * 5,
+        httpOnly: false,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+    } else {
+      // User pediu pra NÃO migrar — limpa cookie guest pra hydrate
+      // detectar troca e zerar local.
+      c.delete(GUEST_COOKIE);
+    }
     revalidatePath('/', 'layout');
     redirect('/');
   }
