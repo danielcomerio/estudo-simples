@@ -3,11 +3,20 @@
 import { useRef, useState } from 'react';
 import { addQuestionsBulk, selectActiveQuestions, useStore } from '@/lib/store';
 import {
+  createConcurso,
+  createDisciplina,
+  createTopico,
+  linkConcursoDisciplina,
+  loadConcursoDisciplinas,
+  loadConcursos,
+  loadDisciplinas,
+  loadTopicos,
   useAllConcursoDisciplinas,
   useConcursos,
   useDisciplinas,
   useTopicos,
 } from '@/lib/hierarchy';
+import type { Concurso, ConcursoDisciplina, Disciplina, Topico } from '@/lib/types';
 import { saveSimulado, useSimuladosForUser } from '@/lib/simulado-store';
 import {
   getActiveConcursoId,
@@ -22,6 +31,7 @@ import { scheduleSync } from '@/lib/sync';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 import type { Question, Simulado } from '@/lib/types';
+import type { ConcursoInput, DisciplinaInput, TopicoInput } from '@/lib/hierarchy';
 
 const BACKUP_VERSION = 1;
 
@@ -180,12 +190,10 @@ export function BackupSection() {
 
       <h3 style={{ margin: '0 0 6px' }}>Restaurar de backup</h3>
       <p className="muted" style={{ marginTop: 0, fontSize: '0.88rem' }}>
-        Lê um JSON gerado acima e adiciona o conteúdo. Questões duplicadas
-        (mesmo enunciado + disciplina) são <strong>ignoradas</strong>.
-        Simulados são adicionados se não houver outro com mesmo id.
-        Settings (algoritmo/tema/concurso ativo) <strong>sobrescrevem</strong>{' '}
-        os atuais. Hierarquia (concursos/disciplinas/tópicos) NÃO é
-        restaurada — re-criar manualmente em /concursos.
+        Lê um JSON gerado acima e adiciona o conteúdo:
+        concursos/disciplinas/vínculos/tópicos (skip por nome se já
+        existirem), questões (skip por dedup_hash), simulados (per-id).
+        Settings (algoritmo/tema/concurso ativo) sobrescrevem os atuais.
       </p>
       <input
         ref={fileRef}
@@ -222,6 +230,10 @@ export function BackupSection() {
       const data = JSON.parse(text) as {
         version?: number;
         questions?: Question[];
+        concursos?: Concurso[];
+        disciplinas?: Disciplina[];
+        concurso_disciplinas?: ConcursoDisciplina[];
+        topicos?: Topico[];
         simulados?: Simulado[];
         settings?: {
           algorithm?: 'sm2' | 'fsrs';
@@ -238,11 +250,112 @@ export function BackupSection() {
       }
       const qCount = data.questions?.length ?? 0;
       const sCount = data.simulados?.length ?? 0;
+      const cCount = data.concursos?.length ?? 0;
+      const dCount = data.disciplinas?.length ?? 0;
+      const vCount = data.concurso_disciplinas?.length ?? 0;
+      const tCount = data.topicos?.length ?? 0;
       const ok = await confirmDialog({
         title: 'Restaurar backup',
-        message: `Vai adicionar ${qCount} questão(ões) (duplicatas ignoradas) e ${sCount} simulado(s). Settings serão sobrescritos. Continuar?`,
+        message: `Vai restaurar ${cCount} concurso(s), ${dCount} disciplina(s), ${vCount} vínculo(s), ${tCount} tópico(s), ${qCount} questão(ões) e ${sCount} simulado(s). Duplicatas (por nome ou enunciado) são ignoradas. Settings serão sobrescritos. Continuar?`,
       });
       if (!ok) return;
+
+      // Restaurar hierarquia em ordem: concursos → disciplinas → vínculos → tópicos
+      // Idempotente: skip se já existir (por nome ou erro 23505 do DB).
+      let cAdded = 0;
+      let dAdded = 0;
+      let vAdded = 0;
+      let tAdded = 0;
+
+      // Pré-carrega caches existentes pra dedup
+      await loadConcursos();
+      await loadDisciplinas();
+      await loadConcursoDisciplinas();
+      await loadTopicos();
+
+      // Mapping: oldId → newId (necessário pra refazer FKs)
+      const concursoIdMap = new Map<string, string>();
+      const disciplinaIdMap = new Map<string, string>();
+      const topicoIdMap = new Map<string, string>();
+
+      if (Array.isArray(data.concursos)) {
+        for (const c of data.concursos) {
+          try {
+            const input: ConcursoInput = {
+              nome: c.nome,
+              banca: c.banca,
+              orgao: c.orgao,
+              cargo: c.cargo,
+              data_prova: c.data_prova,
+              status: c.status,
+              edital_url: c.edital_url,
+              notas: c.notas,
+            };
+            const created = await createConcurso(input);
+            concursoIdMap.set(c.id, created.id);
+            cAdded++;
+          } catch {
+            // Já existe ou erro — segue
+          }
+        }
+      }
+
+      if (Array.isArray(data.disciplinas)) {
+        for (const d of data.disciplinas) {
+          try {
+            const input: DisciplinaInput = {
+              nome: d.nome,
+              peso_default: d.peso_default,
+              cor: d.cor,
+            };
+            const created = await createDisciplina(input);
+            disciplinaIdMap.set(d.id, created.id);
+            dAdded++;
+          } catch {}
+        }
+      }
+
+      if (Array.isArray(data.concurso_disciplinas)) {
+        for (const v of data.concurso_disciplinas) {
+          const cId = concursoIdMap.get(v.concurso_id) ?? v.concurso_id;
+          const dId = disciplinaIdMap.get(v.disciplina_id) ?? v.disciplina_id;
+          try {
+            await linkConcursoDisciplina({
+              concurso_id: cId,
+              disciplina_id: dId,
+              peso: v.peso,
+              qtd_questoes_prova: v.qtd_questoes_prova,
+            });
+            vAdded++;
+          } catch {}
+        }
+      }
+
+      if (Array.isArray(data.topicos)) {
+        // Ordena por parent_topico_id null primeiro (raízes antes de filhos)
+        const ordered = data.topicos
+          .slice()
+          .sort((a, b) =>
+            !a.parent_topico_id ? -1 : !b.parent_topico_id ? 1 : 0
+          );
+        for (const t of ordered) {
+          const dId = disciplinaIdMap.get(t.disciplina_id) ?? t.disciplina_id;
+          const parentId = t.parent_topico_id
+            ? topicoIdMap.get(t.parent_topico_id) ?? t.parent_topico_id
+            : null;
+          try {
+            const input: TopicoInput = {
+              nome: t.nome,
+              disciplina_id: dId,
+              parent_topico_id: parentId,
+              ordem: t.ordem,
+            };
+            const created = await createTopico(input);
+            topicoIdMap.set(t.id, created.id);
+            tAdded++;
+          } catch {}
+        }
+      }
 
       // Restaurar questions: dedup contra estado atual
       let qAdded = 0;
@@ -299,7 +412,7 @@ export function BackupSection() {
 
       scheduleSync(800);
       toast(
-        `Restaurado: ${qAdded} questão(ões) novas, ${sAdded} simulado(s).`,
+        `Restaurado: ${cAdded} concurso(s) · ${dAdded} disciplina(s) · ${vAdded} vínculo(s) · ${tAdded} tópico(s) · ${qAdded} questão(ões) · ${sAdded} simulado(s).`,
         'success'
       );
     } catch (e) {
