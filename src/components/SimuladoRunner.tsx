@@ -12,6 +12,7 @@ import {
 import { confirmDialog } from './ConfirmDialog';
 import { renderRichText, shuffle } from '@/lib/utils';
 import { QuestionImages } from './QuestionImages';
+import { useSwipe } from '@/lib/use-swipe';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -215,6 +216,13 @@ export function SimuladoRunner({
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [alternativas, currentIdx, showTimeUpDialog, simulado.id]);
+
+  // Swipe horizontal: ←→ navega entre questões
+  useSwipe({
+    enabled: !showTimeUpDialog,
+    onLeft: proxima,
+    onRight: anterior,
+  });
 
   if (!currentQuestion) {
     return (

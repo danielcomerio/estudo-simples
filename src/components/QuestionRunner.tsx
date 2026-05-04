@@ -24,6 +24,7 @@ import {
 } from '@/lib/session-store';
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
+import { useSwipe } from '@/lib/use-swipe';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -726,6 +727,12 @@ function RunningView({
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered, alts, q.id]);
+
+  // Swipe horizontal: ← pula questão (só antes de responder, pra não pular sem rate)
+  useSwipe({
+    enabled: !answered,
+    onLeft: skip,
+  });
 
   const chosenAlt = chosen ? payload.alternativas?.find((a) => a.letra === chosen) : null;
   const correctAlt =

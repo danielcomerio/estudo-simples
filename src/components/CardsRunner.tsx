@@ -19,6 +19,7 @@ import {
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { renderClozeHTML } from '@/lib/cloze';
+import { useSwipe } from '@/lib/use-swipe';
 import type {
   ClozePayload,
   DiscSessionConfig,
@@ -455,6 +456,16 @@ function CardView({
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allRevealed, q.id]);
+
+  // Swipe: ← pula (não rate); → revela próxima lacuna/verso
+  useSwipe({
+    onLeft: () => {
+      if (!allRevealed) onNext();
+    },
+    onRight: () => {
+      if (!allRevealed) setRevealed((r) => r + 1);
+    },
+  });
 
   const rate = (quality: number) => {
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };

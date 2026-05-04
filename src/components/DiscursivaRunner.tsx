@@ -18,6 +18,7 @@ import {
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { QuestionImages } from './QuestionImages';
+import { useSwipe } from '@/lib/use-swipe';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -331,6 +332,12 @@ function DiscRunningView({
     }
     return [];
   }, [payload]);
+
+  // Swipe ← próxima — só após avaliar (senão pode descartar resposta digitada)
+  useSwipe({
+    enabled: rated,
+    onLeft: onNext,
+  });
 
   // Inicializa grades em 70% do máximo (heurística)
   useEffect(() => {
