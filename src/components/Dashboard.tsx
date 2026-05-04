@@ -178,6 +178,16 @@ export function Dashboard() {
     (q) => !q.srs?.lastReviewed && q.type === 'objetiva'
   ).length;
 
+  // "Inimigas": questões que persistem errando — ≥3 tentativas e
+  // taxa de acerto < 30%. Foco direto no que mais machuca.
+  const inimigas = questions.filter((q) => {
+    if (q.type !== 'objetiva') return false;
+    const a = q.stats?.attempts ?? 0;
+    const c = q.stats?.correct ?? 0;
+    if (a < 3) return false;
+    return c / a < 0.3;
+  }).length;
+
   return (
     <>
       <div className="grid-cards">
@@ -334,6 +344,23 @@ export function Dashboard() {
             >
               <button type="button">
                 🔁 Revisar {Math.min(20, erradasRecentes)} erradas recentes
+              </button>
+            </Link>
+          )}
+          {inimigas > 0 && (
+            <Link
+              href={`/estudar?modo=inimigas&qtd=${Math.min(20, inimigas)}&auto=1`}
+              title="Questões que você persiste errando (>=3 tentativas, <30% acerto)"
+            >
+              <button
+                type="button"
+                style={{
+                  background: 'var(--danger-soft, #4a1d1d)',
+                  borderColor: 'var(--danger, #ef4444)',
+                  color: 'var(--danger, #ef4444)',
+                }}
+              >
+                ⚔ Bater {Math.min(20, inimigas)} inimigas
               </button>
             </Link>
           )}

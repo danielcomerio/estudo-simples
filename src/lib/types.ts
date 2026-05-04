@@ -270,7 +270,13 @@ export type EditalItem = {
   _dirty?: boolean;
 };
 
-export type StudyMode = 'srs' | 'aleatorio' | 'dificuldade' | 'erros' | 'novas';
+export type StudyMode =
+  | 'srs'
+  | 'aleatorio'
+  | 'dificuldade'
+  | 'erros'
+  | 'novas'
+  | 'inimigas';
 
 export type SessionConfig = {
   disciplinas: string[];

@@ -154,6 +154,15 @@ export function StatsView() {
         )}
       </div>
 
+      {effectiveConcursoId && (
+        <PredicaoNotaSection
+          questions={questions}
+          concursoId={effectiveConcursoId}
+          allDisciplinas={allDisciplinas ?? []}
+          allVinculos={allVinculos}
+        />
+      )}
+
       <SemanaSection questions={questions} />
 
       <HoraDoDiaSection questions={questions} />
@@ -165,6 +174,8 @@ export function StatsView() {
       <DificuldadeSection questions={questions} />
 
       <NemesisSection questions={questions} />
+
+      <AprendizadoSection questions={questions} />
 
       <OrigemDistSection questions={questions} />
 
@@ -1737,6 +1748,259 @@ function HoraDoDiaSection({
             })}
           </Fragment>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Predição de nota se a prova fosse hoje, baseada em:
+ *   - Pra cada disciplina vinculada ao concurso, calcula a taxa de
+ *     acerto histórica do user nas questões dessa disciplina.
+ *   - Multiplica pela qtd_questoes_prova prevista (do vínculo).
+ *   - Soma → nota estimada e %
+ *
+ * Confidence interval simples baseado no n de tentativas: poucas
+ * amostras → faixa larga.
+ */
+function PredicaoNotaSection({
+  questions,
+  concursoId,
+  allDisciplinas,
+  allVinculos,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+  concursoId: string;
+  allDisciplinas: Disciplina[];
+  allVinculos: ConcursoDisciplina[];
+}) {
+  const data = useMemo(() => {
+    const vinculos = allVinculos.filter((v) => v.concurso_id === concursoId);
+    if (vinculos.length === 0) return null;
+    const byDiscId = new Map(allDisciplinas.map((d) => [d.id, d]));
+
+    let totalQuestoesProva = 0;
+    let notaEstim = 0;
+    let totalAttempts = 0;
+    const linhas: Array<{
+      nome: string;
+      qtd: number;
+      acertos: number;
+      tentativas: number;
+      taxa: number;
+      previstos: number;
+    }> = [];
+
+    for (const v of vinculos) {
+      const disc = byDiscId.get(v.disciplina_id);
+      if (!disc) continue;
+      const qtd = v.qtd_questoes_prova ?? 0;
+      let acertos = 0;
+      let tentativas = 0;
+      for (const q of questions) {
+        if (q.disciplina_id !== disc.nome) continue;
+        for (const h of q.stats?.history ?? []) {
+          tentativas++;
+          if (h.result === 'correct' || h.result === 'self_pass') acertos++;
+        }
+      }
+      const taxa = tentativas > 0 ? acertos / tentativas : 0;
+      const previstos = qtd > 0 ? taxa * qtd : 0;
+      totalQuestoesProva += qtd;
+      notaEstim += previstos;
+      totalAttempts += tentativas;
+      if (qtd > 0 || tentativas > 0) {
+        linhas.push({
+          nome: disc.nome,
+          qtd,
+          acertos,
+          tentativas,
+          taxa,
+          previstos,
+        });
+      }
+    }
+
+    if (totalQuestoesProva === 0) return null;
+    const pct = (notaEstim / totalQuestoesProva) * 100;
+    const margem =
+      totalAttempts === 0
+        ? 30
+        : Math.max(5, Math.min(30, (1.96 / Math.sqrt(totalAttempts)) * 100));
+
+    linhas.sort((a, b) => a.taxa - b.taxa);
+
+    return {
+      linhas,
+      totalQuestoesProva,
+      notaEstim,
+      pct,
+      margem,
+      totalAttempts,
+    };
+  }, [questions, concursoId, allDisciplinas, allVinculos]);
+
+  if (!data) return null;
+
+  const corNota =
+    data.pct >= 70
+      ? 'var(--primary)'
+      : data.pct >= 50
+        ? 'var(--warn, #d97706)'
+        : 'var(--danger)';
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>📊 Se a prova fosse hoje</h2>
+      <p className="muted" style={{ margin: '0 0 14px', fontSize: '0.85rem' }}>
+        Estimativa baseada na sua taxa de acerto por disciplina × quantidade
+        prevista na prova. Margem cresce com poucas tentativas.
+      </p>
+      <div
+        className="row gap"
+        style={{ alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap' }}
+      >
+        <div>
+          <div style={{ fontSize: '2.4rem', fontWeight: 600, color: corNota }}>
+            {data.notaEstim.toFixed(1)}
+            <span
+              className="muted"
+              style={{ fontSize: '1rem', marginLeft: 4, fontWeight: 400 }}
+            >
+              {' '}/ {data.totalQuestoesProva}
+            </span>
+          </div>
+          <div className="muted" style={{ fontSize: '0.88rem' }}>
+            ≈ <strong style={{ color: corNota }}>{data.pct.toFixed(1)}%</strong>
+            {' '}(± {data.margem.toFixed(0)}%, {data.totalAttempts} tentativas)
+          </div>
+        </div>
+      </div>
+      {data.linhas.length > 0 && (
+        <div style={{ fontSize: '0.85rem' }}>
+          <strong>Onde focar (piores primeiro):</strong>
+          <div style={{ marginTop: 6, display: 'grid', gap: 4 }}>
+            {data.linhas.slice(0, 5).map((l) => (
+              <div
+                key={l.nome}
+                className="row between"
+                style={{ alignItems: 'center', gap: 8 }}
+              >
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {l.nome}
+                </span>
+                <span
+                  className="muted"
+                  style={{
+                    flexShrink: 0,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {l.tentativas > 0 ? `${(l.taxa * 100).toFixed(0)}%` : '—'}
+                  {l.qtd > 0 && (
+                    <span style={{ marginLeft: 6, opacity: 0.7 }}>
+                      (~{l.previstos.toFixed(1)}/{l.qtd})
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Cards "Dominadas" e "Quase aprendi":
+ * - Dominadas: histórico recente com >=5 acertos seguidos. Reforço
+ *   pra não esquecer (manter na pilha).
+ * - Quase aprendi: histórico recente com 2-3 acertos seguidos
+ *   precedidos por erro — em consolidação. Foco antes de prova.
+ */
+function AprendizadoSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const dominadas: typeof questions = [];
+    const consolidando: typeof questions = [];
+    for (const q of questions) {
+      const h = q.stats?.history ?? [];
+      if (h.length < 2) continue;
+      // Conta sequência de acertos no fim
+      let streak = 0;
+      for (let i = h.length - 1; i >= 0; i--) {
+        const r = h[i].result;
+        if (r === 'correct' || r === 'self_pass') streak++;
+        else break;
+      }
+      if (streak >= 5) {
+        dominadas.push(q);
+      } else if (streak === 2 || streak === 3) {
+        // Antes da streak deve ter pelo menos um erro recente
+        const prev = h[h.length - 1 - streak];
+        if (
+          prev &&
+          (prev.result === 'wrong' || prev.result === 'timeout')
+        ) {
+          consolidando.push(q);
+        }
+      }
+    }
+    return { dominadas, consolidando };
+  }, [questions]);
+
+  if (data.dominadas.length === 0 && data.consolidando.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>🧠 Aprendizado</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 14px', fontSize: '0.85rem' }}
+      >
+        Detecção automática baseada nas últimas respostas.
+      </p>
+      <div className="row gap wrap">
+        <div style={{ flex: '1 1 200px' }}>
+          <div style={{ fontWeight: 500 }}>
+            🔥 Dominadas{' '}
+            <span className="muted" style={{ fontWeight: 400 }}>
+              · {data.dominadas.length}
+            </span>
+          </div>
+          <p
+            className="muted"
+            style={{ margin: '4px 0 0', fontSize: '0.82rem' }}
+          >
+            5+ acertos seguidos. Tendência de manter — só revisar quando
+            o SRS sugerir.
+          </p>
+        </div>
+        <div style={{ flex: '1 1 200px' }}>
+          <div style={{ fontWeight: 500 }}>
+            🌱 Consolidando{' '}
+            <span className="muted" style={{ fontWeight: 400 }}>
+              · {data.consolidando.length}
+            </span>
+          </div>
+          <p
+            className="muted"
+            style={{ margin: '4px 0 0', fontSize: '0.82rem' }}
+          >
+            2–3 acertos seguidos depois de erro. Reforçar antes de prova
+            ajuda a fixar.
+          </p>
+        </div>
       </div>
     </div>
   );

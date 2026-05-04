@@ -80,6 +80,21 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
       const h = q.stats?.history || [];
       return h.slice(-5).some((r) => r.result === 'wrong' || r.result === 'timeout');
     });
+  } else if (cfg.modo === 'inimigas') {
+    // "Inimigas": questões com >=3 tentativas E taxa de acerto < 30%.
+    // Foco no que persiste errando — agressivo pra forçar revisão.
+    pool = pool.filter((q) => {
+      const a = q.stats?.attempts ?? 0;
+      const c = q.stats?.correct ?? 0;
+      if (a < 3) return false;
+      return c / a < 0.3;
+    });
+    // Ordena por pior taxa primeiro
+    pool = pool.slice().sort((x, y) => {
+      const ax = (x.stats?.correct ?? 0) / Math.max(1, x.stats?.attempts ?? 1);
+      const ay = (y.stats?.correct ?? 0) / Math.max(1, y.stats?.attempts ?? 1);
+      return ax - ay;
+    });
   }
 
   if (cfg.modo === 'aleatorio') {
@@ -267,6 +282,7 @@ export function QuestionRunner() {
       'dificuldade',
       'erros',
       'novas',
+      'inimigas',
     ];
     const newCfg: SessionConfig = { ...cfg };
     if (modo && (validModos as string[]).includes(modo)) {
@@ -494,6 +510,7 @@ export function QuestionRunner() {
             <option value="aleatorio">Aleatório</option>
             <option value="dificuldade">Por dificuldade (mais difíceis primeiro)</option>
             <option value="erros">Só as que errei recentemente</option>
+            <option value="inimigas">⚔ Inimigas (≥3 tentativas, &lt;30% acerto)</option>
             <option value="novas">Só novas (nunca vistas)</option>
           </select>
         </label>
