@@ -49,6 +49,23 @@ export function Topbar({
     ).length;
   }, [questions]);
 
+  // Atualiza document.title com prefixo "(N)" quando há vencendo e a aba
+  // não está focada — visibilidade quando user está em outras abas.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const baseTitle = 'Estudo Simples';
+    const update = () => {
+      if (dueObjetivas > 0 && document.hidden) {
+        document.title = `(${dueObjetivas > 99 ? '99+' : dueObjetivas}) ${baseTitle}`;
+      } else {
+        document.title = baseTitle;
+      }
+    };
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, [dueObjetivas]);
+
   // Fecha menu mobile ao mudar de rota
   useEffect(() => {
     setMobileOpen(false);

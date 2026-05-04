@@ -5,6 +5,7 @@ import { StoreProvider } from '@/components/StoreProvider';
 import { Topbar } from '@/components/Topbar';
 import { ToastHost } from '@/components/Toast';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { GlobalDropZone } from '@/components/GlobalDropZone';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -57,6 +58,7 @@ export default async function RootLayout({
             </a>
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
             <OfflineBanner />
+            <GlobalDropZone />
             <main id="main-content" className="page">
               {children}
             </main>

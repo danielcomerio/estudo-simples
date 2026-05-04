@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, addQuestionsBulk, selectActiveQuestions } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import {
@@ -128,6 +128,34 @@ export function ImportZone() {
     }
     setupPreview(() => parseImportBatchMulti(files, existing));
   };
+
+  // Pega arquivos arrastados em outras páginas (via GlobalDropZone) e
+  // dispara o preview ao montar.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!userId) return;
+    const KEY = 'estudo-simples:pending-import';
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        startPreviewMulti(parsed);
+      }
+    } catch {
+      // ignora payload corrompido
+    } finally {
+      try {
+        sessionStorage.removeItem(KEY);
+      } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   const handleFiles = async (files: FileList | File[]) => {
     const arr = Array.from(files).filter(
