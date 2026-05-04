@@ -2,6 +2,7 @@
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   selectActiveQuestions,
   updateQuestionLocal,
@@ -311,6 +312,34 @@ export function CardsRunner() {
         (Flashcard). Importe via JSON em <code>/banco</code>; aqui você
         estuda os existentes.
       </p>
+
+      {totalCards === 0 && (
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-elev-2)',
+            border: '1px dashed var(--border)',
+            textAlign: 'center',
+            padding: 24,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: 6 }}>🃏</div>
+          <strong>Nenhum card{activeConcurso ? ' neste concurso' : ''}</strong>
+          <p
+            className="muted"
+            style={{ margin: '6px 0 12px', fontSize: '0.9rem' }}
+          >
+            Crie cards manualmente em <code>/banco</code> (botão + Nova) ou
+            importe um JSON com type=cloze/flashcard.
+          </p>
+          <Link href="/banco">
+            <button type="button" className="primary">
+              Ir para o banco
+            </button>
+          </Link>
+        </div>
+      )}
 
       <div className="form-grid">
         <label>

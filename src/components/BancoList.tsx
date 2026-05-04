@@ -93,6 +93,9 @@ export function BancoList() {
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
   const [notasFilter, setNotasFilter] = useState<'' | 'com' | 'sem'>('');
   const [latexFilter, setLatexFilter] = useState<'' | 'com' | 'sem'>('');
+  const [tempoFilter, setTempoFilter] = useState<
+    '' | 'hoje' | 'ontem' | 'semana' | 'nunca'
+  >('');
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
@@ -174,7 +177,7 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação + foco quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}|${tempoFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
     setFocusedIdx(-1);
@@ -259,6 +262,21 @@ export function BancoList() {
           if ((q.stats?.attempts ?? 0) > 0) return false;
         }
       }
+      if (tempoFilter) {
+        const lastReviewed = q.srs?.lastReviewed ?? 0;
+        const today0 = startOfDay(now);
+        const yest0 = today0 - 24 * 60 * 60 * 1000;
+        const week0 = today0 - 7 * 24 * 60 * 60 * 1000;
+        if (tempoFilter === 'hoje') {
+          if (lastReviewed < today0) return false;
+        } else if (tempoFilter === 'ontem') {
+          if (lastReviewed < yest0 || lastReviewed >= today0) return false;
+        } else if (tempoFilter === 'semana') {
+          if (lastReviewed < week0) return false;
+        } else if (tempoFilter === 'nunca') {
+          if (lastReviewed > 0) return false;
+        }
+      }
       if (origem) {
         // 'autoral' inclui legado (sem campo origem) — questões pré-migration
         // 0003 foram todas criadas pelo user, então conceitualmente autorais.
@@ -289,7 +307,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, tempoFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -717,6 +735,7 @@ export function BancoList() {
         if (imgFilter) ativos.push('imagem');
         if (notasFilter) ativos.push('notas');
         if (latexFilter) ativos.push('LaTeX');
+        if (tempoFilter) ativos.push('última revisão');
         const hasAtivos = ativos.length > 0;
         const hasPresets = presets.length > 0;
         if (!hasAtivos && !hasPresets) return null;
@@ -749,6 +768,7 @@ export function BancoList() {
                     setImgFilter('');
                     setNotasFilter('');
                     setLatexFilter('');
+                    setTempoFilter('');
                   }}
                 >
                   🧹 Limpar todos
@@ -903,6 +923,17 @@ export function BancoList() {
           <option value="">LaTeX (qq)</option>
           <option value="com">∑ Com LaTeX</option>
           <option value="sem">— Sem LaTeX</option>
+        </select>
+        <select
+          value={tempoFilter}
+          onChange={(e) => setTempoFilter(e.target.value as typeof tempoFilter)}
+          title="Filtrar pela última revisão"
+        >
+          <option value="">Última revisão (qq)</option>
+          <option value="hoje">📅 Estudadas hoje</option>
+          <option value="ontem">⏪ Estudadas ontem</option>
+          <option value="semana">7d Esta semana</option>
+          <option value="nunca">— Nunca revisadas</option>
         </select>
         <select
           value={sortBy}

@@ -2,6 +2,7 @@
 
 import { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   useStore,
   selectActiveQuestions,
@@ -417,6 +418,36 @@ export function QuestionRunner() {
       )}
 
       <h2>Configurar sessão</h2>
+
+      {objCount === 0 && (
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-elev-2)',
+            border: '1px dashed var(--border)',
+            textAlign: 'center',
+            padding: 24,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: 6 }}>📚</div>
+          <strong>
+            Sem questões objetivas{activeConcurso ? ' neste concurso' : ''}
+          </strong>
+          <p
+            className="muted"
+            style={{ margin: '6px 0 12px', fontSize: '0.9rem' }}
+          >
+            Importe um JSON ou cole questões em <code>/banco</code>. O modo SRS
+            agenda revisões a partir do seu desempenho.
+          </p>
+          <Link href="/banco">
+            <button type="button" className="primary">
+              Ir para o banco
+            </button>
+          </Link>
+        </div>
+      )}
 
       <div className="form-grid">
         <label>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
   selectActiveQuestions,
@@ -220,6 +221,35 @@ export function DiscursivaRunner() {
       )}
 
       <h2>Praticar discursivas</h2>
+
+      {discCount === 0 && (
+        <div
+          className="card"
+          style={{
+            background: 'var(--bg-elev-2)',
+            border: '1px dashed var(--border)',
+            textAlign: 'center',
+            padding: 24,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: 6 }}>✍️</div>
+          <strong>Sem questões discursivas</strong>
+          <p
+            className="muted"
+            style={{ margin: '6px 0 12px', fontSize: '0.9rem' }}
+          >
+            Importe um JSON com type=discursiva (com espelho/rubrica) em{' '}
+            <code>/banco</code>.
+          </p>
+          <Link href="/banco">
+            <button type="button" className="primary">
+              Ir para o banco
+            </button>
+          </Link>
+        </div>
+      )}
+
       <div className="form-grid">
         <label>
           <span>Disciplinas</span>
