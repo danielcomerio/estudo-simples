@@ -882,6 +882,18 @@ export function BancoList() {
             </Link>
           );
         })()}
+        <Link
+          href="/duplicatas"
+          className="ghost"
+          style={{
+            padding: '6px 12px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)',
+            fontSize: '0.88rem',
+          }}
+        >
+          🔍 Buscar duplicatas
+        </Link>
       </div>
 
       {editingQuestion && (
