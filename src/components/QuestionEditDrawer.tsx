@@ -802,6 +802,104 @@ export function QuestionEditDrawer({
           </div>
         </details>
 
+        {/* Histórico de revisão — só aparece quando há registros */}
+        {(question.stats?.history?.length ?? 0) > 0 && (
+          <details
+            style={{
+              marginBottom: 14,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '8px 12px',
+              background: 'var(--bg-elev-2)',
+            }}
+          >
+            <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+              Histórico de revisão
+              <span className="muted" style={{ marginLeft: 8, fontSize: '0.85rem' }}>
+                — {question.stats?.attempts ?? 0} tentativa(s),{' '}
+                {question.stats?.correct ?? 0} acerto(s)
+              </span>
+            </summary>
+            <ul
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: '10px 0 0',
+                fontSize: '0.85rem',
+                maxHeight: 240,
+                overflowY: 'auto',
+              }}
+            >
+              {(question.stats?.history ?? [])
+                .slice()
+                .reverse()
+                .slice(0, 30)
+                .map((h, i) => {
+                  const date = new Date(h.date);
+                  const icon =
+                    h.result === 'correct'
+                      ? '✅'
+                      : h.result === 'wrong'
+                        ? '❌'
+                        : h.result === 'timeout'
+                          ? '⏱'
+                          : h.result === 'self_pass'
+                            ? '✓'
+                            : h.result === 'self_fail'
+                              ? '✗'
+                              : '?';
+                  const conf =
+                    h.confidence === 1
+                      ? '🤔 chutei'
+                      : h.confidence === 2
+                        ? '😐 incerto'
+                        : h.confidence === 3
+                          ? '💪 confiante'
+                          : null;
+                  const time =
+                    typeof h.timeMs === 'number'
+                      ? ` · ${(h.timeMs / 1000).toFixed(1)}s`
+                      : '';
+                  return (
+                    <li
+                      key={i}
+                      style={{
+                        padding: '4px 0',
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
+                      {icon}{' '}
+                      <span className="muted">
+                        {date.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {h.answer && (
+                        <span style={{ marginLeft: 6 }}>
+                          marcou <code>{h.answer}</code>
+                        </span>
+                      )}
+                      {h.quality !== undefined && (
+                        <span style={{ marginLeft: 6 }}>· q={h.quality}</span>
+                      )}
+                      {conf && <span style={{ marginLeft: 6 }}>· {conf}</span>}
+                      {time && <span className="muted">{time}</span>}
+                    </li>
+                  );
+                })}
+              {(question.stats?.history?.length ?? 0) > 30 && (
+                <li className="muted" style={{ paddingTop: 6 }}>
+                  … e mais {(question.stats?.history?.length ?? 0) - 30}{' '}
+                  revisão(ões) anteriores
+                </li>
+              )}
+            </ul>
+          </details>
+        )}
+
         {/* Anotações pessoais — sempre disponível */}
         <label
           style={{
