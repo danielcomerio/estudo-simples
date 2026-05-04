@@ -532,6 +532,52 @@ export function BancoList() {
         </div>
       )}
 
+      {(() => {
+        const ativos: string[] = [];
+        if (search) ativos.push('busca');
+        if (disc) ativos.push('disciplina');
+        if (tipo) ativos.push('tipo');
+        if (origem) ativos.push('origem');
+        if (verif) ativos.push('verificação');
+        if (srsFilter) ativos.push('SRS');
+        if (imgFilter) ativos.push('imagem');
+        if (ativos.length === 0) return null;
+        return (
+          <div
+            style={{
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              flexWrap: 'wrap',
+              fontSize: '0.85rem',
+            }}
+          >
+            <span className="muted">
+              {ativos.length} filtro(s) ativo(s): {ativos.join(', ')}
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                setSearch('');
+                setDisc('');
+                setTipo('');
+                setOrigem('');
+                setVerif('');
+                setSrsFilter('');
+                setImgFilter('');
+              }}
+            >
+              🧹 Limpar todos
+            </button>
+            <span className="muted">
+              ({filtered.length} de {questions.length} questões)
+            </span>
+          </div>
+        );
+      })()}
+
       <div className="row gap wrap" style={{ marginBottom: 14 }}>
         <h2 style={{ margin: 0, marginRight: 'auto' }}>Banco atual</h2>
         <input
