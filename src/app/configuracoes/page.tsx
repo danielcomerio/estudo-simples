@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AlgorithmSection } from '@/components/AlgorithmSection';
+import { BackupSection } from '@/components/BackupSection';
 import { ThemeSection } from '@/components/ThemeSection';
 
 export default function ConfiguracoesPage() {
@@ -16,6 +17,8 @@ export default function ConfiguracoesPage() {
       <AlgorithmSection />
 
       <ThemeSection />
+
+      <BackupSection />
 
       <div className="card">
         <h2 style={{ margin: '0 0 8px' }}>Cadastros</h2>
