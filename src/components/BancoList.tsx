@@ -85,7 +85,22 @@ export function BancoList() {
   }, [filtersKey]);
 
   const filtered = useMemo(() => {
-    const txt = search.trim().toLowerCase();
+    // Parse prefixos: "tag:foo disc:bar banca:FGV resto livre"
+    // Texto livre (sem prefixo) vai pra full-text search.
+    const tokens = search.trim().split(/\s+/).filter(Boolean);
+    const tagFilters: string[] = [];
+    const discFilters: string[] = [];
+    const bancaFilters: string[] = [];
+    const freeTextParts: string[] = [];
+    for (const tok of tokens) {
+      const lower = tok.toLowerCase();
+      if (lower.startsWith('tag:')) tagFilters.push(tok.slice(4).toLowerCase());
+      else if (lower.startsWith('disc:')) discFilters.push(tok.slice(5).toLowerCase());
+      else if (lower.startsWith('banca:')) bancaFilters.push(tok.slice(6).toLowerCase());
+      else freeTextParts.push(tok.toLowerCase());
+    }
+    const txt = freeTextParts.join(' ');
+
     const now = Date.now();
     const tomorrow = startOfDay(now) + DAY_MS;
     const sevenDaysAgo = now - 7 * DAY_MS;
@@ -93,6 +108,28 @@ export function BancoList() {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      // Prefixos
+      if (tagFilters.length > 0) {
+        const tagsLower = (q.tags ?? []).map((t) => t.toLowerCase());
+        const allMatch = tagFilters.every((tf) =>
+          tagsLower.some((t) => t.includes(tf))
+        );
+        if (!allMatch) return false;
+      }
+      if (discFilters.length > 0) {
+        const dLower = (q.disciplina_id ?? '').toLowerCase();
+        const allMatch = discFilters.every((df) => dLower.includes(df));
+        if (!allMatch) return false;
+      }
+      if (bancaFilters.length > 0) {
+        const bancaLower = (
+          (typeof q.fonte?.banca === 'string' && q.fonte.banca) ||
+          q.banca_estilo ||
+          ''
+        ).toLowerCase();
+        const allMatch = bancaFilters.every((bf) => bancaLower.includes(bf));
+        if (!allMatch) return false;
+      }
       if (imgFilter) {
         const imgs = (q.payload as { imagens?: string[] }).imagens;
         const has = Array.isArray(imgs) && imgs.length > 0;
@@ -500,11 +537,11 @@ export function BancoList() {
         <input
           ref={searchRef}
           type="search"
-          placeholder="Buscar (atalho: /)"
+          placeholder="Buscar (atalho: /). Use tag:x disc:y banca:z"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 280 }}
-          title="Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui"
+          style={{ maxWidth: 320 }}
+          title="Prefixos: tag:foo disc:bar banca:FGV (tudo combinável). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui"
         />
         <select value={disc} onChange={(e) => setDisc(e.target.value)}>
           <option value="">Todas as disciplinas</option>
