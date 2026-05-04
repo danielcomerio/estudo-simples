@@ -139,6 +139,20 @@ export function QuestionEditDrawer({
     }
   }, [onClose]);
 
+  // Ctrl+S salva, Esc fecha (dialog já fecha em Esc nativamente, mas
+  // garantimos por consistência).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        void save();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Outras questões pra checagem de dedup (excluindo a própria)
   const outrasKeys = useMemo(() => {
     const set = new Set<string>();
