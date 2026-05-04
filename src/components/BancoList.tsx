@@ -191,6 +191,73 @@ export function BancoList() {
     toast('Selecionadas excluídas.', 'success');
   };
 
+  const bulkAddTags = async (tagsRaw: string) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const tags = tagsRaw
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (tags.length === 0) {
+      toast('Nenhuma tag válida.', 'warn');
+      return;
+    }
+    let updated = 0;
+    for (const id of selected) {
+      const q = questions.find((x) => x.id === id);
+      if (!q) continue;
+      const existing = new Set((q.tags ?? []).map((t) => t.toLowerCase()));
+      const novas: string[] = [...(q.tags ?? [])];
+      for (const t of tags) {
+        if (!existing.has(t.toLowerCase())) {
+          novas.push(t);
+          existing.add(t.toLowerCase());
+        }
+      }
+      if (novas.length > 30) {
+        toast(
+          `Pulou ${q.id.slice(0, 6)}: ultrapassaria 30 tags`,
+          'warn'
+        );
+        continue;
+      }
+      updateQuestionLocal(id, { tags: novas });
+      updated++;
+    }
+    scheduleSync(500);
+    toast(`Tags adicionadas a ${updated} questão(ões).`, 'success');
+  };
+
+  const bulkRemoveTags = async (tagsRaw: string) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const tagsLower = new Set(
+      tagsRaw
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    if (tagsLower.size === 0) {
+      toast('Nenhuma tag válida.', 'warn');
+      return;
+    }
+    let updated = 0;
+    for (const id of selected) {
+      const q = questions.find((x) => x.id === id);
+      if (!q || !q.tags?.length) continue;
+      const filtered = q.tags.filter((t) => !tagsLower.has(t.toLowerCase()));
+      if (filtered.length === q.tags.length) continue;
+      updateQuestionLocal(id, { tags: filtered });
+      updated++;
+    }
+    scheduleSync(500);
+    toast(`Tags removidas de ${updated} questão(ões).`, 'success');
+  };
+
   const bulkSetVerificacao = async (
     valor: 'verificada' | 'pendente' | 'duvidosa' | null
   ) => {
@@ -500,6 +567,11 @@ export function BancoList() {
           disabled={selected.size === 0}
           onPick={bulkSetVerificacao}
         />
+        <BulkTagsMenu
+          disabled={selected.size === 0}
+          onAdd={bulkAddTags}
+          onRemove={bulkRemoveTags}
+        />
         <button type="button" className="danger" onClick={deleteAllFiltered}>
           Excluir TUDO no filtro
         </button>
@@ -720,6 +792,115 @@ export function BancoList() {
     </div>
   );
 }
+
+/**
+ * Menu dropdown pra adicionar/remover tags em massa nas selecionadas.
+ * Cada operação abre prompt simples (cola lista de tags separadas por vírgula).
+ */
+function BulkTagsMenu({
+  disabled,
+  onAdd,
+  onRemove,
+}: {
+  disabled: boolean;
+  onAdd: (raw: string) => Promise<void>;
+  onRemove: (raw: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const handleAdd = () => {
+    setOpen(false);
+    const raw = window.prompt(
+      'Tags a ADICIONAR (separadas por vírgula):',
+      ''
+    );
+    if (raw && raw.trim()) void onAdd(raw);
+  };
+  const handleRemove = () => {
+    setOpen(false);
+    const raw = window.prompt(
+      'Tags a REMOVER (separadas por vírgula, case-insensitive):',
+      ''
+    );
+    if (raw && raw.trim()) void onRemove(raw);
+  };
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        title="Tags em massa"
+      >
+        🏷 Tags ▾
+      </button>
+      {open && (
+        <ul
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            background: 'var(--bg-elev-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            listStyle: 'none',
+            margin: 0,
+            padding: 4,
+            minWidth: 180,
+            zIndex: 50,
+          }}
+        >
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleAdd}
+              style={menuItemStyle}
+            >
+              + Adicionar tags
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleRemove}
+              style={menuItemStyle}
+            >
+              − Remover tags
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  padding: '8px 10px',
+  background: 'transparent',
+  border: 'none',
+  cursor: 'pointer',
+  color: 'var(--text)',
+  borderRadius: 'var(--radius)',
+};
 
 /**
  * Menu dropdown de export — Tudo / Filtro atual / Selecionadas.
