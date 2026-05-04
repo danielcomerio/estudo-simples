@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
@@ -160,6 +161,8 @@ export function StatsView() {
       <TempoMedioSection questions={questions} />
 
       <DificuldadeSection questions={questions} />
+
+      <NemesisSection questions={questions} />
 
       <BancasSection questions={questions} />
 
@@ -356,6 +359,123 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Lista de questões "inimigas" — taxa de acerto baixa com volume
+ * suficiente pra ser estatisticamente confiável.
+ *
+ * Critério: ≥3 tentativas E acerto < 30%. Limita a top 20 por
+ * número de tentativas (mais "treinadas" e ainda erradas no topo).
+ *
+ * Botão "Estudar essa" abre /estudar?qid=X pra prática isolada.
+ */
+function NemesisSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const nemesis = useMemo(() => {
+    const list = questions
+      .filter((q) => {
+        const a = q.stats?.attempts ?? 0;
+        const c = q.stats?.correct ?? 0;
+        return a >= 3 && c / a < 0.3;
+      })
+      .map((q) => ({
+        q,
+        attempts: q.stats?.attempts ?? 0,
+        correct: q.stats?.correct ?? 0,
+        pct: (q.stats?.correct ?? 0) / (q.stats?.attempts ?? 1),
+      }))
+      .sort((a, b) => b.attempts - a.attempts || a.pct - b.pct);
+    return list.slice(0, 20);
+  }, [questions]);
+
+  if (nemesis.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2>Suas inimigas</h2>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12, fontSize: '0.85rem' }}>
+        Questões com taxa de acerto &lt; 30% (≥3 tentativas).
+        Vale focar nelas — entender o erro pode ser mais valioso que
+        praticar 10 questões que você já acerta sem pensar.
+      </p>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {nemesis.map(({ q, attempts, correct, pct }) => {
+          const enun =
+            q.type === 'objetiva'
+              ? (q.payload as { enunciado?: string }).enunciado ?? ''
+              : q.type === 'discursiva'
+                ? (q.payload as { enunciado_completo?: string; enunciado?: string }).enunciado_completo ??
+                  (q.payload as { enunciado?: string }).enunciado ??
+                  ''
+                : q.type === 'cloze'
+                  ? (q.payload as { texto?: string }).texto ?? ''
+                  : (q.payload as { frente?: string }).frente ?? '';
+          const route =
+            q.type === 'cloze' || q.type === 'flashcard'
+              ? `/cards?qid=${q.id}`
+              : `/estudar?qid=${q.id}`;
+          return (
+            <li
+              key={q.id}
+              style={{
+                background: 'var(--bg-elev-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: '10px 12px',
+              }}
+            >
+              <div className="row between gap wrap" style={{ alignItems: 'center' }}>
+                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                  <div
+                    className="muted"
+                    style={{ fontSize: '0.78rem', marginBottom: 2 }}
+                  >
+                    {q.disciplina_id ?? '(sem disciplina)'}
+                    {q.tema && ` · ${q.tema}`}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '0.9rem',
+                      lineHeight: 1.5,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                    }}
+                  >
+                    {enun}
+                  </div>
+                </div>
+                <div className="row gap" style={{ alignItems: 'center' }}>
+                  <span
+                    style={{
+                      color: 'var(--danger)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {Math.round(pct * 100)}%
+                  </span>
+                  <span className="muted" style={{ fontSize: '0.82rem' }}>
+                    ({correct}/{attempts})
+                  </span>
+                  <Link href={route}>
+                    <button type="button" className="primary">
+                      ▶ Estudar
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
