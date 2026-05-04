@@ -4,24 +4,36 @@ import { useEffect, useRef, useState } from 'react';
 import { addQuestionLocal, useStore } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { newSRS, newStats } from '@/lib/srs';
-import type { ObjetivaPayload } from '@/lib/types';
+import type { ClozePayload, FlashcardPayload, ObjetivaPayload } from '@/lib/types';
 import { toast } from './Toast';
 
 /**
- * Drawer pra criar questão objetiva manualmente, sem precisar
- * importar JSON. Forma simplificada — só campos essenciais.
+ * Drawer pra criar questão (objetiva, cloze ou flashcard)
+ * manualmente, sem precisar importar JSON. Forma simplificada — só
+ * campos essenciais.
  *
- * Salva como autoral. Usuário pode depois editar metadata avançada
- * (tags, fonte, verificacao) via QuestionEditDrawer.
+ * Salva como autoral + verificacao='verificada' (criada
+ * intencionalmente). Usuário pode depois editar metadata avançada
+ * (tags, fonte) via QuestionEditDrawer.
  */
-export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
+type CreateKind = 'objetiva' | 'cloze' | 'flashcard';
+
+export function QuestionCreateDrawer({
+  onClose,
+  initialKind = 'objetiva',
+}: {
+  onClose: () => void;
+  initialKind?: CreateKind;
+}) {
   const userId = useStore((s) => s.userId);
   const dlgRef = useRef<HTMLDialogElement>(null);
 
+  const [kind, setKind] = useState<CreateKind>(initialKind);
   const [discId, setDiscId] = useState('');
   const [tema, setTema] = useState('');
   const [banca, setBanca] = useState('');
   const [dif, setDif] = useState('');
+  // Objetiva
   const [enun, setEnun] = useState('');
   const [explicacao, setExplicacao] = useState('');
   const [alts, setAlts] = useState<
@@ -33,6 +45,11 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
     { letra: 'D', texto: '', correta: false },
     { letra: 'E', texto: '', correta: false },
   ]);
+  // Cloze
+  const [clozeTexto, setClozeTexto] = useState('');
+  // Flashcard
+  const [frente, setFrente] = useState('');
+  const [verso, setVerso] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -74,42 +91,73 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
     }
     setSubmitting(true);
     try {
-      const altsClean = alts
-        .filter((a) => a.letra.trim() && a.texto.trim())
-        .map((a) => ({
-          letra: a.letra.toUpperCase(),
-          texto: a.texto,
-          correta: !!a.correta,
-        }));
-      if (altsClean.length < 2) {
-        toast('Informe pelo menos 2 alternativas com texto', 'error');
-        return;
-      }
-      const corretas = altsClean.filter((a) => a.correta);
-      if (corretas.length !== 1) {
-        toast('Marque exatamente 1 alternativa como correta', 'error');
-        return;
-      }
-      if (!enun.trim()) {
-        toast('Enunciado obrigatório', 'error');
-        return;
-      }
-      const payload: ObjetivaPayload = {
-        enunciado: enun,
-        alternativas: altsClean,
-        gabarito: corretas[0].letra,
-      };
-      if (explicacao.trim()) payload.explicacao_geral = explicacao;
-
       let dificuldade: number | null = null;
       if (dif.trim()) {
         const n = Number(dif);
         if (Number.isInteger(n) && n >= 1 && n <= 5) dificuldade = n;
       }
 
+      let payload: ObjetivaPayload | ClozePayload | FlashcardPayload;
+      let type: 'objetiva' | 'cloze' | 'flashcard';
+
+      if (kind === 'cloze') {
+        if (!clozeTexto.trim()) {
+          toast('Texto do cloze obrigatório', 'error');
+          return;
+        }
+        if (!/\{\{c\d+::/.test(clozeTexto)) {
+          toast(
+            'Cloze precisa de ao menos uma lacuna {{c1::resposta}}',
+            'error'
+          );
+          return;
+        }
+        payload = {
+          texto: clozeTexto,
+          ...(explicacao.trim() ? { explicacao } : {}),
+        } as ClozePayload;
+        type = 'cloze';
+      } else if (kind === 'flashcard') {
+        if (!frente.trim() || !verso.trim()) {
+          toast('Frente e verso obrigatórios', 'error');
+          return;
+        }
+        payload = { frente, verso } as FlashcardPayload;
+        type = 'flashcard';
+      } else {
+        const altsClean = alts
+          .filter((a) => a.letra.trim() && a.texto.trim())
+          .map((a) => ({
+            letra: a.letra.toUpperCase(),
+            texto: a.texto,
+            correta: !!a.correta,
+          }));
+        if (altsClean.length < 2) {
+          toast('Informe pelo menos 2 alternativas com texto', 'error');
+          return;
+        }
+        const corretas = altsClean.filter((a) => a.correta);
+        if (corretas.length !== 1) {
+          toast('Marque exatamente 1 alternativa como correta', 'error');
+          return;
+        }
+        if (!enun.trim()) {
+          toast('Enunciado obrigatório', 'error');
+          return;
+        }
+        const obj: ObjetivaPayload = {
+          enunciado: enun,
+          alternativas: altsClean,
+          gabarito: corretas[0].letra,
+        };
+        if (explicacao.trim()) obj.explicacao_geral = explicacao;
+        payload = obj;
+        type = 'objetiva';
+      }
+
       addQuestionLocal(
         {
-          type: 'objetiva',
+          type,
           disciplina_id: discId.trim() || null,
           tema: tema.trim() || null,
           banca_estilo: banca.trim() || null,
@@ -120,7 +168,7 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
           deleted_at: null,
           origem: 'autoral',
           fonte: {},
-          verificacao: 'verificada', // criada manualmente, assume validada
+          verificacao: 'verificada',
         },
         userId
       );
@@ -148,7 +196,12 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
     >
       <form onSubmit={save} style={{ padding: 22 }}>
         <div className="row between" style={{ marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Criar questão (objetiva)</h2>
+          <h2 style={{ margin: 0 }}>
+            Criar questão{' '}
+            <span className="muted" style={{ fontSize: '0.85rem' }}>
+              ({kind})
+            </span>
+          </h2>
           <button
             type="button"
             className="ghost icon"
@@ -158,6 +211,20 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
           >
             ✕
           </button>
+        </div>
+
+        <div className="row gap" style={{ marginBottom: 14 }}>
+          <label>
+            <span style={{ marginRight: 6, fontSize: '0.85rem' }}>Tipo:</span>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as CreateKind)}
+            >
+              <option value="objetiva">Objetiva (alternativas)</option>
+              <option value="cloze">Cloze (texto com lacunas)</option>
+              <option value="flashcard">Flashcard (frente/verso)</option>
+            </select>
+          </label>
         </div>
 
         <div className="form-grid">
@@ -204,26 +271,89 @@ export function QuestionCreateDrawer({ onClose }: { onClose: () => void }) {
           </label>
         </div>
 
-        <label
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-            marginBottom: 14,
-          }}
-        >
-          <span style={{ fontSize: '0.85rem' }}>Enunciado *</span>
-          <textarea
-            value={enun}
-            onChange={(e) => setEnun(e.target.value)}
-            rows={5}
-            maxLength={50_000}
-            required
-          />
-        </label>
+        {kind === 'objetiva' && (
+          <>
+            <label
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                marginBottom: 14,
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>Enunciado *</span>
+              <textarea
+                value={enun}
+                onChange={(e) => setEnun(e.target.value)}
+                rows={5}
+                maxLength={50_000}
+              />
+            </label>
 
-        <h3 style={{ margin: '16px 0 8px' }}>Alternativas</h3>
-        {alts.map((a, i) => (
+            <h3 style={{ margin: '16px 0 8px' }}>Alternativas</h3>
+          </>
+        )}
+
+        {kind === 'cloze' && (
+          <label
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              marginBottom: 14,
+            }}
+          >
+            <span style={{ fontSize: '0.85rem' }}>
+              Texto com lacunas * — use{' '}
+              <code>{'{{c1::resposta}}'}</code>
+            </span>
+            <textarea
+              value={clozeTexto}
+              onChange={(e) => setClozeTexto(e.target.value)}
+              rows={6}
+              placeholder='Ex: A {{c1::Lei 14.133/21}} dispõe sobre {{c2::licitações}}.'
+            />
+          </label>
+        )}
+
+        {kind === 'flashcard' && (
+          <>
+            <label
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                marginBottom: 14,
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>Frente *</span>
+              <textarea
+                value={frente}
+                onChange={(e) => setFrente(e.target.value)}
+                rows={3}
+                placeholder="Pergunta / termo"
+              />
+            </label>
+            <label
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                marginBottom: 14,
+              }}
+            >
+              <span style={{ fontSize: '0.85rem' }}>Verso *</span>
+              <textarea
+                value={verso}
+                onChange={(e) => setVerso(e.target.value)}
+                rows={4}
+                placeholder="Resposta / definição"
+              />
+            </label>
+          </>
+        )}
+
+        {kind === 'objetiva' && alts.map((a, i) => (
           <div
             key={i}
             className="row gap"
