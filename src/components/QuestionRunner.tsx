@@ -17,6 +17,11 @@ import {
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
+import {
+  clearSession as clearStoredSession,
+  readSession,
+  saveSession,
+} from '@/lib/session-store';
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import type {
@@ -103,6 +108,7 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
 }
 
 export function QuestionRunner() {
+  const userId = useStore((s) => s.userId);
   const allRaw = useStore(selectActiveQuestions);
   const disciplinasRaw = useStore(selectDisciplinas);
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
@@ -127,6 +133,61 @@ export function QuestionRunner() {
   const [phase, setPhase] = useState<Phase>('config');
   const [cfg, setCfg] = useState<SessionConfig>(defaultCfg);
   const [session, setSession] = useState<SessionState | null>(null);
+  const [pausedAvailable, setPausedAvailable] = useState<{
+    pool: Question[];
+    idx: number;
+    correct: number;
+    wrong: number;
+    skipped: number;
+    embaralhar: boolean;
+    tempoLimite: number;
+    free?: boolean;
+    startedAt: number;
+  } | null>(null);
+
+  // Detecta sessão pausada ao montar
+  useEffect(() => {
+    if (!userId) return;
+    if (phase !== 'config') return;
+    const stored = readSession(userId);
+    if (!stored) return;
+    const pool = stored.poolIds
+      .map((id) => allRaw.find((q) => q.id === id && q.type === 'objetiva'))
+      .filter((q): q is Question => !!q);
+    if (pool.length === 0 || stored.idx >= pool.length) {
+      clearStoredSession();
+      return;
+    }
+    setPausedAvailable({
+      pool,
+      idx: stored.idx,
+      correct: stored.correct,
+      wrong: stored.wrong,
+      skipped: stored.skipped,
+      embaralhar: stored.embaralhar,
+      tempoLimite: stored.tempoLimite,
+      free: stored.free,
+      startedAt: stored.startedAt,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, allRaw.length]);
+
+  // Persiste sessão atual em mudanças relevantes
+  useEffect(() => {
+    if (!userId || phase !== 'running' || !session) return;
+    saveSession({
+      userId,
+      poolIds: session.pool.map((q) => q.id),
+      idx: session.idx,
+      embaralhar: session.embaralhar,
+      tempoLimite: session.tempoLimite,
+      free: session.free,
+      correct: session.correct,
+      wrong: session.wrong,
+      skipped: session.skipped,
+      startedAt: session.startedAt,
+    });
+  }, [userId, phase, session]);
 
   // beforeunload protege fechar/recarregar aba durante sessão
   useEffect(() => {
@@ -138,6 +199,28 @@ export function QuestionRunner() {
     window.addEventListener('beforeunload', onBU);
     return () => window.removeEventListener('beforeunload', onBU);
   }, [phase]);
+
+  const resumePaused = () => {
+    if (!pausedAvailable) return;
+    setSession({
+      pool: pausedAvailable.pool,
+      idx: pausedAvailable.idx,
+      embaralhar: pausedAvailable.embaralhar,
+      tempoLimite: pausedAvailable.tempoLimite,
+      free: pausedAvailable.free,
+      correct: pausedAvailable.correct,
+      wrong: pausedAvailable.wrong,
+      skipped: pausedAvailable.skipped,
+      startedAt: pausedAvailable.startedAt,
+    });
+    setPausedAvailable(null);
+    setPhase('running');
+  };
+
+  const discardPaused = () => {
+    setPausedAvailable(null);
+    clearStoredSession();
+  };
 
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
 
@@ -225,8 +308,12 @@ export function QuestionRunner() {
     setPhase('running');
   };
 
-  const onFinish = () => setPhase('summary');
+  const onFinish = () => {
+    clearStoredSession();
+    setPhase('summary');
+  };
   const onQuit = () => {
+    clearStoredSession();
     setSession(null);
     setPhase('config');
   };
@@ -286,6 +373,42 @@ export function QuestionRunner() {
           >
             Estudar tudo
           </button>
+        </div>
+      )}
+
+      {pausedAvailable && (
+        <div
+          role="status"
+          style={{
+            background: 'var(--primary-soft)',
+            border: '1px solid var(--primary)',
+            borderRadius: 'var(--radius)',
+            padding: '12px 14px',
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>
+            ⏸ Sessão pausada:{' '}
+            <strong>{pausedAvailable.idx}</strong> de{' '}
+            <strong>{pausedAvailable.pool.length}</strong> questões
+            respondidas (
+            <span style={{ color: 'var(--primary)' }}>
+              {pausedAvailable.correct}✓
+            </span>{' '}
+            ·{' '}
+            <span style={{ color: 'var(--danger)' }}>
+              {pausedAvailable.wrong}✗
+            </span>
+            )
+          </div>
+          <div className="row gap">
+            <button type="button" className="primary" onClick={resumePaused}>
+              ▶ Continuar
+            </button>
+            <button type="button" className="ghost" onClick={discardPaused}>
+              Descartar
+            </button>
+          </div>
         </div>
       )}
 
