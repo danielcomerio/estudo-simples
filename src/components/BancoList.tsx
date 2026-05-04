@@ -12,7 +12,7 @@ import { scheduleSync } from '@/lib/sync';
 import Link from 'next/link';
 import { fmtRelative } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
-import { startOfDay } from '@/lib/utils';
+import { hasMath, startOfDay } from '@/lib/utils';
 import {
   matchActiveConcurso,
   useActiveConcursoFilter,
@@ -92,6 +92,7 @@ export function BancoList() {
   >('');
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
   const [notasFilter, setNotasFilter] = useState<'' | 'com' | 'sem'>('');
+  const [latexFilter, setLatexFilter] = useState<'' | 'com' | 'sem'>('');
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
@@ -173,7 +174,7 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação + foco quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
     setFocusedIdx(-1);
@@ -237,6 +238,11 @@ export function BancoList() {
         if (notasFilter === 'com' && !has) return false;
         if (notasFilter === 'sem' && has) return false;
       }
+      if (latexFilter) {
+        const has = hasMath(previewOf(q));
+        if (latexFilter === 'com' && !has) return false;
+        if (latexFilter === 'sem' && has) return false;
+      }
       if (srsFilter) {
         const due = q.srs?.dueDate ?? 0;
         const lastReviewed = q.srs?.lastReviewed;
@@ -283,7 +289,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -698,6 +704,7 @@ export function BancoList() {
         if (srsFilter) ativos.push('SRS');
         if (imgFilter) ativos.push('imagem');
         if (notasFilter) ativos.push('notas');
+        if (latexFilter) ativos.push('LaTeX');
         const hasAtivos = ativos.length > 0;
         const hasPresets = presets.length > 0;
         if (!hasAtivos && !hasPresets) return null;
@@ -729,6 +736,7 @@ export function BancoList() {
                     setSrsFilter('');
                     setImgFilter('');
                     setNotasFilter('');
+                    setLatexFilter('');
                   }}
                 >
                   🧹 Limpar todos
@@ -859,6 +867,15 @@ export function BancoList() {
           <option value="">Notas (qq)</option>
           <option value="com">📝 Com anotação</option>
           <option value="sem">— Sem anotação</option>
+        </select>
+        <select
+          value={latexFilter}
+          onChange={(e) => setLatexFilter(e.target.value as typeof latexFilter)}
+          title="Filtrar por presença de fórmulas LaTeX"
+        >
+          <option value="">LaTeX (qq)</option>
+          <option value="com">∑ Com LaTeX</option>
+          <option value="sem">— Sem LaTeX</option>
         </select>
         <select
           value={sortBy}
