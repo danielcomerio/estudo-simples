@@ -157,6 +157,8 @@ export function StatsView() {
 
       <BancasSection questions={questions} />
 
+      <TagsSection questions={questions} />
+
       <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
       <CalibracaoSection questions={questions} />
@@ -348,6 +350,70 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Stats por tag. Cada questão pode ter N tags; cada tag aparece numa
+ * linha agregando contagem + acerto. Útil pra ver onde a taxonomia
+ * acompanha desempenho ("apostas-FGV" vs "letra-fria-CESPE", etc).
+ *
+ * Esconde quando nenhuma questão tem tags (evita seção vazia).
+ */
+function TagsSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const m = new Map<
+      string,
+      { total: number; attempts: number; correct: number; due: number }
+    >();
+    const now = Date.now();
+    for (const q of questions) {
+      const tags = q.tags ?? [];
+      if (tags.length === 0) continue;
+      for (const t of tags) {
+        let agg = m.get(t);
+        if (!agg) {
+          agg = { total: 0, attempts: 0, correct: 0, due: 0 };
+          m.set(t, agg);
+        }
+        agg.total += 1;
+        agg.attempts += q.stats?.attempts ?? 0;
+        agg.correct += q.stats?.correct ?? 0;
+        if ((q.srs?.dueDate ?? 0) < now) agg.due += 1;
+      }
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total);
+  }, [questions]);
+
+  if (stats.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2>Por tag</h2>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12, fontSize: '0.88rem' }}>
+        Cada questão pode estar em várias tags — total geral &gt; total de questões.
+      </p>
+      <div className="stats-table">
+        <div className="head">Tag</div>
+        <div className="head">Questões</div>
+        <div className="head col-hide-sm">Tentativas</div>
+        <div className="head col-hide-sm">% Acerto</div>
+        <div className="head">Vencendo</div>
+        {stats.slice(0, 30).map(([tag, s]) => (
+          <BancaRow key={tag} banca={tag} s={s} />
+        ))}
+      </div>
+      {stats.length > 30 && (
+        <p className="muted" style={{ marginTop: 8, fontSize: '0.82rem' }}>
+          Mostrando 30 das {stats.length} tags. As demais aparecem ordenadas
+          por uso decrescente.
+        </p>
+      )}
+    </div>
   );
 }
 
