@@ -166,6 +166,8 @@ export function StatsView() {
 
       <OrigemDistSection questions={questions} />
 
+      <TemasSection questions={questions} />
+
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
@@ -361,6 +363,88 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Stats agregadas por (disciplina, tema) — granularidade fina abaixo
+ * de disciplina. Útil pra ver "domino Português mas regrido em Crase".
+ *
+ * Filtra temas com ≥3 questões pra evitar ruído. Sort por % acerto
+ * asc (piores no topo, ação clara).
+ */
+function TemasSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const m = new Map<
+      string,
+      { total: number; attempts: number; correct: number; due: number }
+    >();
+    const now = Date.now();
+    for (const q of questions) {
+      if (!q.tema) continue;
+      const k = (q.disciplina_id ?? '') + ' › ' + q.tema;
+      let agg = m.get(k);
+      if (!agg) {
+        agg = { total: 0, attempts: 0, correct: 0, due: 0 };
+        m.set(k, agg);
+      }
+      agg.total += 1;
+      agg.attempts += q.stats?.attempts ?? 0;
+      agg.correct += q.stats?.correct ?? 0;
+      if ((q.srs?.dueDate ?? 0) < now) agg.due += 1;
+    }
+    return Array.from(m.entries())
+      .filter(([, s]) => s.total >= 3)
+      .map(([k, s]) => ({
+        chave: k,
+        ...s,
+        pct: s.attempts > 0 ? s.correct / s.attempts : null,
+      }))
+      .sort((a, b) => {
+        const ap = a.pct ?? 1.1;
+        const bp = b.pct ?? 1.1;
+        return ap - bp;
+      });
+  }, [questions]);
+
+  if (stats.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2>Por tema</h2>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12, fontSize: '0.85rem' }}>
+        Temas com ≥3 questões cadastradas. Sort por % acerto asc (piores no topo).
+        Útil pra ver granularidade abaixo da disciplina.
+      </p>
+      <div className="stats-table">
+        <div className="head">Disciplina › Tema</div>
+        <div className="head">Total</div>
+        <div className="head col-hide-sm">Tentativas</div>
+        <div className="head col-hide-sm">% Acerto</div>
+        <div className="head">Vencendo</div>
+        {stats.slice(0, 50).map((s) => (
+          <BancaRow
+            key={s.chave}
+            banca={s.chave}
+            s={{
+              total: s.total,
+              attempts: s.attempts,
+              correct: s.correct,
+              due: s.due,
+            }}
+          />
+        ))}
+      </div>
+      {stats.length > 50 && (
+        <p className="muted" style={{ marginTop: 8, fontSize: '0.82rem' }}>
+          Mostrando 50 dos {stats.length} temas. Os demais têm acerto melhor.
+        </p>
+      )}
+    </div>
   );
 }
 
