@@ -10,6 +10,20 @@
    classes inline injetadas pelo katex.renderToString. */
 @import 'katex/dist/katex.min.css';
 
+/* Modo foco: esconde tudo exceto a questão central. Útil pra
+   concentração máxima. Toggle via tecla F em /estudar. */
+body.focus-mode .topbar,
+body.focus-mode .toaster,
+body.focus-mode .footer {
+  display: none !important;
+}
+body.focus-mode .container > .card:not(.question-card-wrapper) {
+  display: none;
+}
+body.focus-mode {
+  background: var(--bg);
+}
+
 /* Cloze: lacunas escondidas e reveladas. Conteúdo é definido inline
    pelo renderer (____ ou [dica]); CSS só estiliza. */
 .cloze-hidden {

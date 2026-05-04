@@ -573,8 +573,21 @@ function RunningView({
   const [chosen, setChosen] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(session.tempoLimite);
+  const [focusMode, setFocusMode] = useState(false);
   const startedAtRef = useRef(Date.now());
   const ratedRef = useRef(false);
+
+  // Focus mode aplica/remove classe no body
+  useEffect(() => {
+    if (focusMode) {
+      document.body.classList.add('focus-mode');
+    } else {
+      document.body.classList.remove('focus-mode');
+    }
+    return () => {
+      document.body.classList.remove('focus-mode');
+    };
+  }, [focusMode]);
 
   // Embaralha alternativas uma vez por questão
   const alts = useMemo<Alternativa[]>(() => {
@@ -681,6 +694,12 @@ function RunningView({
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // F toggle focus mode (a qualquer momento)
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setFocusMode((v) => !v);
+        return;
+      }
       if (!answered) {
         // Tab pula questão (skip soft, não conta como erro)
         if (e.key === 'Tab') {
@@ -739,6 +758,15 @@ function RunningView({
             {answered ? '—' : `${timeLeft}s`}
           </div>
         )}
+        <button
+          type="button"
+          className="ghost icon"
+          onClick={() => setFocusMode((v) => !v)}
+          title={`Modo foco (F): ${focusMode ? 'ativo' : 'inativo'}`}
+          aria-label="Alternar modo foco"
+        >
+          {focusMode ? '🔍' : '🎯'}
+        </button>
         <button type="button" className="ghost" onClick={onQuit}>
           Encerrar
         </button>
