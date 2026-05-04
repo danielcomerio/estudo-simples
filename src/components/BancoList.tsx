@@ -399,6 +399,25 @@ export function BancoList() {
     toast(`Tags removidas de ${updated} questão(ões).`, 'success');
   };
 
+  const bulkSetDificuldade = async (valor: 1 | 2 | 3 | 4 | 5 | null) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const label = valor === null ? 'sem dificuldade' : `dificuldade ${valor}`;
+    const ok = await confirmDialog({
+      title: 'Definir dificuldade em lote',
+      message: `Marcar ${selected.size} questão(ões) com ${label}?`,
+    });
+    if (!ok) return;
+    for (const id of selected) {
+      updateQuestionLocal(id, { dificuldade: valor });
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`${selected.size} marcada(s) com ${label}.`, 'success');
+  };
+
   const bulkSetVerificacao = async (
     valor: 'verificada' | 'pendente' | 'duvidosa' | null
   ) => {
@@ -823,6 +842,10 @@ export function BancoList() {
           disabled={selected.size === 0}
           onPick={bulkSetVerificacao}
         />
+        <BulkDificuldadeMenu
+          disabled={selected.size === 0}
+          onPick={bulkSetDificuldade}
+        />
         <BulkTagsMenu
           disabled={selected.size === 0}
           onAdd={bulkAddTags}
@@ -1065,6 +1088,84 @@ export function BancoList() {
     </div>
   );
 }
+
+/**
+ * Menu dropdown pra setar dificuldade em massa.
+ */
+function BulkDificuldadeMenu({
+  disabled,
+  onPick,
+}: {
+  disabled: boolean;
+  onPick: (valor: 1 | 2 | 3 | 4 | 5 | null) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  const opcoes: Array<{
+    label: string;
+    valor: 1 | 2 | 3 | 4 | 5 | null;
+  }> = [
+    { label: '1 — muito fácil', valor: 1 },
+    { label: '2 — fácil', valor: 2 },
+    { label: '3 — médio', valor: 3 },
+    { label: '4 — difícil', valor: 4 },
+    { label: '5 — muito difícil', valor: 5 },
+    { label: '— Limpar', valor: null },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button type="button" disabled={disabled} onClick={() => setOpen((v) => !v)}>
+        Dificuldade ▾
+      </button>
+      {open && (
+        <ul role="menu" style={menuListStyle}>
+          {opcoes.map((opt) => (
+            <li key={opt.label}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={async () => {
+                  setOpen(false);
+                  await onPick(opt.valor);
+                }}
+                style={menuItemStyle}
+              >
+                {opt.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const menuListStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 'calc(100% + 4px)',
+  left: 0,
+  background: 'var(--bg-elev-2)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+  listStyle: 'none',
+  margin: 0,
+  padding: 4,
+  minWidth: 180,
+  zIndex: 50,
+};
 
 /**
  * Menu dropdown pra adicionar/remover tags em massa nas selecionadas.
