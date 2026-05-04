@@ -5,6 +5,7 @@ import { useStore, selectActiveQuestions, selectDisciplinas } from '@/lib/store'
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
+import { useDailyGoal } from '@/lib/settings';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -12,6 +13,7 @@ export function Dashboard() {
   const disciplinas = useStore(selectDisciplinas);
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
+  const dailyGoal = useDailyGoal();
 
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
@@ -149,6 +151,11 @@ export function Dashboard() {
   // Total de dias com pelo menos 1 revisão (no histórico carregado)
   const diasEstudados = days.filter((d) => d.count > 0).length;
 
+  // Revisões feitas hoje (último elemento de days)
+  const reviewsToday = days[days.length - 1]?.count ?? 0;
+  const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
+  const goalReached = reviewsToday >= dailyGoal;
+
   // Por disciplina, vencendo hoje
   const dueByDisc: Record<string, number> = {};
   for (const q of questions) {
@@ -220,6 +227,57 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Meta diária */}
+      <div className="card">
+        <div
+          className="row between"
+          style={{ alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}
+        >
+          <div>
+            <strong style={{ fontSize: '1rem' }}>
+              {goalReached ? '🏆' : '📈'} Meta diária
+            </strong>{' '}
+            <span className="muted">
+              · {reviewsToday}/{dailyGoal} revisões hoje
+            </span>
+          </div>
+          <Link
+            href="/configuracoes"
+            className="muted"
+            style={{ fontSize: '0.82rem' }}
+          >
+            ajustar
+          </Link>
+        </div>
+        <div
+          aria-label={`progresso: ${goalPct}%`}
+          style={{
+            height: 8,
+            background: 'var(--bg-elev)',
+            border: '1px solid var(--border)',
+            borderRadius: 999,
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${goalPct}%`,
+              background: goalReached ? '#22c55e' : 'var(--primary)',
+              transition: 'width 320ms ease',
+            }}
+          />
+        </div>
+        {goalReached && (
+          <p
+            className="muted"
+            style={{ marginTop: 8, marginBottom: 0, fontSize: '0.85rem' }}
+          >
+            Meta batida! Continuar adiante segue contando pra streak. 🔥
+          </p>
+        )}
+      </div>
+
       {(() => {
         // Sessão recomendada: dueToday + erradasRecentes(até 5) + algumas
         // novas se ainda houver espaço. Tempo estimado: 90s/questão.
@@ -229,6 +287,7 @@ export function Dashboard() {
         const totalRec = recVencendo + recErradas + recNovas;
         if (totalRec === 0) return null;
         const minEstim = Math.ceil((totalRec * 90) / 60);
+        // (meta diária é renderizada acima — ver bloco de meta)
         // Compõe sessão: prioriza vencidas (modo srs com qtd =
         // recVencendo+recErradas+recNovas; embaralha)
         const totalQtd = totalRec;

@@ -19,6 +19,11 @@ import type { SRSAlgorithm } from './srs-fsrs';
 const STORAGE_KEY_ALGORITHM = 'estudo-simples:settings:algorithm';
 const STORAGE_KEY_ACTIVE_CONCURSO = 'estudo-simples:settings:activeConcurso';
 const STORAGE_KEY_THEME = 'estudo-simples:settings:theme';
+const STORAGE_KEY_DAILY_GOAL = 'estudo-simples:settings:dailyGoal';
+
+const DAILY_GOAL_DEFAULT = 30;
+const DAILY_GOAL_MIN = 1;
+const DAILY_GOAL_MAX = 1000;
 
 const VALID_ALGORITHMS: SRSAlgorithm[] = ['sm2', 'fsrs'];
 const UUID_PATTERN =
@@ -178,6 +183,57 @@ export function useTheme(): Theme {
     };
   }, []);
   return theme;
+}
+
+/**
+ * Meta diária de revisões. Mostrada no Dashboard com barra de progresso.
+ * Range válido: [1, 1000]. Default 30.
+ */
+export function getDailyGoal(): number {
+  if (typeof window === 'undefined') return DAILY_GOAL_DEFAULT;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DAILY_GOAL);
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isInteger(n) && n >= DAILY_GOAL_MIN && n <= DAILY_GOAL_MAX) {
+        return n;
+      }
+    }
+  } catch {
+    // ignora
+  }
+  return DAILY_GOAL_DEFAULT;
+}
+
+export function setDailyGoal(n: number): void {
+  if (!Number.isInteger(n) || n < DAILY_GOAL_MIN || n > DAILY_GOAL_MAX) {
+    throw new Error(`Meta diária inválida: ${n}`);
+  }
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_DAILY_GOAL, String(n));
+  } catch {
+    // ignora
+  }
+  notify();
+}
+
+export function useDailyGoal(): number {
+  const [goal, setG] = useState<number>(DAILY_GOAL_DEFAULT);
+  useEffect(() => {
+    const sync = () => setG(getDailyGoal());
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_DAILY_GOAL) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return goal;
 }
 
 /**
