@@ -224,9 +224,9 @@ export function BancoList() {
     toast(`${filtered.length} excluída(s).`, 'success');
   };
 
-  const exportJSON = () => {
+  const exportQuestions = (qs: Question[], filename: string) => {
     const data = JSON.stringify(
-      questions.map((q) => {
+      qs.map((q) => {
         return {
           ...q.payload,
           disciplina_id: q.disciplina_id,
@@ -238,6 +238,10 @@ export function BancoList() {
             type: q.type,
             srs: q.srs,
             stats: q.stats,
+            origem: q.origem,
+            fonte: q.fonte,
+            verificacao: q.verificacao,
+            tags: q.tags,
             created_at: q.created_at,
             updated_at: q.updated_at,
           },
@@ -250,12 +254,53 @@ export function BancoList() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `estudo-simples-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast('Backup exportado.', 'success');
+  };
+
+  const exportAllJSON = () => {
+    if (questions.length === 0) {
+      toast('Nada pra exportar.', 'warn');
+      return;
+    }
+    exportQuestions(
+      questions,
+      `estudo-simples-export-${new Date().toISOString().slice(0, 10)}.json`
+    );
+    toast(`${questions.length} questão(ões) exportada(s).`, 'success');
+  };
+
+  const exportFilteredJSON = () => {
+    if (filtered.length === 0) {
+      toast('Filtro vazio — nada pra exportar.', 'warn');
+      return;
+    }
+    if (filtered.length === questions.length) {
+      // Sem filtro ativo — equivale ao export completo, evita confusão
+      exportAllJSON();
+      return;
+    }
+    exportQuestions(
+      filtered,
+      `estudo-simples-export-filtrado-${filtered.length}q-${new Date().toISOString().slice(0, 10)}.json`
+    );
+    toast(`${filtered.length} questão(ões) exportada(s) (filtro aplicado).`, 'success');
+  };
+
+  const exportSelectedJSON = () => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const qs = questions.filter((q) => selected.has(q.id));
+    exportQuestions(
+      qs,
+      `estudo-simples-export-selecionadas-${qs.length}q-${new Date().toISOString().slice(0, 10)}.json`
+    );
+    toast(`${qs.length} selecionada(s) exportada(s).`, 'success');
   };
 
   return (
@@ -373,9 +418,14 @@ export function BancoList() {
         <button type="button" className="danger" onClick={deleteAllFiltered}>
           Excluir TUDO no filtro
         </button>
-        <button type="button" onClick={exportJSON} disabled={questions.length === 0}>
-          Exportar JSON
-        </button>
+        <ExportMenu
+          totalCount={questions.length}
+          filteredCount={filtered.length}
+          selectedCount={selected.size}
+          onExportAll={exportAllJSON}
+          onExportFiltered={exportFilteredJSON}
+          onExportSelected={exportSelectedJSON}
+        />
         {(() => {
           const pendentesCount = questions.filter(
             (q) => q.type === 'objetiva' && q.verificacao === 'pendente'
@@ -538,6 +588,128 @@ export function BancoList() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Menu dropdown de export — Tudo / Filtro atual / Selecionadas.
+ * Cada opção tem contagem e desabilita quando 0.
+ */
+function ExportMenu({
+  totalCount,
+  filteredCount,
+  selectedCount,
+  onExportAll,
+  onExportFiltered,
+  onExportSelected,
+}: {
+  totalCount: number;
+  filteredCount: number;
+  selectedCount: number;
+  onExportAll: () => void;
+  onExportFiltered: () => void;
+  onExportSelected: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        disabled={totalCount === 0}
+        onClick={() => setOpen((v) => !v)}
+      >
+        Exportar JSON ▾
+      </button>
+      {open && (
+        <ul
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            right: 0,
+            background: 'var(--bg-elev-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            listStyle: 'none',
+            margin: 0,
+            padding: 4,
+            minWidth: 220,
+            zIndex: 50,
+          }}
+        >
+          <ExportMenuItem
+            label={`Todas as ${totalCount} questões`}
+            onClick={() => {
+              setOpen(false);
+              onExportAll();
+            }}
+          />
+          <ExportMenuItem
+            label={`Filtro atual (${filteredCount})`}
+            disabled={filteredCount === 0 || filteredCount === totalCount}
+            onClick={() => {
+              setOpen(false);
+              onExportFiltered();
+            }}
+          />
+          <ExportMenuItem
+            label={`Selecionadas (${selectedCount})`}
+            disabled={selectedCount === 0}
+            onClick={() => {
+              setOpen(false);
+              onExportSelected();
+            }}
+          />
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ExportMenuItem({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onClick}
+        disabled={disabled}
+        style={{
+          display: 'block',
+          width: '100%',
+          textAlign: 'left',
+          padding: '8px 10px',
+          background: 'transparent',
+          border: 'none',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          color: disabled ? 'var(--muted)' : 'var(--text)',
+          borderRadius: 'var(--radius)',
+        }}
+      >
+        {label}
+      </button>
+    </li>
   );
 }
 
