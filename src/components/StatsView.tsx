@@ -159,6 +159,8 @@ export function StatsView() {
 
       <TempoMedioSection questions={questions} />
 
+      <DificuldadeSection questions={questions} />
+
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
@@ -354,6 +356,99 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Distribuição de dificuldade — # questões por nível 1-5.
+ * Mais "(sem)" pra questões sem dificuldade definida.
+ *
+ * Útil pra ver se banco está balanceado ou enviesado.
+ */
+function DificuldadeSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const buckets: Record<string, { count: number; correct: number; attempts: number }> = {
+    '1': { count: 0, correct: 0, attempts: 0 },
+    '2': { count: 0, correct: 0, attempts: 0 },
+    '3': { count: 0, correct: 0, attempts: 0 },
+    '4': { count: 0, correct: 0, attempts: 0 },
+    '5': { count: 0, correct: 0, attempts: 0 },
+    '(sem)': { count: 0, correct: 0, attempts: 0 },
+  };
+  for (const q of questions) {
+    const k = q.dificuldade != null ? String(q.dificuldade) : '(sem)';
+    if (!buckets[k]) continue;
+    buckets[k].count += 1;
+    buckets[k].correct += q.stats?.correct ?? 0;
+    buckets[k].attempts += q.stats?.attempts ?? 0;
+  }
+  const total = Object.values(buckets).reduce((s, b) => s + b.count, 0);
+  if (total === 0) return null;
+  const max = Math.max(...Object.values(buckets).map((b) => b.count));
+
+  const labels: Record<string, string> = {
+    '1': '1 — muito fácil',
+    '2': '2 — fácil',
+    '3': '3 — médio',
+    '4': '4 — difícil',
+    '5': '5 — muito difícil',
+    '(sem)': 'sem dificuldade',
+  };
+
+  return (
+    <div className="card">
+      <h2>Distribuição de dificuldade</h2>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {Object.entries(buckets).map(([k, b]) => {
+          if (b.count === 0) return null;
+          const w = max > 0 ? (b.count / max) * 100 : 0;
+          const pct = b.attempts > 0 ? Math.round((b.correct / b.attempts) * 100) : null;
+          return (
+            <li
+              key={k}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '160px 1fr 130px',
+                gap: 10,
+                alignItems: 'center',
+                fontSize: '0.9rem',
+              }}
+            >
+              <span>{labels[k]}</span>
+              <div style={{ background: 'var(--bg-elev-2)', height: 18, borderRadius: 4 }}>
+                <div
+                  style={{
+                    background: 'var(--primary)',
+                    height: '100%',
+                    width: `${w}%`,
+                    borderRadius: 4,
+                  }}
+                />
+              </div>
+              <span style={{ textAlign: 'right' }}>
+                <strong>{b.count}</strong>
+                {pct !== null && (
+                  <span className="muted" style={{ marginLeft: 6, fontSize: '0.82rem' }}>
+                    · {pct}% acerto
+                  </span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p
+        className="muted"
+        style={{ marginTop: 10, fontSize: '0.78rem', fontStyle: 'italic' }}
+      >
+        Banco bem balanceado distribui mais nas faixas 2-4 (médio).
+        Muitas em "(sem)" significam que muita questão não foi
+        classificada — bulk-edit dificuldade no /banco resolve.
+      </p>
+    </div>
   );
 }
 
