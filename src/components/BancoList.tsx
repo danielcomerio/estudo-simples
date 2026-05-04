@@ -59,6 +59,9 @@ export function BancoList() {
     '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
   >('');
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
+  const [sortBy, setSortBy] = useState<
+    'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
+  >('recente');
   // Atalhos de teclado: índice da questão "focada" na lista filtrada.
   // -1 = sem foco. j/k navega, Enter edita, espaço seleciona, x exclui.
   const [focusedIdx, setFocusedIdx] = useState(-1);
@@ -183,6 +186,42 @@ export function BancoList() {
       return true;
     });
   }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, concursoDiscNomes]);
+
+  // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
+  const sorted = useMemo(() => {
+    const arr = filtered.slice();
+    const ts = (s: string) => (s ? new Date(s).getTime() : 0);
+    switch (sortBy) {
+      case 'recente':
+        arr.sort((a, b) => ts(b.created_at) - ts(a.created_at));
+        break;
+      case 'antiga':
+        arr.sort((a, b) => ts(a.created_at) - ts(b.created_at));
+        break;
+      case 'atualizada':
+        arr.sort((a, b) => ts(b.updated_at) - ts(a.updated_at));
+        break;
+      case 'due_asc':
+        arr.sort((a, b) => (a.srs?.dueDate ?? Infinity) - (b.srs?.dueDate ?? Infinity));
+        break;
+      case 'attempts_desc':
+        arr.sort((a, b) => (b.stats?.attempts ?? 0) - (a.stats?.attempts ?? 0));
+        break;
+      case 'acerto_asc': {
+        const pct = (q: typeof arr[number]) => {
+          const a = q.stats?.attempts ?? 0;
+          const c = q.stats?.correct ?? 0;
+          return a > 0 ? c / a : 1.1; // sem tentativas vai pro fim
+        };
+        arr.sort((a, b) => pct(a) - pct(b));
+        break;
+      }
+      case 'dificuldade_desc':
+        arr.sort((a, b) => (b.dificuldade ?? 0) - (a.dificuldade ?? 0));
+        break;
+    }
+    return arr;
+  }, [filtered, sortBy]);
 
   const toggle = (id: string) => {
     setSelected((cur) => {
@@ -421,7 +460,7 @@ export function BancoList() {
       if (inField) return;
       if (editingId) return; // drawer aberto
 
-      const visible = Math.min(filtered.length, visibleCount);
+      const visible = Math.min(sorted.length, visibleCount);
       if (visible === 0) return;
 
       switch (e.key) {
@@ -446,19 +485,19 @@ export function BancoList() {
         case 'Enter': {
           if (focusedIdx < 0 || focusedIdx >= visible) return;
           e.preventDefault();
-          setEditingId(filtered[focusedIdx].id);
+          setEditingId(sorted[focusedIdx].id);
           break;
         }
         case ' ': // espaço seleciona
           if (focusedIdx < 0 || focusedIdx >= visible) return;
           e.preventDefault();
-          toggle(filtered[focusedIdx].id);
+          toggle(sorted[focusedIdx].id);
           break;
         case 'x':
         case 'Delete': {
           if (focusedIdx < 0 || focusedIdx >= visible) return;
           e.preventDefault();
-          const q = filtered[focusedIdx];
+          const q = sorted[focusedIdx];
           void deleteOne(q.id);
           break;
         }
@@ -646,6 +685,19 @@ export function BancoList() {
           <option value="com">🖼 Com imagem</option>
           <option value="sem">— Sem imagem</option>
         </select>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          title="Ordenar lista"
+        >
+          <option value="recente">↓ Mais recentes (import)</option>
+          <option value="antiga">↑ Mais antigas (import)</option>
+          <option value="atualizada">↓ Atualizadas há menos</option>
+          <option value="due_asc">🔴 Atrasadas/vencendo primeiro</option>
+          <option value="attempts_desc">↓ Mais estudadas</option>
+          <option value="acerto_asc">↑ Menor % acerto</option>
+          <option value="dificuldade_desc">↓ Mais difíceis</option>
+        </select>
       </div>
 
       <div className="row gap wrap" style={{ marginBottom: 12 }}>
@@ -729,7 +781,7 @@ export function BancoList() {
             </p>
           </div>
         ) : (
-          filtered.slice(0, visibleCount).map((q, i) => {
+          sorted.slice(0, visibleCount).map((q, i) => {
             const enun = previewOf(q);
             const isFocused = i === focusedIdx;
             return (
