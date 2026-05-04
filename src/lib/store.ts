@@ -4,9 +4,11 @@ import { useRef, useSyncExternalStore } from 'react';
 import LZString from 'lz-string';
 import type { Question } from './types';
 import { uid } from './utils';
+import { available as idbAvailable, idbDelete, idbGet, idbSet } from './idb';
 
 const STORAGE_KEY = 'estudo-simples:v2';
 const STORAGE_KEY_USER = 'estudo-simples:v2:user';
+const IDB_KEY_STATE = 'state';
 /** Marca o início da string comprimida, distinguindo de JSON cru
  *  (compatibilidade pra ler estados salvos antes da compressão). */
 const COMPRESSED_PREFIX = 'LZ:';
@@ -53,14 +55,29 @@ let persistTimeout: ReturnType<typeof setTimeout> | null = null;
 
 function persistNow() {
   if (typeof window === 'undefined') return;
+  const { hydrated: _h, syncStatus: _s, syncError: _e, ...persistable } = state;
+  // Preferência: IndexedDB (quota gigante, suporta objects nativos via
+  // structured cloning — sem custo de JSON.stringify + compressão).
+  // Fallback: localStorage comprimido pra browsers sem IDB ou se IDB
+  // falhar.
+  if (idbAvailable()) {
+    void idbSet(IDB_KEY_STATE, persistable).catch((e) => {
+      console.warn('IDB persist falhou, fallback localStorage:', e);
+      persistToLocalStorage(persistable);
+    });
+    return;
+  }
+  persistToLocalStorage(persistable);
+}
+
+function persistToLocalStorage(persistable: object) {
   try {
-    const { hydrated: _h, syncStatus: _s, syncError: _e, ...persistable } = state;
     const json = JSON.stringify(persistable);
     const compressed = COMPRESSED_PREFIX + LZString.compressToUTF16(json);
     localStorage.setItem(STORAGE_KEY, compressed);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.error('localStorage cheio mesmo após compressão — migrar pra IndexedDB');
+      console.error('localStorage cheio — IDB também falhou? estado pode não persistir');
     }
   }
 }
@@ -87,9 +104,9 @@ if (typeof window !== 'undefined') {
   });
 }
 
-/** Lê e descomprime se necessário. Compatível com formato legado
- *  (JSON cru) — assim users que tinham state antigo migram silenciosamente. */
-function readPersisted(): Partial<StoreState> | null {
+/** Lê e descomprime do localStorage. Compatível com formato legado
+ *  (JSON cru) e novo (LZ-comprimido). */
+function readFromLocalStorage(): Partial<StoreState> | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -101,14 +118,12 @@ function readPersisted(): Partial<StoreState> | null {
       if (!decompressed) return null;
       json = decompressed;
     } else {
-      // Formato legado: JSON cru. Será re-salvo comprimido na próxima mutação.
       json = raw;
     }
     const parsed = JSON.parse(json);
     if (parsed && Array.isArray(parsed.questions)) return parsed;
     return null;
-  } catch (e) {
-    // Estado corrompido — preserva backup e segue limpo.
+  } catch {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) localStorage.setItem(STORAGE_KEY + ':backup-' + Date.now(), raw);
@@ -116,6 +131,34 @@ function readPersisted(): Partial<StoreState> | null {
     } catch {}
     return null;
   }
+}
+
+/**
+ * Lê estado persistido com prioridade: IDB (objeto nativo) → localStorage
+ * (LZ-comprimido). Migração silenciosa: se achar no localStorage, salva
+ * em IDB e limpa o localStorage.
+ */
+async function readPersisted(): Promise<Partial<StoreState> | null> {
+  if (idbAvailable()) {
+    try {
+      const idbState = await idbGet<Partial<StoreState>>(IDB_KEY_STATE);
+      if (idbState && Array.isArray(idbState.questions)) {
+        return idbState;
+      }
+    } catch (e) {
+      console.warn('IDB read falhou:', e);
+    }
+  }
+  // Fallback: localStorage (pode ser primeira hidrate pós-migração IDB)
+  const ls = readFromLocalStorage();
+  if (ls && idbAvailable()) {
+    // Migra silenciosamente pro IDB e remove do localStorage
+    try {
+      await idbSet(IDB_KEY_STATE, ls);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+  }
+  return ls;
 }
 
 export function getState(): StoreState {
@@ -128,10 +171,10 @@ export function setState(updater: (s: StoreState) => StoreState, opts?: { skipPe
   notify();
 }
 
-export function hydrate(userId: string | null) {
+export async function hydrate(userId: string | null): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  // Se trocou de usuário, limpa o cache.
+  // Se trocou de usuário, limpa o cache (LS + IDB).
   let cachedUser: string | null = null;
   try {
     cachedUser = localStorage.getItem(STORAGE_KEY_USER);
@@ -140,6 +183,11 @@ export function hydrate(userId: string | null) {
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
+    if (idbAvailable()) {
+      try {
+        await idbDelete(IDB_KEY_STATE);
+      } catch {}
+    }
   }
   if (userId) {
     try {
@@ -147,7 +195,7 @@ export function hydrate(userId: string | null) {
     } catch {}
   }
 
-  const loaded = readPersisted() ?? {};
+  const loaded = (await readPersisted()) ?? {};
 
   state = {
     ...initial,
@@ -381,6 +429,9 @@ export function resetStore() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(STORAGE_KEY_USER);
   } catch {}
+  if (idbAvailable()) {
+    void idbDelete(IDB_KEY_STATE).catch(() => {});
+  }
   notify();
 }
 

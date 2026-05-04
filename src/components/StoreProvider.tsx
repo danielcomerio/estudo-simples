@@ -18,8 +18,16 @@ export function StoreProvider({
   children: React.ReactNode;
 }) {
   useEffect(() => {
-    hydrate(userId);
-    startBackgroundSync();
+    // hydrate é async desde a migração pra IndexedDB. Espera carregar
+    // o estado persistido ANTES de iniciar background sync — sem isso,
+    // a primeira tentativa de pull pode usar lastPullAt obsoleto (do
+    // initial state), refazendo trabalho.
+    let cancelled = false;
+    void (async () => {
+      await hydrate(userId);
+      if (cancelled) return;
+      startBackgroundSync();
+    })();
 
     const onBeforeUnload = () => {
       // Best-effort: estado foi persistido a cada mutação, então só garantia.
@@ -27,6 +35,7 @@ export function StoreProvider({
     window.addEventListener('beforeunload', onBeforeUnload);
 
     return () => {
+      cancelled = true;
       stopBackgroundSync();
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
