@@ -21,6 +21,7 @@ import {
 } from '@/lib/hierarchy';
 import { setActiveConcursoId } from '@/lib/settings';
 import { confirmDialog } from './ConfirmDialog';
+import { QuestionCreateDrawer } from './QuestionCreateDrawer';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
@@ -162,6 +163,7 @@ export function BancoList() {
   const PAGE_SIZE = 100;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const editingQuestion = useMemo(
     () => (editingId ? questions.find((q) => q.id === editingId) ?? null : null),
     [questions, editingId]
@@ -874,6 +876,14 @@ export function BancoList() {
       </div>
 
       <div className="row gap wrap" style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => setCreating(true)}
+          title="Criar questão objetiva manualmente"
+        >
+          + Nova
+        </button>
         <button type="button" onClick={selectAllFiltered}>
           Selecionar tudo (filtrado)
         </button>
@@ -950,6 +960,10 @@ export function BancoList() {
           question={editingQuestion}
           onClose={() => setEditingId(null)}
         />
+      )}
+
+      {creating && (
+        <QuestionCreateDrawer onClose={() => setCreating(false)} />
       )}
 
       <div className="banco-list">
