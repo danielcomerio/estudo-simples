@@ -17,6 +17,7 @@ import {
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
+import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { renderClozeHTML } from '@/lib/cloze';
 import type {
   ClozePayload,
@@ -76,6 +77,7 @@ function buildPool(all: Question[], cfg: CardConfig): Question[] {
 }
 
 export function CardsRunner() {
+  const userId = useStore((s) => s.userId);
   const allRaw = useStore(selectActiveQuestions);
   const disciplinasRaw = useStore(selectDisciplinas);
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
@@ -110,6 +112,63 @@ export function CardsRunner() {
     return () => window.removeEventListener('beforeunload', onBU);
   }, [phase]);
 
+  // Sessão pausada
+  const [pausedAvailable, setPausedAvailable] = useState<{
+    pool: Question[];
+    idx: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!userId || phase !== 'config') return;
+    const stored = readSession(userId, 'cards');
+    if (!stored) return;
+    const restoredPool = stored.poolIds
+      .map((id) =>
+        allRaw.find(
+          (q) => q.id === id && (q.type === 'cloze' || q.type === 'flashcard')
+        )
+      )
+      .filter((q): q is Question => !!q);
+    if (restoredPool.length === 0 || stored.idx >= restoredPool.length) {
+      clearSession('cards');
+      return;
+    }
+    setPausedAvailable({ pool: restoredPool, idx: stored.idx });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, allRaw.length]);
+
+  // Persiste sessão atual
+  useEffect(() => {
+    if (!userId || phase !== 'running' || pool.length === 0) return;
+    saveSession(
+      {
+        userId,
+        poolIds: pool.map((q) => q.id),
+        idx,
+        embaralhar: false,
+        tempoLimite: 0,
+        correct: 0,
+        wrong: 0,
+        skipped: 0,
+        startedAt: Date.now(),
+      },
+      'cards'
+    );
+  }, [userId, phase, pool, idx]);
+
+  const resumePaused = () => {
+    if (!pausedAvailable) return;
+    setPool(pausedAvailable.pool);
+    setIdx(pausedAvailable.idx);
+    setPausedAvailable(null);
+    setPhase('running');
+  };
+
+  const discardPaused = () => {
+    setPausedAvailable(null);
+    clearSession('cards');
+  };
+
   // Auto-start de 1 card via ?qid=ID
   const searchParams = useSearchParams();
   const autoStartedRef = useRef(false);
@@ -143,8 +202,10 @@ export function CardsRunner() {
   };
 
   const next = () => {
-    if (idx + 1 >= pool.length) setPhase('summary');
-    else setIdx(idx + 1);
+    if (idx + 1 >= pool.length) {
+      clearSession('cards');
+      setPhase('summary');
+    } else setIdx(idx + 1);
   };
 
   if (phase === 'running' && pool[idx]) {
@@ -155,6 +216,7 @@ export function CardsRunner() {
         total={pool.length}
         onNext={next}
         onQuit={() => {
+          clearSession('cards');
           setPool([]);
           setPhase('config');
         }}
@@ -211,6 +273,32 @@ export function CardsRunner() {
           >
             Ver tudo
           </button>
+        </div>
+      )}
+
+      {pausedAvailable && (
+        <div
+          role="status"
+          style={{
+            background: 'var(--primary-soft)',
+            border: '1px solid var(--primary)',
+            borderRadius: 'var(--radius)',
+            padding: '12px 14px',
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>
+            ⏸ Sessão pausada: <strong>{pausedAvailable.idx}</strong> de{' '}
+            <strong>{pausedAvailable.pool.length}</strong> cards
+          </div>
+          <div className="row gap">
+            <button type="button" className="primary" onClick={resumePaused}>
+              ▶ Continuar
+            </button>
+            <button type="button" className="ghost" onClick={discardPaused}>
+              Descartar
+            </button>
+          </div>
         </div>
       )}
 

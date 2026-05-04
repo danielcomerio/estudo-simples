@@ -14,7 +14,14 @@
  * Validação leve ao ler — adulteração retorna null.
  */
 
-const STORAGE_KEY = 'estudo-simples:study-session:v1';
+/** Sessões persistidas por modo (estudar / discursivas / cards). Permite
+ *  pausar/retomar cada uma independentemente. */
+export type SessionKind = 'estudar' | 'discursivas' | 'cards';
+const STORAGE_KEYS: Record<SessionKind, string> = {
+  estudar: 'estudo-simples:study-session:v1',
+  discursivas: 'estudo-simples:disc-session:v1',
+  cards: 'estudo-simples:cards-session:v1',
+};
 
 export type StoredSession = {
   userId: string;
@@ -29,19 +36,19 @@ export type StoredSession = {
   startedAt: number;
 };
 
-export function saveSession(s: StoredSession): void {
+export function saveSession(s: StoredSession, kind: SessionKind = 'estudar'): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    localStorage.setItem(STORAGE_KEYS[kind], JSON.stringify(s));
   } catch {
     // ignora — sessão é best-effort
   }
 }
 
-export function readSession(userId: string): StoredSession | null {
+export function readSession(userId: string, kind: SessionKind = 'estudar'): StoredSession | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEYS[kind]);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (
@@ -58,9 +65,9 @@ export function readSession(userId: string): StoredSession | null {
   return null;
 }
 
-export function clearSession(): void {
+export function clearSession(kind: SessionKind = 'estudar'): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEYS[kind]);
   } catch {}
 }

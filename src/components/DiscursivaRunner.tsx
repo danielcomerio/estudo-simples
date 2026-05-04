@@ -16,6 +16,7 @@ import {
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
+import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { QuestionImages } from './QuestionImages';
 import type {
   DiscSessionConfig,
@@ -50,6 +51,7 @@ function buildPool(all: Question[], cfg: DiscSessionConfig): Question[] {
 }
 
 export function DiscursivaRunner() {
+  const userId = useStore((s) => s.userId);
   const allRaw = useStore(selectActiveQuestions);
   const disciplinasRaw = useStore(selectDisciplinas);
   const { disciplinaNomes: concursoDiscNomes } = useActiveConcursoFilter();
@@ -83,6 +85,56 @@ export function DiscursivaRunner() {
     return () => window.removeEventListener('beforeunload', onBU);
   }, [phase]);
 
+  // Pausar/resumir sessão de discursivas
+  const [pausedAvailable, setPausedAvailable] = useState<{
+    pool: Question[];
+    idx: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!userId || phase !== 'config') return;
+    const stored = readSession(userId, 'discursivas');
+    if (!stored) return;
+    const restored = stored.poolIds
+      .map((id) => allRaw.find((q) => q.id === id && q.type === 'discursiva'))
+      .filter((q): q is Question => !!q);
+    if (restored.length === 0 || stored.idx >= restored.length) {
+      clearSession('discursivas');
+      return;
+    }
+    setPausedAvailable({ pool: restored, idx: stored.idx });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, allRaw.length]);
+
+  useEffect(() => {
+    if (!userId || phase !== 'running' || pool.length === 0) return;
+    saveSession(
+      {
+        userId,
+        poolIds: pool.map((q) => q.id),
+        idx,
+        embaralhar: false,
+        tempoLimite: 0,
+        correct: 0,
+        wrong: 0,
+        skipped: 0,
+        startedAt: Date.now(),
+      },
+      'discursivas'
+    );
+  }, [userId, phase, pool, idx]);
+
+  const resumePausedDisc = () => {
+    if (!pausedAvailable) return;
+    setPool(pausedAvailable.pool);
+    setIdx(pausedAvailable.idx);
+    setPausedAvailable(null);
+    setPhase('running');
+  };
+  const discardPausedDisc = () => {
+    setPausedAvailable(null);
+    clearSession('discursivas');
+  };
+
   const discCount = useMemo(() => all.filter((q) => q.type === 'discursiva').length, [all]);
 
   const start = () => {
@@ -94,8 +146,10 @@ export function DiscursivaRunner() {
   };
 
   const next = () => {
-    if (idx + 1 >= pool.length) setPhase('summary');
-    else setIdx(idx + 1);
+    if (idx + 1 >= pool.length) {
+      clearSession('discursivas');
+      setPhase('summary');
+    } else setIdx(idx + 1);
   };
 
   if (phase === 'running' && pool[idx]) {
@@ -106,6 +160,7 @@ export function DiscursivaRunner() {
         total={pool.length}
         onNext={next}
         onQuit={() => {
+          clearSession('discursivas');
           setPhase('config');
           setPool([]);
         }}
@@ -137,6 +192,32 @@ export function DiscursivaRunner() {
 
   return (
     <div className="card">
+      {pausedAvailable && (
+        <div
+          role="status"
+          style={{
+            background: 'var(--primary-soft)',
+            border: '1px solid var(--primary)',
+            borderRadius: 'var(--radius)',
+            padding: '12px 14px',
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>
+            ⏸ Sessão pausada: <strong>{pausedAvailable.idx}</strong> de{' '}
+            <strong>{pausedAvailable.pool.length}</strong> discursivas
+          </div>
+          <div className="row gap">
+            <button type="button" className="primary" onClick={resumePausedDisc}>
+              ▶ Continuar
+            </button>
+            <button type="button" className="ghost" onClick={discardPausedDisc}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
+
       <h2>Praticar discursivas</h2>
       <div className="form-grid">
         <label>

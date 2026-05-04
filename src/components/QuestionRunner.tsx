@@ -149,13 +149,13 @@ export function QuestionRunner() {
   useEffect(() => {
     if (!userId) return;
     if (phase !== 'config') return;
-    const stored = readSession(userId);
+    const stored = readSession(userId, 'estudar');
     if (!stored) return;
     const pool = stored.poolIds
       .map((id) => allRaw.find((q) => q.id === id && q.type === 'objetiva'))
       .filter((q): q is Question => !!q);
     if (pool.length === 0 || stored.idx >= pool.length) {
-      clearStoredSession();
+      clearStoredSession('estudar');
       return;
     }
     setPausedAvailable({
@@ -175,18 +175,21 @@ export function QuestionRunner() {
   // Persiste sessão atual em mudanças relevantes
   useEffect(() => {
     if (!userId || phase !== 'running' || !session) return;
-    saveSession({
-      userId,
-      poolIds: session.pool.map((q) => q.id),
-      idx: session.idx,
-      embaralhar: session.embaralhar,
-      tempoLimite: session.tempoLimite,
-      free: session.free,
-      correct: session.correct,
-      wrong: session.wrong,
-      skipped: session.skipped,
-      startedAt: session.startedAt,
-    });
+    saveSession(
+      {
+        userId,
+        poolIds: session.pool.map((q) => q.id),
+        idx: session.idx,
+        embaralhar: session.embaralhar,
+        tempoLimite: session.tempoLimite,
+        free: session.free,
+        correct: session.correct,
+        wrong: session.wrong,
+        skipped: session.skipped,
+        startedAt: session.startedAt,
+      },
+      'estudar'
+    );
   }, [userId, phase, session]);
 
   // beforeunload protege fechar/recarregar aba durante sessão
@@ -219,7 +222,7 @@ export function QuestionRunner() {
 
   const discardPaused = () => {
     setPausedAvailable(null);
-    clearStoredSession();
+    clearStoredSession('estudar');
   };
 
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
@@ -309,11 +312,11 @@ export function QuestionRunner() {
   };
 
   const onFinish = () => {
-    clearStoredSession();
+    clearStoredSession('estudar');
     setPhase('summary');
   };
   const onQuit = () => {
-    clearStoredSession();
+    clearStoredSession('estudar');
     setSession(null);
     setPhase('config');
   };
