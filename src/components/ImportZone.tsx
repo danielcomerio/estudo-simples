@@ -354,6 +354,8 @@ export function ImportZone() {
               <button type="button" onClick={() => setPaste('')}>Limpar</button>
             </div>
           </details>
+
+          <ExemplosFormatos onPick={(text) => setPaste(text)} />
         </>
       )}
 
@@ -374,6 +376,128 @@ export function ImportZone() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Snippets de JSON de exemplo pra cada formato suportado. Click
+ * popula a textarea de paste pra editar/analisar.
+ */
+function ExemplosFormatos({ onPick }: { onPick: (text: string) => void }) {
+  const exemplos: Array<{ label: string; json: string }> = [
+    {
+      label: 'Objetiva (autoral)',
+      json: JSON.stringify(
+        {
+          tipo: 'objetiva',
+          disciplina_id: 'portugues',
+          tema: 'Crase',
+          banca_estilo: 'FGV',
+          dificuldade: 3,
+          enunciado: 'Sobre o uso da crase...',
+          alternativas: [
+            { letra: 'A', texto: 'opção A', correta: false },
+            { letra: 'B', texto: 'opção B (correta)', correta: true, explicacao: 'Por causa de X' },
+            { letra: 'C', texto: 'opção C', correta: false },
+          ],
+          gabarito: 'B',
+          explicacao_geral: 'Crase é a fusão de dois "a" iguais.',
+        },
+        null,
+        2
+      ),
+    },
+    {
+      label: 'Discursiva (autoral)',
+      json: JSON.stringify(
+        {
+          tipo: 'discursiva',
+          disciplina_id: 'direito_constitucional',
+          tema: 'Princípios da Administração',
+          banca_estilo: 'FGV',
+          enunciado_completo:
+            'Texto-base sobre o tema seguido das instruções de redação...',
+          comando: 'Disserte sobre os 5 princípios constitucionais.',
+          espelho_resposta: 'Espera-se que o candidato aborde LIMPE...',
+          rubrica: [
+            { criterio: 'Cita os 5 princípios', pontos: 4 },
+            { criterio: 'Conceitua cada um', pontos: 6 },
+          ],
+        },
+        null,
+        2
+      ),
+    },
+    {
+      label: 'Cloze (lacunas)',
+      json: JSON.stringify(
+        {
+          tipo: 'cloze',
+          disciplina_id: 'direito_administrativo',
+          tema: 'Lei 14.133/21',
+          texto:
+            'A {{c1::Lei 14.133/21}} dispõe sobre {{c2::licitações e contratos administrativos}} no âmbito da Administração Pública.',
+          explicacao: 'Lei nova de licitações vigente desde 2021.',
+        },
+        null,
+        2
+      ),
+    },
+    {
+      label: 'Flashcard (frente/verso)',
+      json: JSON.stringify(
+        {
+          tipo: 'flashcard',
+          disciplina_id: 'direito_processual_civil',
+          tema: 'Súmulas STJ',
+          frente: 'O que diz a Súmula 7 do STJ?',
+          verso:
+            'A pretensão de simples reexame de prova não enseja recurso especial.',
+        },
+        null,
+        2
+      ),
+    },
+  ];
+
+  return (
+    <details
+      style={{
+        marginTop: 12,
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        padding: '8px 12px',
+        background: 'var(--bg-elev-2)',
+      }}
+    >
+      <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+        Não sabe o formato? Ver exemplos
+      </summary>
+      <p className="muted" style={{ fontSize: '0.85rem', margin: '8px 0' }}>
+        Clica num formato pra preencher a textarea acima — depois você
+        edita ou analisa direto.
+      </p>
+      <div className="row gap wrap">
+        {exemplos.map((e) => (
+          <button
+            key={e.label}
+            type="button"
+            className="ghost"
+            onClick={() => onPick(e.json)}
+          >
+            {e.label}
+          </button>
+        ))}
+      </div>
+      <p
+        className="muted"
+        style={{ fontSize: '0.78rem', marginTop: 8, fontStyle: 'italic' }}
+      >
+        Pra formato "real" (extração de QConcursos), use <code>materia</code>{' '}
+        e <code>concursoAno</code> em vez de <code>disciplina_id</code> +
+        <code>banca_estilo</code> — o app detecta automaticamente.
+      </p>
+    </details>
   );
 }
 
