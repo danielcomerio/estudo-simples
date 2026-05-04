@@ -157,6 +157,8 @@ export function StatsView() {
 
       <ProgressaoSection questions={questions} />
 
+      <TempoMedioSection questions={questions} />
+
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
@@ -352,6 +354,95 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Tempo médio por disciplina. Calcula média de history.timeMs (em
+ * segundos) agrupando por disciplina_id. Útil pra detectar matérias
+ * que demandam mais tempo (priorizar treino de leitura rápida) ou
+ * questões "presas" (média muito alta sugere conteúdo complexo).
+ */
+function TempoMedioSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const stats = useMemo(() => {
+    const m = new Map<string, { somaMs: number; count: number }>();
+    for (const q of questions) {
+      const d = q.disciplina_id || '(sem)';
+      for (const h of q.stats?.history ?? []) {
+        if (typeof h.timeMs !== 'number' || h.timeMs <= 0) continue;
+        let agg = m.get(d);
+        if (!agg) {
+          agg = { somaMs: 0, count: 0 };
+          m.set(d, agg);
+        }
+        agg.somaMs += h.timeMs;
+        agg.count += 1;
+      }
+    }
+    return Array.from(m.entries())
+      .map(([disc, s]) => ({
+        disc,
+        media: s.count > 0 ? s.somaMs / s.count / 1000 : 0,
+        count: s.count,
+      }))
+      .filter((x) => x.count > 0)
+      .sort((a, b) => b.media - a.media);
+  }, [questions]);
+
+  if (stats.length === 0) return null;
+
+  const maxMedia = Math.max(...stats.map((s) => s.media));
+
+  return (
+    <div className="card">
+      <h2>Tempo médio por disciplina</h2>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12, fontSize: '0.85rem' }}>
+        Média de tempo por questão (extraída do histórico). Alto = matéria
+        que consome mais; pode ser sinal pra treinar leitura ou simplificar
+        o estudo.
+      </p>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {stats.map(({ disc, media, count }) => {
+          const widthPct = (media / maxMedia) * 100;
+          return (
+            <li
+              key={disc}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '180px 1fr 80px',
+                gap: 10,
+                alignItems: 'center',
+                fontSize: '0.9rem',
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={disc}>
+                {disc}
+              </span>
+              <div style={{ background: 'var(--bg-elev-2)', height: 18, borderRadius: 4 }}>
+                <div
+                  style={{
+                    background: 'var(--primary)',
+                    height: '100%',
+                    width: `${widthPct}%`,
+                    borderRadius: 4,
+                  }}
+                />
+              </div>
+              <span style={{ textAlign: 'right' }}>
+                <strong>{media.toFixed(1)}s</strong>
+                <span className="muted" style={{ fontSize: '0.78rem', marginLeft: 4 }}>
+                  ({count})
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
