@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { updateQuestionLocal, useStore, selectActiveQuestions } from '@/lib/store';
+import {
+  addQuestionLocal,
+  selectActiveQuestions,
+  updateQuestionLocal,
+  useStore,
+} from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { dedupeKey } from '@/lib/validation';
 import {
@@ -308,6 +313,68 @@ export function QuestionEditDrawer({
     }
 
     return { patch, error: null };
+  };
+
+  const duplicate = () => {
+    // Sufixo " (cópia)" no enunciado pra escapar do dedup_hash do DB.
+    // User pode editar pra remover depois ou trocar conteúdo.
+    const sufixo = ' (cópia)';
+    const enunNovo = (enun.endsWith(sufixo) ? enun : enun + sufixo).slice(0, 50_000);
+    let payload: Question['payload'];
+    if (question.type === 'objetiva') {
+      const p = question.payload as ObjetivaPayload;
+      payload = {
+        ...p,
+        enunciado: enunNovo,
+        alternativas: alts.map((a) => ({
+          letra: a.letra,
+          texto: a.texto,
+          correta: !!a.correta,
+          explicacao: a.explicacao,
+        })),
+      };
+    } else if (question.type === 'discursiva') {
+      const p = question.payload as DiscursivaPayload;
+      payload = { ...p, enunciado_completo: enunNovo, espelho_resposta: espelho };
+    } else {
+      payload = { ...(question.payload as object) } as Question['payload'];
+      // Cloze/flashcard: ajusta texto/frente pra escapar dedup
+      if (question.type === 'cloze') {
+        const p = payload as { texto?: string };
+        p.texto = (p.texto ?? '') + sufixo;
+      } else if (question.type === 'flashcard') {
+        const p = payload as { frente?: string };
+        p.frente = (p.frente ?? '') + sufixo;
+      }
+    }
+    if (notesUser) {
+      (payload as { notes_user?: string }).notes_user = notesUser;
+    }
+
+    if (!question.user_id) {
+      toast('Não autenticado', 'error');
+      return;
+    }
+    addQuestionLocal(
+      {
+        type: question.type,
+        disciplina_id: discId.trim() || null,
+        tema: tema.trim() || null,
+        banca_estilo: banca.trim() || null,
+        dificuldade: dif ? Number(dif) : null,
+        payload,
+        srs: { ...question.srs, repetitions: 0, lastReviewed: null }, // reset SRS na cópia
+        stats: { attempts: 0, correct: 0, wrong: 0, history: [] }, // stats limpos
+        deleted_at: null,
+        origem: 'autoral', // cópia é sempre autoral
+        verificacao: null,
+        fonte: {},
+      },
+      question.user_id
+    );
+    scheduleSync(500);
+    toast('Cópia criada como autoral. Edite pra alterar conteúdo.', 'success');
+    close(false);
   };
 
   const save = async (e?: React.FormEvent) => {
@@ -921,13 +988,27 @@ export function QuestionEditDrawer({
           />
         </label>
 
-        <div className="row gap right" style={{ marginTop: 18 }}>
-          <button type="button" className="ghost" onClick={() => close(false)}>
-            Cancelar
+        <div
+          className="row gap"
+          style={{ marginTop: 18, justifyContent: 'space-between' }}
+        >
+          <button
+            type="button"
+            className="ghost"
+            onClick={duplicate}
+            disabled={submitting}
+            title="Cria cópia desta questão (autoral). Você pode editar a cópia depois pra evitar duplicata."
+          >
+            ⎘ Duplicar
           </button>
-          <button type="submit" className="primary" disabled={submitting}>
-            {submitting ? 'Salvando…' : 'Salvar'}
-          </button>
+          <div className="row gap">
+            <button type="button" className="ghost" onClick={() => close(false)}>
+              Cancelar
+            </button>
+            <button type="submit" className="primary" disabled={submitting}>
+              {submitting ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
         </div>
       </form>
     </dialog>
