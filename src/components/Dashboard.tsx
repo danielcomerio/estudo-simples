@@ -8,6 +8,7 @@ import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
 import { useDailyGoal } from '@/lib/settings';
+import { useActiveConcursoFilter } from '@/lib/hierarchy';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -17,6 +18,7 @@ export function Dashboard() {
   const lastPullAt = useStore((s) => s.lastPullAt);
   const dailyGoal = useDailyGoal();
   const router = useRouter();
+  const { concurso: activeConcurso } = useActiveConcursoFilter();
 
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
@@ -159,6 +161,15 @@ export function Dashboard() {
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
+  // Contagem regressiva pra prova (se concurso ativo tem data_prova)
+  const diasParaProva = (() => {
+    if (!activeConcurso?.data_prova) return null;
+    const prova = new Date(activeConcurso.data_prova).getTime();
+    if (Number.isNaN(prova)) return null;
+    const dias = Math.ceil((startOfDay(prova) - startOfDay(Date.now())) / DAY_MS);
+    return dias;
+  })();
+
   // Por disciplina, vencendo hoje
   const dueByDisc: Record<string, number> = {};
   for (const q of questions) {
@@ -259,6 +270,53 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Contagem regressiva pra prova (só com concurso ativo + data) */}
+      {diasParaProva !== null && diasParaProva >= 0 && (
+        <div
+          className="card"
+          style={{
+            background:
+              diasParaProva <= 7
+                ? 'var(--danger-soft, #4a1d1d)'
+                : diasParaProva <= 30
+                  ? 'var(--warn-bg, #4a3a1a)'
+                  : 'var(--bg-elev-2)',
+            border: `1px solid ${
+              diasParaProva <= 7
+                ? 'var(--danger, #ef4444)'
+                : diasParaProva <= 30
+                  ? 'var(--warn, #d97706)'
+                  : 'var(--border)'
+            }`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ fontSize: '2.4rem', lineHeight: 1 }}>
+            {diasParaProva === 0 ? '🚨' : diasParaProva <= 7 ? '⏳' : '📅'}
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <strong style={{ fontSize: '1rem' }}>
+              {diasParaProva === 0
+                ? `Hoje é a prova: ${activeConcurso?.nome}`
+                : diasParaProva === 1
+                  ? `Amanhã é a prova: ${activeConcurso?.nome}`
+                  : `${diasParaProva} dias até a prova`}
+            </strong>
+            {diasParaProva > 1 && (
+              <div className="muted" style={{ fontSize: '0.85rem' }}>
+                {activeConcurso?.nome} —{' '}
+                {new Date(
+                  activeConcurso?.data_prova as string
+                ).toLocaleDateString('pt-BR')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Meta diária */}
       <div className="card">

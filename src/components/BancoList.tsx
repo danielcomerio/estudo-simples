@@ -78,10 +78,20 @@ function previewOf(q: Question): string {
 export function BancoList() {
   const questions = useStore(selectActiveQuestions);
   const disciplinas = useStore(selectDisciplinas);
+  const { data: discMeta } = useDisciplinas();
   const hydrated = useStore((s) => s.hydrated);
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
   const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
+
+  // Mapa nome → cor pra color-coding rápido nos itens
+  const discCorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const d of discMeta ?? []) {
+      if (d.cor) m.set(d.nome.toLowerCase(), d.cor);
+    }
+    return m;
+  }, [discMeta]);
 
   const [search, setSearch] = useState('');
   const [disc, setDisc] = useState('');
@@ -1151,15 +1161,23 @@ export function BancoList() {
                 key={q.id}
                 className={'banco-item' + (compact ? ' compact' : '')}
                 data-banco-idx={i}
-                style={
-                  isFocused
+                style={{
+                  ...(isFocused
                     ? {
                         outline: '2px solid var(--primary)',
                         outlineOffset: 2,
                         background: 'var(--bg-elev)',
                       }
-                    : undefined
-                }
+                    : {}),
+                  ...(q.disciplina_id &&
+                  discCorMap.get(q.disciplina_id.toLowerCase())
+                    ? {
+                        borderLeft: `3px solid ${discCorMap.get(
+                          q.disciplina_id.toLowerCase()
+                        )}`,
+                      }
+                    : {}),
+                }}
                 onClick={(e) => {
                   // Click na linha (fora dos botões/checkbox) move foco
                   const target = e.target as HTMLElement;

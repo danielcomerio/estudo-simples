@@ -17,7 +17,8 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
+import { interleaveByGroup, renderRichText, shuffle, startOfDay } from '@/lib/utils';
+import { DAY_MS } from '@/lib/srs';
 import {
   clearSession as clearStoredSession,
   readSession,
@@ -910,6 +911,45 @@ function RunningView({
           {q.srs?.lastReviewed && <span>↻ {fmtRelative(q.srs.dueDate)}</span>}
         </div>
 
+        {!answered &&
+          (q.stats?.attempts ?? 0) > 0 &&
+          (() => {
+            const a = q.stats!.attempts;
+            const c = q.stats!.correct ?? 0;
+            const taxa = a > 0 ? c / a : 0;
+            const cor =
+              taxa < 0.4
+                ? 'var(--danger)'
+                : taxa < 0.7
+                  ? 'var(--warn, #d97706)'
+                  : 'var(--primary)';
+            const icon = taxa < 0.4 ? '⚠' : taxa < 0.7 ? '⚡' : '✓';
+            return (
+              <div
+                style={{
+                  margin: '8px 0 12px',
+                  padding: '6px 10px',
+                  background: 'var(--bg-elev-2)',
+                  borderLeft: `3px solid ${cor}`,
+                  borderRadius: 'var(--radius)',
+                  fontSize: '0.85rem',
+                  color: 'var(--muted)',
+                }}
+                title={`Histórico desta questão: ${c} de ${a} acertos`}
+              >
+                <span style={{ color: cor, fontWeight: 500 }}>
+                  {icon} {c}/{a}
+                </span>{' '}
+                acertos no histórico —{' '}
+                {taxa < 0.4
+                  ? 'atenção redobrada'
+                  : taxa < 0.7
+                    ? 'reforce o raciocínio'
+                    : 'você costuma acertar'}
+              </div>
+            );
+          })()}
+
         <div
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderRichText(payload.enunciado) }}
@@ -1105,33 +1145,138 @@ function RunningView({
 }
 
 function Summary({ session, onRestart }: { session: SessionState; onRestart: () => void }) {
+  const allQuestions = useStore(selectActiveQuestions);
+
   const total = session.correct + session.wrong;
-  const pct = total === 0 ? '—' : Math.round((100 * session.correct) / total) + '%';
+  const pct = total === 0 ? 0 : Math.round((100 * session.correct) / total);
   const elapsed = Math.round((Date.now() - session.startedAt) / 1000);
+  const tempoMedio = total > 0 ? Math.round(elapsed / total) : 0;
+
+  // Comparativo: % média histórica do user (excluindo a sessão atual)
+  const mediaHistorica = useMemo(() => {
+    let acerto = 0;
+    let tentativas = 0;
+    for (const q of allQuestions) {
+      acerto += q.stats?.correct ?? 0;
+      tentativas += q.stats?.attempts ?? 0;
+    }
+    return tentativas > 0 ? Math.round((acerto / tentativas) * 100) : 0;
+  }, [allQuestions]);
+
+  // Disciplinas estudadas nessa sessão (top 3 por count)
+  const discsEstudadas = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const q of session.pool) {
+      const d = q.disciplina_id || '—';
+      counts[d] = (counts[d] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+  }, [session.pool]);
+
+  // Próximas vencendo até amanhã (excluindo as desta sessão)
+  const sessionIds = useMemo(
+    () => new Set(session.pool.map((q) => q.id)),
+    [session.pool]
+  );
+  const proximasVencendo = useMemo(() => {
+    const tomorrow = startOfDay(Date.now()) + 2 * DAY_MS;
+    return allQuestions.filter(
+      (q) =>
+        !sessionIds.has(q.id) &&
+        q.type === 'objetiva' &&
+        (q.srs?.dueDate ?? 0) < tomorrow
+    ).length;
+  }, [allQuestions, sessionIds]);
+
+  const cor =
+    pct >= 70
+      ? 'var(--primary)'
+      : pct >= 50
+        ? 'var(--warn, #d97706)'
+        : 'var(--danger)';
+  const delta = pct - mediaHistorica;
+
   return (
     <div className="card">
       <h2>Sessão concluída</h2>
-      <p>
-        Você respondeu <strong>{total}</strong> questão(ões) em {elapsed}s.
-      </p>
-      <ul>
+
+      <div
+        className="row gap"
+        style={{ alignItems: 'baseline', marginBottom: 16, flexWrap: 'wrap' }}
+      >
+        <div>
+          <div style={{ fontSize: '2.6rem', fontWeight: 600, color: cor }}>
+            {pct}%
+          </div>
+          <div className="muted" style={{ fontSize: '0.85rem' }}>
+            {session.correct}✓ · {session.wrong}✗ · {session.skipped}↷
+          </div>
+        </div>
+        {total > 0 && mediaHistorica > 0 && (
+          <div style={{ flex: 1 }}>
+            <div className="muted" style={{ fontSize: '0.85rem' }}>
+              vs sua média histórica ({mediaHistorica}%)
+            </div>
+            <div
+              style={{
+                fontSize: '1rem',
+                color:
+                  delta > 0
+                    ? 'var(--primary)'
+                    : delta < 0
+                      ? 'var(--danger)'
+                      : 'var(--muted)',
+                fontWeight: 500,
+              }}
+            >
+              {delta > 0 ? '↑ +' : delta < 0 ? '↓ ' : '→ '}
+              {Math.abs(delta)}pp{' '}
+              {delta > 0
+                ? 'acima'
+                : delta < 0
+                  ? 'abaixo'
+                  : 'igual'}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ul style={{ marginBottom: 14 }}>
         <li>
-          ✓ Acertos: <strong>{session.correct}</strong>
+          ⏱ Tempo total: <strong>{elapsed}s</strong>
+          {tempoMedio > 0 && ` (${tempoMedio}s/questão)`}
         </li>
-        <li>
-          ✗ Erros: <strong>{session.wrong}</strong>
-        </li>
-        <li>
-          ↷ Puladas: <strong>{session.skipped}</strong>
-        </li>
-        <li>
-          % Acerto: <strong>{pct}</strong>
-        </li>
+        {discsEstudadas.length > 0 && (
+          <li>
+            📚 Disciplinas:{' '}
+            <strong>
+              {discsEstudadas.map(([d, n]) => `${d} (${n})`).join(', ')}
+            </strong>
+          </li>
+        )}
+        {proximasVencendo > 0 && (
+          <li>
+            🎯 Próximas vencendo: <strong>{proximasVencendo}</strong> questão(ões)
+            até amanhã
+          </li>
+        )}
       </ul>
-      <div className="row gap">
+
+      <div className="row gap wrap">
         <button type="button" className="primary" onClick={onRestart}>
           Nova sessão
         </button>
+        {proximasVencendo > 0 && (
+          <Link
+            href={`/estudar?modo=srs&qtd=${Math.min(20, proximasVencendo)}&auto=1`}
+          >
+            <button type="button">
+              ▶ Continuar com {Math.min(20, proximasVencendo)} vencendo
+            </button>
+          </Link>
+        )}
       </div>
     </div>
   );
