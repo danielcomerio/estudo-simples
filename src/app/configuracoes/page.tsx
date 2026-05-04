@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AlgorithmSection } from '@/components/AlgorithmSection';
+import { ThemeSection } from '@/components/ThemeSection';
 
 export default function ConfiguracoesPage() {
   return (
@@ -13,6 +14,8 @@ export default function ConfiguracoesPage() {
       </div>
 
       <AlgorithmSection />
+
+      <ThemeSection />
 
       <div className="card">
         <h2 style={{ margin: '0 0 8px' }}>Cadastros</h2>

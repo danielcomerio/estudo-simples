@@ -72,8 +72,11 @@
   --transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Light theme: aplicado quando OS prefere light E não há override.
+   Override manual via data-theme em <html>: 'light' força light,
+   'dark' força dark, sem (default) segue OS. Settings persiste. */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme='dark']) {
     --bg: #f6f8fc;
     --bg-elev: #ffffff;
     --bg-elev-2: #f1f5f9;
@@ -91,6 +94,25 @@
     --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 16px rgba(15, 23, 42, 0.08);
     --shadow-lg: 0 10px 40px rgba(15, 23, 42, 0.12);
   }
+}
+
+:root[data-theme='light'] {
+  --bg: #f6f8fc;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f1f5f9;
+  --bg-elev-3: #e8eef7;
+  --border: #d6dde9;
+  --border-strong: #b8c2d3;
+  --text: #0f172a;
+  --text-strong: #020617;
+  --muted: #56657d;
+  --muted-2: #7c8aa3;
+  --primary: #0284c7;
+  --primary-700: #0369a1;
+  --primary-soft: rgba(2, 132, 199, 0.1);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 16px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 10px 40px rgba(15, 23, 42, 0.12);
 }
 
 * {

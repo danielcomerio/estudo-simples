@@ -18,6 +18,7 @@ import type { SRSAlgorithm } from './srs-fsrs';
 
 const STORAGE_KEY_ALGORITHM = 'estudo-simples:settings:algorithm';
 const STORAGE_KEY_ACTIVE_CONCURSO = 'estudo-simples:settings:activeConcurso';
+const STORAGE_KEY_THEME = 'estudo-simples:settings:theme';
 
 const VALID_ALGORITHMS: SRSAlgorithm[] = ['sm2', 'fsrs'];
 const UUID_PATTERN =
@@ -114,6 +115,69 @@ export function useActiveConcursoId(): string | null {
   }, []);
 
   return id;
+}
+
+/**
+ * Tema visual: 'auto' segue OS, 'light'/'dark' força.
+ *
+ * Aplica via atributo data-theme em <html>. Quando 'auto', remove o
+ * atributo e cai no @media (prefers-color-scheme) do CSS.
+ */
+export type Theme = 'auto' | 'light' | 'dark';
+const VALID_THEMES: Theme[] = ['auto', 'light', 'dark'];
+
+export function getTheme(): Theme {
+  if (typeof window === 'undefined') return 'auto';
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_THEME);
+    if (raw && (VALID_THEMES as string[]).includes(raw)) return raw as Theme;
+  } catch {}
+  return 'auto';
+}
+
+export function setTheme(theme: Theme): void {
+  if (!(VALID_THEMES as string[]).includes(theme)) {
+    throw new Error(`Theme inválido: ${theme}`);
+  }
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_THEME, theme);
+  } catch {}
+  applyTheme(theme);
+  notify();
+}
+
+/** Aplica o tema escolhido no DOM. Chamado pelo hook + ao mudar via UI. */
+export function applyTheme(theme: Theme): void {
+  if (typeof document === 'undefined') return;
+  const html = document.documentElement;
+  if (theme === 'auto') {
+    html.removeAttribute('data-theme');
+  } else {
+    html.setAttribute('data-theme', theme);
+  }
+}
+
+export function useTheme(): Theme {
+  const [theme, setT] = useState<Theme>('auto');
+  useEffect(() => {
+    const sync = () => {
+      const t = getTheme();
+      setT(t);
+      applyTheme(t);
+    };
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_THEME) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return theme;
 }
 
 /**

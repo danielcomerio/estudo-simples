@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { hydrate, resetStore } from '@/lib/store';
 import { startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
-import { setActiveConcursoId } from '@/lib/settings';
+import { applyTheme, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
 import { ConfirmHost } from './ConfirmDialog';
 
@@ -18,6 +18,11 @@ export function StoreProvider({
   children: React.ReactNode;
 }) {
   useEffect(() => {
+    // Aplica tema o mais cedo possível pra reduzir flash. (Idealmente
+    // seria via <script> inline pré-React, mas useEffect roda quase
+    // imediatamente após hydrate.)
+    applyTheme(getTheme());
+
     // hydrate é async desde a migração pra IndexedDB. Espera carregar
     // o estado persistido ANTES de iniciar background sync — sem isso,
     // a primeira tentativa de pull pode usar lastPullAt obsoleto (do
