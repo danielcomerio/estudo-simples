@@ -155,6 +155,8 @@ export function StatsView() {
 
       <SemanaSection questions={questions} />
 
+      <ProgressaoSection questions={questions} />
+
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
@@ -350,6 +352,145 @@ function ConcursoStatRow({
         </div>
       </div>
     </li>
+  );
+}
+
+/**
+ * Gráfico de progressão temporal (últimos 30 dias).
+ *  - Barras: # revisões por dia
+ *  - Linha sobreposta: % acerto rolling de 7 dias
+ * SVG simples, sem deps. Eixos rudimentares.
+ */
+function ProgressaoSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const now = Date.now();
+    const startOf = (ts: number) => {
+      const d = new Date(ts);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+    const today = startOf(now);
+    const dias: { date: number; count: number; correct: number }[] = [];
+    for (let i = 29; i >= 0; i--) {
+      dias.push({ date: today - i * DAY_MS, count: 0, correct: 0 });
+    }
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const d = startOf(h.date);
+        const idx = dias.findIndex((x) => x.date === d);
+        if (idx < 0) continue;
+        dias[idx].count += 1;
+        if (h.result === 'correct' || h.result === 'self_pass') {
+          dias[idx].correct += 1;
+        }
+      }
+    }
+    return dias;
+  }, [questions]);
+
+  const totalRev = data.reduce((s, d) => s + d.count, 0);
+  if (totalRev === 0) return null;
+
+  // Rolling % acerto (janela 7 dias)
+  const rolling = data.map((_, i) => {
+    let c = 0;
+    let t = 0;
+    for (let j = Math.max(0, i - 6); j <= i; j++) {
+      c += data[j].correct;
+      t += data[j].count;
+    }
+    return t > 0 ? c / t : null;
+  });
+
+  const maxCount = Math.max(1, ...data.map((d) => d.count));
+  const W = 600;
+  const H = 200;
+  const barW = W / data.length;
+
+  return (
+    <div className="card">
+      <h2>Progressão — últimos 30 dias</h2>
+      <p
+        className="muted"
+        style={{ marginTop: -4, marginBottom: 12, fontSize: '0.85rem' }}
+      >
+        Barras: revisões por dia. Linha verde: % acerto (média móvel 7d).
+      </p>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: '100%', height: 'auto', display: 'block' }}
+        preserveAspectRatio="none"
+      >
+        {/* Grid lines horizontais (25%, 50%, 75%) */}
+        {[0.25, 0.5, 0.75].map((p, i) => (
+          <line
+            key={i}
+            x1={0}
+            y1={H * (1 - p)}
+            x2={W}
+            y2={H * (1 - p)}
+            stroke="var(--border)"
+            strokeWidth="0.5"
+            strokeDasharray="2 4"
+          />
+        ))}
+        {/* Barras de count */}
+        {data.map((d, i) => {
+          const h = (d.count / maxCount) * H * 0.85;
+          return (
+            <rect
+              key={i}
+              x={i * barW + 1}
+              y={H - h}
+              width={Math.max(1, barW - 2)}
+              height={h}
+              fill="var(--primary)"
+              opacity={d.count === 0 ? 0.15 : 0.7}
+            >
+              <title>
+                {new Date(d.date).toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'short',
+                })}{' '}
+                · {d.count} revisão(ões), {d.correct} acerto(s)
+              </title>
+            </rect>
+          );
+        })}
+        {/* Linha de % acerto rolling */}
+        <polyline
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={rolling
+            .map((r, i) =>
+              r === null
+                ? ''
+                : `${i * barW + barW / 2},${H - r * H * 0.95}`
+            )
+            .filter(Boolean)
+            .join(' ')}
+        />
+      </svg>
+      <div
+        className="muted"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: '0.78rem',
+          marginTop: 4,
+        }}
+      >
+        <span>30d atrás</span>
+        <span>hoje</span>
+      </div>
+    </div>
   );
 }
 
