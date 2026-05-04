@@ -1,11 +1,30 @@
 'use client';
 
 import Link from 'next/link';
+function ThemeToggleQuick() {
+  const t = useTheme();
+  const next = t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto';
+  const icon = t === 'auto' ? '🖥' : t === 'light' ? '☀️' : '🌙';
+  return (
+    <button
+      type="button"
+      className="ghost icon"
+      onClick={() => setTheme(next)}
+      title={`Tema: ${t} (clique pra ${next})`}
+      aria-label="Alternar tema"
+      style={{ fontSize: '1rem' }}
+    >
+      {icon}
+    </button>
+  );
+}
+
 import { usePathname } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { logout } from '@/app/auth/actions';
 import { logoutAndReset } from './StoreProvider';
 import { syncNow } from '@/lib/sync';
+import { setTheme, useTheme } from '@/lib/settings';
 import { ActiveConcursoSelector } from './ActiveConcursoSelector';
 
 const TABS = [
@@ -74,6 +93,8 @@ export function Topbar({ email }: { email: string | null }) {
       </nav>
 
       <div className="right">
+        <ThemeToggleQuick />
+
         <ActiveConcursoSelector />
 
         <button
