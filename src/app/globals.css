@@ -595,17 +595,43 @@ label.check-row input {
   color: var(--primary);
 }
 
-/* Heatmap */
+/* Heatmap GitHub-style: grid 7 linhas (D-S) x N colunas (semanas).
+   Layout column-major. */
+.heatmap-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.heatmap-day-labels {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  gap: 3px;
+  padding-top: 16px; /* offset pra alinhar com a 1ª linha de dados */
+  user-select: none;
+}
 .heatmap {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8px, 1fr));
+  grid-template-rows: repeat(7, 13px);
+  grid-auto-flow: column;
+  grid-auto-columns: 13px;
   gap: 3px;
-  margin-top: 8px;
+  overflow-x: auto;
+}
+.heatmap-month-labels {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 4px;
+  user-select: none;
 }
 .heatmap .day {
-  aspect-ratio: 1 / 1;
+  width: 13px;
+  height: 13px;
   border-radius: 2px;
   background: var(--bg-elev-2);
+  border: 1px solid transparent;
 }
 .heatmap .day.l1 {
   background: color-mix(in srgb, var(--primary) 25%, var(--bg-elev-2));
@@ -618,6 +644,22 @@ label.check-row input {
 }
 .heatmap .day.l4 {
   background: var(--primary);
+}
+.heatmap .day.today {
+  border-color: var(--text);
+}
+.heatmap-legend {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.heatmap-legend .day {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
 }
 
 /* ============ Banco ============ */

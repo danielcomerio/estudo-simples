@@ -119,15 +119,7 @@ export function Dashboard() {
 
       <div className="card">
         <h2>Atividade — últimos 90 dias</h2>
-        <div className="heatmap">
-          {days.map((d) => (
-            <div
-              key={d.date}
-              className={'day ' + level(d.count)}
-              title={new Date(d.date).toLocaleDateString('pt-BR') + ' · ' + d.count + ' revisão(ões)'}
-            />
-          ))}
-        </div>
+        <Heatmap days={days} level={level} today={today} />
       </div>
 
       <div className="card">
@@ -145,5 +137,140 @@ export function Dashboard() {
         </div>
       </div>
     </>
+  );
+}
+
+const DAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']; // dom, seg, ter, qua, qui, sex, sab
+const MONTH_LABELS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
+
+/**
+ * Heatmap GitHub-style: 7 linhas (dom-sáb), N colunas (semanas).
+ * Inclui labels de dias da semana, marcas de mês e legenda de
+ * intensidade. Hoje é destacado com borda.
+ *
+ * Days vem ordenado do mais antigo pro mais recente. Padding inicial
+ * com null pra alinhar o primeiro dia ao seu dia-da-semana correto.
+ */
+function Heatmap({
+  days,
+  level,
+  today,
+}: {
+  days: { date: number; count: number }[];
+  level: (n: number) => string;
+  today: number;
+}) {
+  // Calcula padding inicial: se primeiro dia é uma quarta (3),
+  // precisamos de 3 cells null antes dele pra começar na coluna certa.
+  const firstDay = days[0] ? new Date(days[0].date).getDay() : 0;
+  const padded: ({ date: number; count: number } | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...days,
+  ];
+  // Trailing padding pra completar a última semana
+  while (padded.length % 7 !== 0) padded.push(null);
+
+  // Marcas de mês: colunas onde aparece o 1º do mês
+  const weeksCount = padded.length / 7;
+  const monthLabels: { col: number; label: string }[] = [];
+  let lastMonth = -1;
+  for (let week = 0; week < weeksCount; week++) {
+    // Olha primeiro dia REAL da semana (pula nulls)
+    for (let row = 0; row < 7; row++) {
+      const cell = padded[week * 7 + row];
+      if (!cell) continue;
+      const m = new Date(cell.date).getMonth();
+      if (m !== lastMonth) {
+        monthLabels.push({ col: week, label: MONTH_LABELS[m] });
+        lastMonth = m;
+      }
+      break;
+    }
+  }
+
+  return (
+    <div>
+      <div
+        className="heatmap-month-labels"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${weeksCount}, 13px)`,
+          gap: 3,
+          paddingLeft: 22,
+        }}
+      >
+        {Array.from({ length: weeksCount }).map((_, week) => {
+          const m = monthLabels.find((x) => x.col === week);
+          return (
+            <div key={week} style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+              {m?.label ?? ''}
+            </div>
+          );
+        })}
+      </div>
+      <div className="heatmap-wrap">
+        <div className="heatmap-day-labels">
+          {DAY_LABELS.map((l, i) => (
+            <div
+              key={i}
+              style={{
+                fontSize: '0.7rem',
+                color: 'var(--muted)',
+                lineHeight: '13px',
+                visibility: i % 2 === 0 ? 'visible' : 'hidden',
+              }}
+            >
+              {l}
+            </div>
+          ))}
+        </div>
+        <div className="heatmap">
+          {padded.map((d, i) =>
+            d === null ? (
+              <div key={'pad-' + i} style={{ visibility: 'hidden' }} />
+            ) : (
+              <div
+                key={d.date}
+                className={
+                  'day ' + level(d.count) + (d.date === today ? ' today' : '')
+                }
+                title={
+                  new Date(d.date).toLocaleDateString('pt-BR', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                  }) +
+                  ' · ' +
+                  d.count +
+                  ' revisão(ões)'
+                }
+              />
+            )
+          )}
+        </div>
+      </div>
+      <div className="heatmap-legend">
+        <span>menos</span>
+        <span className="day"></span>
+        <span className="day l1"></span>
+        <span className="day l2"></span>
+        <span className="day l3"></span>
+        <span className="day l4"></span>
+        <span>mais</span>
+      </div>
+    </div>
   );
 }
