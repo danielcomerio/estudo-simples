@@ -514,6 +514,67 @@ Antes de escrever código:
 
 Veja `git log --oneline` — commits têm o "porquê" no corpo.
 
+### Onda 2 (2026-05-04 → ...) — refinements e produtividade
+
+**Painel:**
+- Empty state com onboarding em 3 passos (banco vazio)
+- Card "🎯 Hoje recomendado" mistura vencidas + erradas + novas
+- Heatmap previsão (próximos 30 dias)
+- Streak melhorado (atual + recorde + total dias)
+- Quick actions com auto-start (`/estudar?modo=X&qtd=N&auto=1`)
+
+**Banco:**
+- Filtros novos: SRS (atrasadas/hoje/novas/recentes), tem imagem, tem
+  notas, tem LaTeX
+- Atalhos Vim-like (j/k Enter espaço x / g G Esc N)
+- Bulk: verificação, dificuldade, tags (add/remove)
+- Export filtrado/selecionadas (dropdown)
+- Search com prefixos `tag:` `disc:` `banca:` + highlight
+- Indicador SRS visual no card (🔴/📅/↻)
+- Botão ▶ pra estudar 1 questão
+- Quick-create (+ Nova) sem JSON, atalho N
+- Chip "limpar filtros" + presets nomeados (localStorage)
+- Ordenação custom (7 modos)
+- Detector de quase-duplicatas em `/duplicatas` (Jaccard)
+- Snippets de JSON de exemplo (autoral/discursiva/cloze/flashcard)
+
+**Stats:**
+- Selector de escopo (Geral / Concurso ativo / X)
+- Comparativo semana atual vs anterior
+- Por banca, por tag, por origem (composição segmentada)
+- Distribuição de dificuldade
+- Tempo médio por disciplina (barras horizontais)
+- Gráfico de progressão temporal (SVG, 30d, com média móvel 7d)
+- Calibração metacognitiva (overconfidence/lucky)
+- "Suas inimigas" (taxa < 30% com ≥3 tentativas)
+- Seção de simulados (sparkline)
+
+**Estudar/Cards/Discursivas:**
+- Confidence rating + analytics
+- Modo livre (não muda SRS)
+- Skip soft (Tab) — não conta tentativa
+- Cloze incremental (revela uma lacuna por vez)
+- Atalhos Esc/Tab nos /cards
+- Pause/resume sessão (refresh-safe via session-store em cada modo)
+- beforeunload protege sessão ativa
+
+**Drawer:**
+- Histórico de revisão expansível (timeline)
+- Edição de fonte/origem/verificação
+- Botão Duplicar (cria cópia autoral)
+- Atalho Ctrl+S salva
+
+**Geral:**
+- Persistência IndexedDB com fallback localStorage comprimido
+- Compressão lz-string + debounce persist 200ms
+- Sync resiliente a 23505 (descarta locais conflitantes)
+- Tema dark/light/auto + toggle no Topbar (1 clique)
+- Command palette global (Ctrl+K)
+- Atalho Ctrl+I pra import
+- Modal de ajuda com lista de atalhos (?)
+- Backup completo + restore (incluindo hierarquia)
+- /revisar com bulk-fill de gabarito via IA
+
 ### Onda 1 (2026-05-01 → 2026-05-03)
 
 **Estabilidade e desempenho:**
