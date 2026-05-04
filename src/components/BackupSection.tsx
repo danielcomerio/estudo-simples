@@ -1,16 +1,27 @@
 'use client';
 
-import { useState } from 'react';
-import { selectActiveQuestions, useStore } from '@/lib/store';
+import { useRef, useState } from 'react';
+import { addQuestionsBulk, selectActiveQuestions, useStore } from '@/lib/store';
 import {
   useAllConcursoDisciplinas,
   useConcursos,
   useDisciplinas,
   useTopicos,
 } from '@/lib/hierarchy';
-import { useSimuladosForUser } from '@/lib/simulado-store';
-import { getActiveConcursoId, getAlgorithm, getTheme } from '@/lib/settings';
+import { saveSimulado, useSimuladosForUser } from '@/lib/simulado-store';
+import {
+  getActiveConcursoId,
+  getAlgorithm,
+  getTheme,
+  setActiveConcursoId,
+  setAlgorithm,
+  setTheme,
+} from '@/lib/settings';
+import { dedupeKey } from '@/lib/validation';
+import { scheduleSync } from '@/lib/sync';
+import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
+import type { Question, Simulado } from '@/lib/types';
 
 const BACKUP_VERSION = 1;
 
@@ -49,6 +60,8 @@ export function BackupSection() {
   const { data: topicos } = useTopicos();
   const simulados = useSimuladosForUser(userId);
   const [downloading, setDownloading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const total =
     questions.length +
@@ -162,6 +175,140 @@ export function BackupSection() {
         Dica: clique no badge de sincronização no topo antes de baixar
         pra garantir que o backup tem o estado mais novo do servidor.
       </p>
+
+      <hr style={{ margin: '20px 0', border: 0, borderTop: '1px solid var(--border)' }} />
+
+      <h3 style={{ margin: '0 0 6px' }}>Restaurar de backup</h3>
+      <p className="muted" style={{ marginTop: 0, fontSize: '0.88rem' }}>
+        Lê um JSON gerado acima e adiciona o conteúdo. Questões duplicadas
+        (mesmo enunciado + disciplina) são <strong>ignoradas</strong>.
+        Simulados são adicionados se não houver outro com mesmo id.
+        Settings (algoritmo/tema/concurso ativo) <strong>sobrescrevem</strong>{' '}
+        os atuais. Hierarquia (concursos/disciplinas/tópicos) NÃO é
+        restaurada — re-criar manualmente em /concursos.
+      </p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          await handleRestore(f);
+        }}
+      />
+      <div className="row gap" style={{ marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={restoring}
+        >
+          {restoring ? 'Restaurando…' : 'Escolher arquivo de backup'}
+        </button>
+      </div>
     </section>
   );
+
+  async function handleRestore(file: File) {
+    if (!userId) {
+      toast('Não autenticado.', 'error');
+      return;
+    }
+    setRestoring(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as {
+        version?: number;
+        questions?: Question[];
+        simulados?: Simulado[];
+        settings?: {
+          algorithm?: 'sm2' | 'fsrs';
+          theme?: 'auto' | 'light' | 'dark';
+          activeConcursoId?: string | null;
+        };
+      };
+      if (data.version !== BACKUP_VERSION) {
+        toast(
+          `Versão do backup (${data.version}) não suportada (atual: ${BACKUP_VERSION}).`,
+          'error'
+        );
+        return;
+      }
+      const qCount = data.questions?.length ?? 0;
+      const sCount = data.simulados?.length ?? 0;
+      const ok = await confirmDialog({
+        title: 'Restaurar backup',
+        message: `Vai adicionar ${qCount} questão(ões) (duplicatas ignoradas) e ${sCount} simulado(s). Settings serão sobrescritos. Continuar?`,
+      });
+      if (!ok) return;
+
+      // Restaurar questions: dedup contra estado atual
+      let qAdded = 0;
+      if (Array.isArray(data.questions) && data.questions.length > 0) {
+        const existingKeys = new Set(questions.map(dedupeKey));
+        const toAdd: Array<
+          Omit<Question, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+        > = [];
+        for (const raw of data.questions) {
+          const q = raw as Question;
+          const key = dedupeKey(q);
+          if (existingKeys.has(key)) continue;
+          existingKeys.add(key);
+          // Strip id/user_id/timestamps — store gera novos
+          const { id: _id, user_id: _u, created_at: _c, updated_at: _up, ...rest } = q;
+          toAdd.push(rest as Omit<Question, 'id' | 'user_id' | 'created_at' | 'updated_at'>);
+        }
+        if (toAdd.length) {
+          addQuestionsBulk(toAdd, userId);
+          qAdded = toAdd.length;
+        }
+      }
+
+      // Restaurar simulados: dedup por id (saveSimulado é upsert por id —
+      // se já existir com mesmo id, sobrescreve. Aceitável.)
+      let sAdded = 0;
+      if (Array.isArray(data.simulados)) {
+        for (const sim of data.simulados) {
+          if (sim && typeof sim === 'object' && sim.user_id === userId) {
+            saveSimulado(sim);
+            sAdded++;
+          }
+        }
+      }
+
+      // Restaurar settings
+      if (data.settings) {
+        if (data.settings.algorithm) {
+          try {
+            setAlgorithm(data.settings.algorithm);
+          } catch {}
+        }
+        if (data.settings.theme) {
+          try {
+            setTheme(data.settings.theme);
+          } catch {}
+        }
+        if (data.settings.activeConcursoId !== undefined) {
+          try {
+            setActiveConcursoId(data.settings.activeConcursoId);
+          } catch {}
+        }
+      }
+
+      scheduleSync(800);
+      toast(
+        `Restaurado: ${qAdded} questão(ões) novas, ${sAdded} simulado(s).`,
+        'success'
+      );
+    } catch (e) {
+      toast(
+        'Falha ao restaurar: ' + (e instanceof Error ? e.message : String(e)),
+        'error'
+      );
+    } finally {
+      setRestoring(false);
+    }
+  }
 }
