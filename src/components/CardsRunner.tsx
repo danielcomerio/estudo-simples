@@ -320,10 +320,21 @@ function CardView({
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // Esc sai a qualquer momento
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onQuit();
+        return;
+      }
       if (!allRevealed) {
         if (e.key === ' ' || e.key === 'Enter') {
           e.preventDefault();
           setRevealed((r) => r + 1);
+        }
+        // Tab pula card (skip — não conta como study)
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          onNext();
         }
       } else {
         if (e.key === '1') rate(0);
