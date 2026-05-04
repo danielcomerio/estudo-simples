@@ -631,7 +631,32 @@ export function BancoList() {
                         🏷 {q.tags.length}
                       </span>
                     )}
-                    {q.srs?.dueDate && <span title="Próxima revisão">↻ {fmtRelative(q.srs.dueDate)}</span>}
+                    {q.srs?.dueDate && (() => {
+                      const due = q.srs.dueDate;
+                      const now = Date.now();
+                      const diffMs = due - now;
+                      const diffDays = Math.round(diffMs / DAY_MS);
+                      let cor: string | undefined;
+                      let icon: string;
+                      let title: string;
+                      if (diffMs < 0) {
+                        cor = 'var(--danger)';
+                        icon = '🔴';
+                        title = `Atrasada · vencia ${fmtRelative(due)}`;
+                      } else if (diffDays === 0) {
+                        cor = 'var(--warn, #d97706)';
+                        icon = '📅';
+                        title = `Vence hoje`;
+                      } else {
+                        icon = '↻';
+                        title = `Próxima revisão`;
+                      }
+                      return (
+                        <span title={title} style={cor ? { color: cor, fontWeight: 500 } : undefined}>
+                          {icon} {fmtRelative(due)}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="actions row gap">
