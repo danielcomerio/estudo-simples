@@ -10,6 +10,74 @@
    classes inline injetadas pelo katex.renderToString. */
 @import 'katex/dist/katex.min.css';
 
+/* Animações suaves — discretas, sem zelo excessivo. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Botões com pequena animação no hover */
+  button {
+    transition: background var(--transition), border-color var(--transition),
+      transform 80ms ease-out, box-shadow var(--transition);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  /* Cards aparecem com fade leve */
+  .card {
+    animation: card-fade-in 200ms ease-out;
+  }
+  @keyframes card-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Toast slide-in */
+  .toaster .toast {
+    animation: toast-in 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateX(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* Dialog fade */
+  dialog[open] {
+    animation: dialog-fade-in 180ms ease-out;
+  }
+  dialog[open]::backdrop {
+    animation: backdrop-fade-in 180ms ease-out;
+  }
+  @keyframes dialog-fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes backdrop-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
 /* Modo foco: esconde tudo exceto a questão central. Útil pra
    concentração máxima. Toggle via tecla F em /estudar. */
 body.focus-mode .topbar,
