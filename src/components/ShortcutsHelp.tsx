@@ -112,6 +112,8 @@ export function ShortcutsHelp() {
               <Row k="2" desc="Difícil (q=3)" />
               <Row k="3 ou Enter" desc="Bom (q=4)" />
               <Row k="4" desc="Fácil (q=5)" />
+              <Row k="Z" desc="Desfazer última resposta (até 6s)" />
+              <Row k="F" desc="Modo foco (esconde topbar)" />
             </Section>
 
             <Section title="/cards (cloze + flashcard)">
@@ -119,6 +121,7 @@ export function ShortcutsHelp() {
               <Row k="Tab" desc="Pular card sem aplicar SRS" />
               <Row k="Esc" desc="Sair da sessão" />
               <Row k="1-4" desc="Após revelar: rate (igual /estudar)" />
+              <Row k="Z" desc="Desfazer última rate (até 6s)" />
             </Section>
 
             <Section title="/simulado">

@@ -26,6 +26,7 @@ import {
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
+import { UndoChip } from './UndoChip';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -609,6 +610,18 @@ function RunningView({
   const startedAtRef = useRef(Date.now());
   const ratedRef = useRef(false);
 
+  // Snapshot para undo da última resposta (rate). Mantido por 6s.
+  const [undoSnap, setUndoSnap] = useState<{
+    qid: string;
+    prevSrs: typeof q.srs;
+    prevStats: typeof q.stats;
+    prevIdx: number;
+    prevCorrect: number;
+    prevWrong: number;
+    prevChosen: string | null;
+    prevConfidence: 1 | 2 | 3 | null;
+  } | null>(null);
+
   // Focus mode aplica/remove classe no body
   useEffect(() => {
     if (focusMode) {
@@ -697,6 +710,19 @@ function RunningView({
   const rate = (quality: number) => {
     if (ratedRef.current) return;
     ratedRef.current = true;
+    // Captura snapshot pra undo. Stats foi atualizado em submit() —
+    // o snapshot guarda o stats POST-submit; undo restaura o cenário
+    // de "respondi mas ainda não rateei" + decrementa contadores.
+    const snap = {
+      qid: q.id,
+      prevSrs: { ...q.srs },
+      prevStats: { ...q.stats },
+      prevIdx: session.idx,
+      prevCorrect: session.correct,
+      prevWrong: session.wrong,
+      prevChosen: chosen,
+      prevConfidence: confidence,
+    };
     // Modo livre: NÃO aplica SRS. Stats já foram contabilizadas em
     // submit(). Útil pra revisão pré-prova sem interferir no schedule.
     if (!session.free) {
@@ -705,7 +731,44 @@ function RunningView({
       updateQuestionLocal(q.id, { srs: card.srs });
     }
     scheduleSync(800);
+    setUndoSnap(snap);
     next();
+  };
+
+  const undoLastRate = () => {
+    if (!undoSnap) return;
+    // Restaura srs/stats da question E reverte contadores da session.
+    // O stats que captamos é POST-submit, então pra reverter a tentativa
+    // toda restauramos o stats com 1 attempt a menos.
+    updateQuestionLocal(undoSnap.qid, {
+      srs: undoSnap.prevSrs,
+      stats: {
+        attempts: Math.max(0, (undoSnap.prevStats?.attempts ?? 1) - 1),
+        correct: Math.max(
+          0,
+          (undoSnap.prevStats?.correct ?? 0) -
+            (undoSnap.prevChosen === correctLetra ? 1 : 0)
+        ),
+        wrong: Math.max(
+          0,
+          (undoSnap.prevStats?.wrong ?? 0) -
+            (undoSnap.prevChosen !== correctLetra ? 1 : 0)
+        ),
+        history: (undoSnap.prevStats?.history ?? []).slice(0, -1),
+      },
+    });
+    update((s) => ({
+      ...s,
+      idx: undoSnap.prevIdx,
+      correct: undoSnap.prevCorrect,
+      wrong: undoSnap.prevWrong,
+    }));
+    setAnswered(false);
+    setChosen(null);
+    setConfidence(null);
+    ratedRef.current = false;
+    setUndoSnap(null);
+    scheduleSync(800);
   };
 
   const next = () => {
@@ -784,6 +847,12 @@ function RunningView({
 
   return (
     <div className="card">
+      {undoSnap && (
+        <UndoChip
+          onUndo={undoLastRate}
+          onDismiss={() => setUndoSnap(null)}
+        />
+      )}
       <div className="session-bar">
         <div className="session-progress">
           {session.idx + 1}/{session.pool.length}

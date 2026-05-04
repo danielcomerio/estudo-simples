@@ -21,6 +21,7 @@ import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { renderClozeHTML } from '@/lib/cloze';
 import { useSwipe } from '@/lib/use-swipe';
+import { UndoChip } from './UndoChip';
 import type {
   ClozePayload,
   DiscSessionConfig,
@@ -211,20 +212,57 @@ export function CardsRunner() {
     } else setIdx(idx + 1);
   };
 
+  // Snapshot pra undo da última rate. Vive no pai pra sobreviver à
+  // transição entre cards.
+  const [undoSnap, setUndoSnap] = useState<{
+    qid: string;
+    prevSrs: Question['srs'];
+    prevStats: Question['stats'];
+    prevIdx: number;
+  } | null>(null);
+
+  const undoLastRate = () => {
+    if (!undoSnap) return;
+    const prev = (pool.find((q) => q.id === undoSnap.qid) as Question | undefined);
+    if (prev) {
+      updateQuestionLocal(prev.id, {
+        srs: undoSnap.prevSrs,
+        stats: {
+          attempts: Math.max(0, (undoSnap.prevStats?.attempts ?? 1) - 1),
+          correct: undoSnap.prevStats?.correct ?? 0,
+          wrong: undoSnap.prevStats?.wrong ?? 0,
+          history: (undoSnap.prevStats?.history ?? []).slice(0, -1),
+        },
+      });
+    }
+    setIdx(undoSnap.prevIdx);
+    setUndoSnap(null);
+    scheduleSync(800);
+  };
+
   if (phase === 'running' && pool[idx]) {
     return (
-      <CardView
-        q={pool[idx]}
-        idx={idx}
-        total={pool.length}
-        free={!!cfg.free}
-        onNext={next}
-        onQuit={() => {
-          clearSession('cards');
-          setPool([]);
-          setPhase('config');
-        }}
-      />
+      <>
+        {undoSnap && (
+          <UndoChip
+            onUndo={undoLastRate}
+            onDismiss={() => setUndoSnap(null)}
+          />
+        )}
+        <CardView
+          q={pool[idx]}
+          idx={idx}
+          total={pool.length}
+          free={!!cfg.free}
+          onNext={next}
+          onRated={(snap) => setUndoSnap({ ...snap, prevIdx: idx })}
+          onQuit={() => {
+            clearSession('cards');
+            setPool([]);
+            setPhase('config');
+          }}
+        />
+      </>
     );
   }
 
@@ -438,6 +476,7 @@ function CardView({
   total,
   free,
   onNext,
+  onRated,
   onQuit,
 }: {
   q: Question;
@@ -445,6 +484,11 @@ function CardView({
   total: number;
   free: boolean;
   onNext: () => void;
+  onRated?: (snap: {
+    qid: string;
+    prevSrs: Question['srs'];
+    prevStats: Question['stats'];
+  }) => void;
   onQuit: () => void;
 }) {
   // Pra cloze: revelados = quantas lacunas já foram reveladas (0..N).
@@ -517,6 +561,12 @@ function CardView({
       onNext();
       return;
     }
+    // Snapshot pra undo (capturado ANTES de mutar)
+    const snap = {
+      qid: q.id,
+      prevSrs: { ...q.srs },
+      prevStats: { ...q.stats },
+    };
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
     applyReview(card, quality, algorithm);
 
@@ -541,6 +591,7 @@ function CardView({
       },
     });
     scheduleSync(800);
+    onRated?.(snap);
     onNext();
   };
 
