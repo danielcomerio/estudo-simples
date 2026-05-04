@@ -43,7 +43,7 @@ import { QuestionImages } from './QuestionImages';
 type Phase = 'config' | 'running' | 'summary';
 type CardKind = 'cloze' | 'flashcard' | 'both';
 
-type CardConfig = DiscSessionConfig & { kind: CardKind };
+type CardConfig = DiscSessionConfig & { kind: CardKind; free?: boolean };
 
 const defaultCfg: CardConfig = {
   disciplinas: [],
@@ -51,6 +51,7 @@ const defaultCfg: CardConfig = {
   modo: 'srs',
   kind: 'both',
   interleaving: false,
+  free: false,
 };
 
 function buildPool(all: Question[], cfg: CardConfig): Question[] {
@@ -215,6 +216,7 @@ export function CardsRunner() {
         q={pool[idx]}
         idx={idx}
         total={pool.length}
+        free={!!cfg.free}
         onNext={next}
         onQuit={() => {
           clearSession('cards');
@@ -374,6 +376,17 @@ export function CardsRunner() {
           />
           <span>Intercalar disciplinas</span>
         </label>
+        <label
+          className="check-row"
+          title="Treina sem mover o agendamento (não atualiza SRS nem stats)"
+        >
+          <input
+            type="checkbox"
+            checked={!!cfg.free}
+            onChange={(e) => setCfg({ ...cfg, free: e.target.checked })}
+          />
+          <span>Modo treino (não afeta SRS)</span>
+        </label>
       </div>
       <div className="row gap" style={{ marginTop: 12 }}>
         <button
@@ -394,12 +407,14 @@ function CardView({
   q,
   idx,
   total,
+  free,
   onNext,
   onQuit,
 }: {
   q: Question;
   idx: number;
   total: number;
+  free: boolean;
   onNext: () => void;
   onQuit: () => void;
 }) {
@@ -468,6 +483,11 @@ function CardView({
   });
 
   const rate = (quality: number) => {
+    if (free) {
+      // Modo treino: não toca em SRS nem stats — só avança
+      onNext();
+      return;
+    }
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
     applyReview(card, quality, algorithm);
 
@@ -502,6 +522,21 @@ function CardView({
           {idx + 1}/{total} ·{' '}
           {q.type === 'cloze' ? '🟦 Cloze' : '🃏 Flashcard'}
           {q.disciplina_id && ' · ' + q.disciplina_id}
+          {free && (
+            <span
+              style={{
+                marginLeft: 6,
+                background: 'var(--bg-elev-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '1px 6px',
+                fontSize: '0.75rem',
+              }}
+              title="Modo treino — não atualiza SRS"
+            >
+              treino
+            </span>
+          )}
         </div>
         <button type="button" className="ghost" onClick={onQuit}>
           Sair
@@ -545,6 +580,12 @@ function CardView({
               Revelar todas
             </button>
           )}
+        </div>
+      ) : free ? (
+        <div className="row gap" style={{ marginTop: 18 }}>
+          <button type="button" className="primary" onClick={() => rate(4)}>
+            Próxima [Enter]
+          </button>
         </div>
       ) : (
         <div

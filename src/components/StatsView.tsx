@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
@@ -155,6 +155,8 @@ export function StatsView() {
       </div>
 
       <SemanaSection questions={questions} />
+
+      <HoraDoDiaSection questions={questions} />
 
       <ProgressaoSection questions={questions} />
 
@@ -1638,6 +1640,104 @@ function SimuladoSparkline({ points }: { points: number[] }) {
           />
         );
       })}
+    </div>
+  );
+}
+
+function HoraDoDiaSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const grid = useMemo(() => {
+    // matriz [dia 0-6][hora 0-23] = qtd de revisões
+    const m: number[][] = Array.from({ length: 7 }, () =>
+      Array(24).fill(0)
+    );
+    let total = 0;
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const d = new Date(h.date);
+        m[d.getDay()][d.getHours()] += 1;
+        total += 1;
+      }
+    }
+    let max = 1;
+    for (const row of m) {
+      for (const c of row) if (c > max) max = c;
+    }
+    return { m, max, total };
+  }, [questions]);
+
+  if (grid.total === 0) return null;
+
+  const dias = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const diasFull = [
+    'Domingo',
+    'Segunda',
+    'Terça',
+    'Quarta',
+    'Quinta',
+    'Sexta',
+    'Sábado',
+  ];
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>Quando você estuda</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 12px', fontSize: '0.85rem' }}
+      >
+        Dia da semana × hora do dia. Quanto mais escuro, mais revisões nesse
+        slot.
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto repeat(24, 1fr)',
+          gap: 2,
+          fontSize: '0.7rem',
+          overflowX: 'auto',
+        }}
+      >
+        <div />
+        {Array.from({ length: 24 }, (_, h) => (
+          <div
+            key={h}
+            className="muted"
+            style={{ textAlign: 'center', minWidth: 14 }}
+          >
+            {h % 6 === 0 ? h : ''}
+          </div>
+        ))}
+        {grid.m.map((row, di) => (
+          <Fragment key={di}>
+            <div className="muted" style={{ paddingRight: 4 }} title={diasFull[di]}>
+              {dias[di]}
+            </div>
+            {row.map((c, hi) => {
+              const intensity = c === 0 ? 0 : 0.15 + (c / grid.max) * 0.85;
+              return (
+                <div
+                  key={hi}
+                  title={`${diasFull[di]} ${hi}h: ${c} revisões`}
+                  style={{
+                    aspectRatio: '1',
+                    minHeight: 14,
+                    background:
+                      c === 0
+                        ? 'var(--bg-elev-2)'
+                        : `rgba(34,197,94,${intensity.toFixed(2)})`,
+                    border: '1px solid var(--border)',
+                    borderRadius: 2,
+                  }}
+                />
+              );
+            })}
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 }
