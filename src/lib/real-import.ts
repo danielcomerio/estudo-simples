@@ -391,6 +391,19 @@ export type NormalizedItem = Omit<
   'id' | 'user_id' | 'created_at' | 'updated_at'
 >;
 
+/** Aviso "soft": item a importar tem MESMO enunciado de uma questão
+ *  já no banco, mas em DISCIPLINA DIFERENTE. Provavelmente é a mesma
+ *  questão re-categorizada (ex: user moveu antes via SQL e está
+ *  reimportando o JSON antigo). Não bloqueia — sugere mapping. */
+export type CrossDiscWarning = {
+  /** Nome de disciplina do JSON (vai criar nova ou usar mapping). */
+  novoDisc: string;
+  /** Disciplina(s) onde já existe questão com mesmo enunciado. */
+  discsExistentes: string[];
+  /** Preview do enunciado pra UI mostrar. */
+  enunciadoPreview: string;
+};
+
 export type BatchParseResult = {
   /** Itens prontos pra import (já passaram dedup contra DB existente). */
   toImport: NormalizedItem[];
@@ -409,7 +422,53 @@ export type BatchParseResult = {
   /** Quantos itens de cada formato. */
   realCount: number;
   autoralCount: number;
+  /** Avisos de potencial duplicata cross-disciplina (mesmo enunciado,
+   *  disciplina diferente). User decide mapear ou ignorar. */
+  crossDiscWarnings: CrossDiscWarning[];
 };
+
+/**
+ * Extrai apenas o "núcleo textual" da questão pra comparação SEM
+ * disciplina. Mesma lógica do dedupeKey, sem o prefixo de disciplina.
+ * Usado pra detectar duplicatas cross-disciplina.
+ */
+function enunciadoOnlyKey(q: { type: string; payload: unknown }): string {
+  const p = q.payload as Record<string, unknown>;
+  if (q.type === 'cloze') {
+    return typeof p.texto === 'string' ? p.texto : '';
+  }
+  if (q.type === 'flashcard') {
+    return typeof p.frente === 'string' ? p.frente : '';
+  }
+  if (typeof p.enunciado === 'string') return p.enunciado;
+  if (typeof p.enunciado_completo === 'string') return p.enunciado_completo;
+  return '';
+}
+
+/** Index pré-computado das questões existentes, usado pra dedup direto
+ *  (byDedupKey) e pra detecção cross-disciplina (byEnunciadoOnly). */
+export type ExistingIndex = {
+  byDedupKey: Set<string>;
+  /** enunciado → conjunto de disciplinas (não-vazias) onde aparece */
+  byEnunciadoOnly: Map<string, Set<string>>;
+};
+
+export function buildExistingIndex(questions: Question[]): ExistingIndex {
+  const byDedupKey = new Set<string>();
+  const byEnunciadoOnly = new Map<string, Set<string>>();
+  for (const q of questions) {
+    byDedupKey.add(dedupeKey(q));
+    const enun = enunciadoOnlyKey(q);
+    if (!enun) continue;
+    let discs = byEnunciadoOnly.get(enun);
+    if (!discs) {
+      discs = new Set();
+      byEnunciadoOnly.set(enun, discs);
+    }
+    discs.add(q.disciplina_id ?? '');
+  }
+  return { byDedupKey, byEnunciadoOnly };
+}
 
 /**
  * Parse + dedup + classificação de um batch de itens.
@@ -425,12 +484,32 @@ export type BatchParseResult = {
  * `errorPrefix` aparece nas mensagens de erro pra identificar de qual
  * arquivo o problema veio (em multi-file).
  */
+function checkCrossDisc(
+  norm: NormalizedItem,
+  result: BatchParseResult,
+  index: ExistingIndex
+): void {
+  const enun = enunciadoOnlyKey(norm);
+  if (!enun) return;
+  const discsExistentes = index.byEnunciadoOnly.get(enun);
+  if (!discsExistentes || discsExistentes.size === 0) return;
+  const novoDisc = norm.disciplina_id ?? '';
+  // Se já existe em alguma OUTRA disciplina (e não na mesma), avisa
+  const outras = Array.from(discsExistentes).filter((d) => d !== novoDisc);
+  if (outras.length === 0) return;
+  result.crossDiscWarnings.push({
+    novoDisc: novoDisc || '(sem disciplina)',
+    discsExistentes: outras,
+    enunciadoPreview: enun.slice(0, 120),
+  });
+}
+
 function processItems(
   items: unknown[],
   result: BatchParseResult,
   seenInBatch: Set<string>,
   novasDisciplinasSet: Set<string>,
-  existingDedupeKeys: Set<string>,
+  index: ExistingIndex,
   errorPrefix = ''
 ): void {
   items.forEach((raw, idx) => {
@@ -445,7 +524,7 @@ function processItems(
       }
       const norm = parsed.normalized!;
       const k = dedupeKey(norm);
-      if (existingDedupeKeys.has(k)) {
+      if (index.byDedupKey.has(k)) {
         result.duplicateInDbCount += 1;
         return;
       }
@@ -455,6 +534,7 @@ function processItems(
       }
       seenInBatch.add(k);
       result.toImport.push(norm);
+      checkCrossDisc(norm, result, index);
       if (parsed.disciplinaNome) novasDisciplinasSet.add(parsed.disciplinaNome);
     } else if (fmt === 'autoral') {
       result.autoralCount += 1;
@@ -467,7 +547,7 @@ function processItems(
       }
       const norm = normalizeQuestion(raw as Record<string, unknown>, v.type);
       const k = dedupeKey(norm);
-      if (existingDedupeKeys.has(k)) {
+      if (index.byDedupKey.has(k)) {
         result.duplicateInDbCount += 1;
         return;
       }
@@ -477,6 +557,7 @@ function processItems(
       }
       seenInBatch.add(k);
       result.toImport.push(norm);
+      checkCrossDisc(norm, result, index);
       if (norm.disciplina_id) novasDisciplinasSet.add(norm.disciplina_id);
     } else {
       result.unknownCount += 1;
@@ -495,12 +576,30 @@ function emptyBatchResult(): BatchParseResult {
     novasDisciplinaNomes: [],
     realCount: 0,
     autoralCount: 0,
+    crossDiscWarnings: [],
   };
+}
+
+/**
+ * Helper pra montar index a partir de uma lista de questões existentes
+ * OU de um Set de dedupKeys (compat com chamadores que não querem
+ * passar Question[] inteiro).
+ */
+function indexFrom(
+  arg: Question[] | Set<string> | ExistingIndex
+): ExistingIndex {
+  if (arg instanceof Set) {
+    return { byDedupKey: arg, byEnunciadoOnly: new Map() };
+  }
+  if (Array.isArray(arg)) {
+    return buildExistingIndex(arg);
+  }
+  return arg;
 }
 
 export function parseImportBatch(
   rawText: string,
-  existingDedupeKeys: Set<string>
+  existing: Question[] | Set<string> | ExistingIndex
 ): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
   const { value, error } = safeParseJSON(rawText);
   if (error) return { error: 'JSON inválido: ' + error };
@@ -510,7 +609,8 @@ export function parseImportBatch(
   const result = emptyBatchResult();
   const seenInBatch = new Set<string>();
   const novasDisciplinasSet = new Set<string>();
-  processItems(items, result, seenInBatch, novasDisciplinasSet, existingDedupeKeys);
+  const index = indexFrom(existing);
+  processItems(items, result, seenInBatch, novasDisciplinasSet, index);
   result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
   return { ok: result };
 }
@@ -528,13 +628,14 @@ export function parseImportBatch(
  */
 export function parseImportBatchMulti(
   files: Array<{ name: string; text: string }>,
-  existingDedupeKeys: Set<string>
+  existing: Question[] | Set<string> | ExistingIndex
 ): { ok: BatchParseResult; error?: never } | { ok?: never; error: string } {
   if (files.length === 0) return { error: 'Nenhum arquivo' };
 
   const result = emptyBatchResult();
   const seenInBatch = new Set<string>();
   const novasDisciplinasSet = new Set<string>();
+  const index = indexFrom(existing);
   let anyParsed = false;
 
   for (const file of files) {
@@ -554,7 +655,7 @@ export function parseImportBatchMulti(
       result,
       seenInBatch,
       novasDisciplinasSet,
-      existingDedupeKeys,
+      index,
       `[${file.name}] `
     );
   }

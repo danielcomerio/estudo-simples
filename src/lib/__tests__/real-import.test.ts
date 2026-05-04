@@ -220,6 +220,118 @@ describe('jaccardSimilarity', () => {
   });
 });
 
+describe('cross-disciplina warnings', () => {
+  const autoral = (disc: string, enun: string) =>
+    JSON.stringify({
+      tipo: 'objetiva',
+      disciplina_id: disc,
+      enunciado: enun,
+      gabarito: 'A',
+      alternativas: [
+        { letra: 'A', texto: 'a', correta: true },
+        { letra: 'B', texto: 'b' },
+      ],
+    });
+
+  it('detecta enunciado idêntico em outra disciplina', async () => {
+    const { parseImportBatch, buildExistingIndex } = await import('../real-import');
+    const { newSRS, newStats } = await import('../srs');
+    const existing = [
+      {
+        id: 'q1',
+        user_id: 'u',
+        type: 'objetiva' as const,
+        disciplina_id: 'banco_de_dados',
+        tema: null,
+        banca_estilo: null,
+        dificuldade: null,
+        payload: { enunciado: 'mesma questão', alternativas: [] } as never,
+        srs: newSRS(),
+        stats: newStats(),
+        created_at: '',
+        updated_at: '',
+        deleted_at: null,
+      },
+    ];
+    const index = buildExistingIndex(existing);
+    const r = parseImportBatch(
+      '[' + autoral('dwBi', 'mesma questão') + ']',
+      index
+    );
+    expect(r.error).toBeUndefined();
+    expect(r.ok!.crossDiscWarnings).toHaveLength(1);
+    expect(r.ok!.crossDiscWarnings[0].novoDisc).toBe('dwBi');
+    expect(r.ok!.crossDiscWarnings[0].discsExistentes).toContain('banco_de_dados');
+  });
+
+  it('NÃO avisa quando enunciado é único', async () => {
+    const { parseImportBatch, buildExistingIndex } = await import('../real-import');
+    const { newSRS, newStats } = await import('../srs');
+    const existing = [
+      {
+        id: 'q1',
+        user_id: 'u',
+        type: 'objetiva' as const,
+        disciplina_id: 'banco_de_dados',
+        tema: null,
+        banca_estilo: null,
+        dificuldade: null,
+        payload: { enunciado: 'questão A', alternativas: [] } as never,
+        srs: newSRS(),
+        stats: newStats(),
+        created_at: '',
+        updated_at: '',
+        deleted_at: null,
+      },
+    ];
+    const index = buildExistingIndex(existing);
+    const r = parseImportBatch(
+      '[' + autoral('dwBi', 'questão diferente') + ']',
+      index
+    );
+    expect(r.ok!.crossDiscWarnings).toHaveLength(0);
+  });
+
+  it('NÃO avisa quando mesma disciplina (vai virar duplicateInDb)', async () => {
+    const { parseImportBatch, buildExistingIndex } = await import('../real-import');
+    const { newSRS, newStats } = await import('../srs');
+    const existing = [
+      {
+        id: 'q1',
+        user_id: 'u',
+        type: 'objetiva' as const,
+        disciplina_id: 'banco_de_dados',
+        tema: null,
+        banca_estilo: null,
+        dificuldade: null,
+        payload: { enunciado: 'mesma', alternativas: [] } as never,
+        srs: newSRS(),
+        stats: newStats(),
+        created_at: '',
+        updated_at: '',
+        deleted_at: null,
+      },
+    ];
+    const index = buildExistingIndex(existing);
+    const r = parseImportBatch(
+      '[' + autoral('banco_de_dados', 'mesma') + ']',
+      index
+    );
+    expect(r.ok!.duplicateInDbCount).toBe(1);
+    expect(r.ok!.crossDiscWarnings).toHaveLength(0);
+  });
+
+  it('compat: aceita Set<string> (sem cross-disc detection)', async () => {
+    const { parseImportBatch } = await import('../real-import');
+    const r = parseImportBatch(
+      '[' + autoral('dwBi', 'qualquer') + ']',
+      new Set<string>()
+    );
+    expect(r.ok!.crossDiscWarnings).toHaveLength(0);
+    expect(r.ok!.toImport).toHaveLength(1);
+  });
+});
+
 describe('parseImportBatchMulti', () => {
   const autoral = (id: string, enun: string) =>
     JSON.stringify({

@@ -3,7 +3,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useStore, addQuestionsBulk, selectActiveQuestions } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
-import { dedupeKey, safeParseJSON } from '@/lib/validation';
 import {
   ensureDisciplinasExist,
   useConcursos,
@@ -119,8 +118,7 @@ export function ImportZone() {
       setError('Vazio.');
       return;
     }
-    const existingKeys = new Set(existing.map(dedupeKey));
-    setupPreview(() => parseImportBatch(text, existingKeys));
+    setupPreview(() => parseImportBatch(text, existing));
   };
 
   const startPreviewMulti = (files: Array<{ name: string; text: string }>) => {
@@ -128,8 +126,7 @@ export function ImportZone() {
       setError('Nenhum arquivo.');
       return;
     }
-    const existingKeys = new Set(existing.map(dedupeKey));
-    setupPreview(() => parseImportBatchMulti(files, existingKeys));
+    setupPreview(() => parseImportBatchMulti(files, existing));
   };
 
   const handleFiles = async (files: FileList | File[]) => {
@@ -485,6 +482,56 @@ function PreviewPanel({
           </summary>
           <ul style={{ marginTop: 8, fontSize: '0.85rem' }}>
             {preview.autoralErrors.slice(0, 50).map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </details>
+      )}
+
+      {/* Avisos de cross-disciplina (mesmo enunciado em outra disc) */}
+      {preview.crossDiscWarnings.length > 0 && (
+        <details
+          open
+          style={{
+            marginBottom: 12,
+            border: '1px solid var(--warn, #d97706)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            background: 'var(--bg-elev)',
+          }}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            ⚠ {preview.crossDiscWarnings.length} possível(eis) duplicata(s) cross-disciplina
+          </summary>
+          <p className="muted" style={{ marginTop: 8, fontSize: '0.85rem' }}>
+            Estes itens têm <strong>mesmo enunciado</strong> que questões já
+            existentes, mas em <strong>disciplina diferente</strong>.
+            Provavelmente são as mesmas questões — ajuste o mapping de
+            disciplina abaixo pra dedupar.
+          </p>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: '8px 0 0',
+              fontSize: '0.82rem',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}
+          >
+            {preview.crossDiscWarnings.slice(0, 30).map((w, i) => (
+              <li key={i} style={{ padding: '3px 0' }}>
+                <code>{w.novoDisc}</code> →{' '}
+                já existe em <code>{w.discsExistentes.join(', ')}</code>
+                <br />
+                <span className="muted">
+                  &nbsp;&nbsp;{w.enunciadoPreview}…
+                </span>
+              </li>
+            ))}
+            {preview.crossDiscWarnings.length > 30 && (
+              <li className="muted">
+                … e {preview.crossDiscWarnings.length - 30} a mais
+              </li>
+            )}
           </ul>
         </details>
       )}
