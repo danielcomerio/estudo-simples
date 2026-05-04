@@ -129,12 +129,25 @@ export function Dashboard() {
             ? 'l3'
             : 'l4';
 
-  // Streak (dias consecutivos com >=1 revisão até hoje)
+  // Streak atual (dias consecutivos com >=1 revisão até hoje)
   let streak = 0;
   for (let i = days.length - 1; i >= 0; i--) {
     if (days[i].count > 0) streak++;
     else break;
   }
+  // Maior streak no histórico de 90 dias (ou retroage se houver dados)
+  let bestStreak = 0;
+  let curStreak = 0;
+  for (const d of days) {
+    if (d.count > 0) {
+      curStreak++;
+      if (curStreak > bestStreak) bestStreak = curStreak;
+    } else {
+      curStreak = 0;
+    }
+  }
+  // Total de dias com pelo menos 1 revisão (no histórico carregado)
+  const diasEstudados = days.filter((d) => d.count > 0).length;
 
   // Por disciplina, vencendo hoje
   const dueByDisc: Record<string, number> = {};
@@ -176,10 +189,34 @@ export function Dashboard() {
           <div className="stat-value">{fmtPercent(totalCorrect, totalAttempts)}</div>
           <div className="stat-sub">{totalAttempts} tentativa{totalAttempts === 1 ? '' : 's'}</div>
         </div>
-        <div className="card stat">
+        <div className="card stat" title={`Maior: ${bestStreak} dia(s) · ${diasEstudados} dia(s) estudados nos últimos 90`}>
           <div className="stat-label">Streak</div>
           <div className="stat-value">{streak}</div>
-          <div className="stat-sub">dia{streak === 1 ? '' : 's'} consecutivo{streak === 1 ? '' : 's'}</div>
+          <div className="stat-sub">
+            dia{streak === 1 ? '' : 's'} consecutivo{streak === 1 ? '' : 's'}
+            {bestStreak > streak && (
+              <>
+                <br />
+                <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>
+                  recorde: {bestStreak}
+                </span>
+              </>
+            )}
+            {bestStreak === streak && streak > 0 && (
+              <>
+                <br />
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--primary)',
+                    fontWeight: 600,
+                  }}
+                >
+                  🔥 recorde!
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
