@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { StoreProvider } from '@/components/StoreProvider';
 import { Topbar } from '@/components/Topbar';
 import { ToastHost } from '@/components/Toast';
+import { OfflineBanner } from '@/components/OfflineBanner';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -40,6 +41,7 @@ export default async function RootLayout({
         {user ? (
           <StoreProvider userId={user.id} userEmail={user.email ?? null}>
             <Topbar email={user.email ?? null} />
+            <OfflineBanner />
             <main className="page">{children}</main>
             <ToastHost />
           </StoreProvider>

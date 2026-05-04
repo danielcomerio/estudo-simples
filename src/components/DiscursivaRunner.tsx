@@ -313,13 +313,43 @@ function DiscRunningView({
   const [grades, setGrades] = useState<Record<number, number>>({});
   const [rated, setRated] = useState(false);
 
-  // resetar ao trocar de questão
+  // resetar ao trocar de questão; restaurar draft local se houver
   useEffect(() => {
-    setResposta('');
+    let draft = '';
+    try {
+      draft = localStorage.getItem(`disc-draft:${q.id}`) ?? '';
+    } catch {
+      // ignora — privacidade/quota
+    }
+    setResposta(draft);
     setRevealed(false);
     setGrades({});
     setRated(false);
   }, [q.id]);
+
+  // auto-save da resposta enquanto o usuário digita (debounce 300ms)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        if (resposta.trim()) localStorage.setItem(`disc-draft:${q.id}`, resposta);
+        else localStorage.removeItem(`disc-draft:${q.id}`);
+      } catch {
+        // quota cheia ou storage indisponível — ignora silenciosamente
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [resposta, q.id]);
+
+  // limpa draft após avaliar
+  useEffect(() => {
+    if (rated) {
+      try {
+        localStorage.removeItem(`disc-draft:${q.id}`);
+      } catch {
+        // ignora
+      }
+    }
+  }, [rated, q.id]);
 
   const quesitos: Quesito[] = useMemo(() => {
     if (Array.isArray(payload.quesitos) && payload.quesitos.length) return payload.quesitos;
