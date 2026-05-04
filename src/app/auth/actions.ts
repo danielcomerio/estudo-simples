@@ -2,7 +2,10 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+
+const GUEST_COOKIE = 'es-guest';
 
 export type AuthState = { error: string | null; message: string | null };
 
@@ -67,6 +70,34 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  // limpa também o flag de visitante (caso esteja setado)
+  const c = await cookies();
+  c.delete(GUEST_COOKIE);
+  revalidatePath('/', 'layout');
+  redirect('/login');
+}
+
+/**
+ * Entra como visitante: seta cookie e redireciona pra home.
+ * Os dados ficam só no navegador (IDB + localStorage). Sync desligado.
+ * O cookie expira em 365 dias (o usuário ainda pode "sair" pra limpar).
+ */
+export async function enterAsGuest() {
+  const c = await cookies();
+  c.set(GUEST_COOKIE, '1', {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    httpOnly: false, // pode ser lido pelo client se quisermos
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
+  revalidatePath('/', 'layout');
+  redirect('/');
+}
+
+export async function exitGuest() {
+  const c = await cookies();
+  c.delete(GUEST_COOKIE);
   revalidatePath('/', 'layout');
   redirect('/login');
 }

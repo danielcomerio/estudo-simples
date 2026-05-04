@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { DisciplinasSection } from '@/components/DisciplinasSection';
+import { GuestNotice } from '@/components/GuestNotice';
 
 export default function DisciplinasPage() {
   return (
     <>
+      <GuestNotice feature="Editar metadata de disciplinas" />
       <div className="card">
         <h1 style={{ margin: '0 0 8px' }}>Disciplinas</h1>
         <p className="muted" style={{ margin: 0 }}>

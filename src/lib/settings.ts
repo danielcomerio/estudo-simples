@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * Persistência de preferências do usuário em localStorage.
+ * Persistência de preferências do usuário em localStorage e detecção
+ * de modo visitante.
  *
  * Hoje só guarda o algoritmo SRS escolhido (SM-2 default; FSRS opt-in).
  * Pequeno e auto-contido — quando crescer pra >2 settings, refatorar
@@ -234,6 +235,25 @@ export function useDailyGoal(): number {
     };
   }, []);
   return goal;
+}
+
+/**
+ * Detecta se o usuário está no modo visitante (cookie es-guest=1).
+ * Cookie é setado por server action enterAsGuest e lido no client.
+ * SSR-safe: retorna false durante SSR (sem document); useEffect ajusta
+ * no mount.
+ */
+export function isGuestModeClient(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some((c) => c.trim().startsWith('es-guest=1'));
+}
+
+export function useIsGuest(): boolean {
+  const [guest, setGuest] = useState(false);
+  useEffect(() => {
+    setGuest(isGuestModeClient());
+  }, []);
+  return guest;
 }
 
 /**

@@ -205,8 +205,17 @@ export async function pullSince(): Promise<{ pulled: number; error: string | nul
   return { pulled: total, error: null };
 }
 
+/** No modo visitante (sem auth real) o sync é no-op. Dados ficam só local. */
+function isGuestUser(): boolean {
+  return getState().userId === 'guest';
+}
+
 export async function syncNow(): Promise<void> {
   if (inflight) return inflight;
+  if (isGuestUser()) {
+    setSyncStatus('idle');
+    return;
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     setSyncStatus('offline');
     return;
@@ -255,6 +264,11 @@ export function scheduleSync(ms = 1500) {
 
 export function startBackgroundSync() {
   if (typeof window === 'undefined') return;
+  if (isGuestUser()) {
+    // Modo visitante: skipa polling/listeners. Estado fica 'idle' permanente.
+    setSyncStatus('idle');
+    return;
+  }
   if (pollTimer) clearInterval(pollTimer);
 
   // Sincronia inicial

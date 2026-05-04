@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, selectActiveQuestions } from '@/lib/store';
 import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
+import { exitGuest } from '@/app/auth/actions';
 import { logout } from '@/app/auth/actions';
 import { logoutAndReset } from './StoreProvider';
 import { syncNow } from '@/lib/sync';
@@ -26,7 +27,13 @@ const TABS = [
   { href: '/configuracoes', label: 'Configurações' },
 ];
 
-export function Topbar({ email }: { email: string | null }) {
+export function Topbar({
+  email,
+  isGuest = false,
+}: {
+  email: string | null;
+  isGuest?: boolean;
+}) {
   const pathname = usePathname();
   const syncStatus = useStore((s) => s.syncStatus);
   const syncError = useStore((s) => s.syncError);
@@ -140,37 +147,84 @@ export function Topbar({ email }: { email: string | null }) {
 
         <ActiveConcursoSelector />
 
-        <button
-          type="button"
-          className={'sync-pill ' + syncStatus}
-          onClick={() => void syncNow()}
-          title={syncError || 'Sincronizar agora'}
-        >
-          <span className="dot" />
-          <span className="sync-label">{syncLabel}</span>
-        </button>
-
-        {email && (
-          <span className="user-mail" title={email}>
-            {email}
-          </span>
+        {!isGuest && (
+          <button
+            type="button"
+            className={'sync-pill ' + syncStatus}
+            onClick={() => void syncNow()}
+            title={syncError || 'Sincronizar agora'}
+          >
+            <span className="dot" />
+            <span className="sync-label">{syncLabel}</span>
+          </button>
         )}
 
-        <form
-          action={async () => {
-            logoutAndReset();
-            await logout();
-          }}
-        >
-          <button
-            type="submit"
-            className="ghost icon"
-            title="Sair"
-            aria-label="Sair"
-          >
-            ↪
-          </button>
-        </form>
+        {isGuest ? (
+          <>
+            <span
+              className="user-mail"
+              title="Modo visitante — dados ficam só neste navegador"
+              style={{ color: 'var(--warn, #d97706)', fontWeight: 500 }}
+            >
+              👤 visitante
+            </span>
+            <Link
+              href="/signup"
+              className="ghost"
+              style={{
+                padding: '4px 10px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--primary)',
+                color: 'var(--primary)',
+                fontSize: '0.85rem',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+              title="Criar conta pra sincronizar entre dispositivos"
+            >
+              Criar conta
+            </Link>
+            <form
+              action={async () => {
+                logoutAndReset();
+                await exitGuest();
+              }}
+            >
+              <button
+                type="submit"
+                className="ghost icon"
+                title="Sair do modo visitante (apaga dados locais)"
+                aria-label="Sair"
+              >
+                ↪
+              </button>
+            </form>
+          </>
+        ) : (
+          <>
+            {email && (
+              <span className="user-mail" title={email}>
+                {email}
+              </span>
+            )}
+
+            <form
+              action={async () => {
+                logoutAndReset();
+                await logout();
+              }}
+            >
+              <button
+                type="submit"
+                className="ghost icon"
+                title="Sair"
+                aria-label="Sair"
+              >
+                ↪
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </header>
   );

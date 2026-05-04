@@ -2,7 +2,7 @@
 
 import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { signup, type AuthState } from '../auth/actions';
+import { enterAsGuest, signup, type AuthState } from '../auth/actions';
 
 const initial: AuthState = { error: null, message: null };
 
@@ -64,6 +64,27 @@ export default function SignupPage() {
 
         <p className="auth-foot">
           Já tem conta? <Link href="/login">Entrar</Link>
+        </p>
+
+        <hr
+          style={{
+            margin: '18px 0 14px',
+            border: 0,
+            borderTop: '1px solid var(--border)',
+          }}
+        />
+
+        <button
+          type="button"
+          formAction={enterAsGuest}
+          className="ghost"
+          style={{ width: '100%' }}
+          title="Acessa sem criar conta. Os dados ficam só neste navegador."
+        >
+          👤 Entrar como visitante
+        </button>
+        <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+          Demo local — dados não sincronizam entre dispositivos.
         </p>
       </form>
     </main>

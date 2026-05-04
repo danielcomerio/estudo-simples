@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { ConcursosSection } from '@/components/ConcursosSection';
+import { GuestNotice } from '@/components/GuestNotice';
 
 export default function ConcursosPage() {
   return (
     <>
+      <GuestNotice feature="Cadastrar concursos" />
       <div className="card">
         <h1 style={{ margin: '0 0 8px' }}>Concursos</h1>
         <p className="muted" style={{ margin: 0 }}>

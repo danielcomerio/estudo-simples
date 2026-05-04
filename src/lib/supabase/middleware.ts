@@ -34,12 +34,15 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isGuest = request.cookies.get('es-guest')?.value === '1';
+
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
 
-  if (!user && !isPublic) {
+  // Sem user real e sem flag de visitante: força login
+  if (!user && !isGuest && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     if (pathname && pathname !== '/') {
@@ -48,7 +51,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === '/login' || pathname === '/signup')) {
+  // Já autenticado (real ou guest) tentando acessar /login ou /signup → home
+  if ((user || isGuest) && (pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

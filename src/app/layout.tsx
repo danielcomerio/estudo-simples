@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { StoreProvider } from '@/components/StoreProvider';
 import { Topbar } from '@/components/Topbar';
@@ -35,15 +36,26 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Visitante: cookie es-guest=1 (server action enterAsGuest seta).
+  // Dados ficam só no navegador; sync é no-op.
+  const cookieStore = await cookies();
+  const isGuest = !user && cookieStore.get('es-guest')?.value === '1';
+  const effectiveUserId = user?.id ?? (isGuest ? 'guest' : null);
+  const effectiveEmail = user?.email ?? (isGuest ? null : null);
+
   return (
     <html lang="pt-BR">
       <body>
-        {user ? (
-          <StoreProvider userId={user.id} userEmail={user.email ?? null}>
+        {effectiveUserId ? (
+          <StoreProvider
+            userId={effectiveUserId}
+            userEmail={effectiveEmail ?? null}
+            isGuest={isGuest}
+          >
             <a href="#main-content" className="skip-link">
               Pular para o conteúdo
             </a>
-            <Topbar email={user.email ?? null} />
+            <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
             <OfflineBanner />
             <main id="main-content" className="page">
               {children}

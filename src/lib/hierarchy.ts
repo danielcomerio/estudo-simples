@@ -18,6 +18,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from './supabase/client';
+
+/** Detecta modo visitante (cookie es-guest=1). No guest, hierarquia é no-op. */
+function isGuestMode(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split(';').some((c) => c.trim().startsWith('es-guest=1'));
+}
+
+const GUEST_DISABLED_MSG =
+  'Cadastro de concursos/disciplinas indisponível no modo visitante. Crie uma conta pra ativar.';
 import { useActiveConcursoId } from './settings';
 import type {
   Concurso,
@@ -157,6 +166,10 @@ function setConcursos(next: CacheState<Concurso>) {
 
 export async function loadConcursos(): Promise<void> {
   if (concursosCache.loading) return;
+  if (isGuestMode()) {
+    setConcursos({ data: [], loading: false, error: null });
+    return;
+  }
   setConcursos({ ...concursosCache, loading: true, error: null });
 
   const sb = createClient();
@@ -204,6 +217,7 @@ function normalizeConcursoInput(input: ConcursoInput): ConcursoInput {
 }
 
 export async function createConcurso(input: ConcursoInput): Promise<Concurso> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateConcursoInput(input);
   const norm = normalizeConcursoInput(input);
 
@@ -238,6 +252,7 @@ export async function updateConcurso(
   id: string,
   patch: Partial<ConcursoInput>
 ): Promise<Concurso> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateConcursoInput({ nome: 'placeholder', ...patch }); // checa só campos presentes
   // Reaproveitamos validateConcursoInput passando placeholder pro nome
   // se ele não está no patch — mas validateText pula undefined, então
@@ -274,6 +289,7 @@ export async function updateConcurso(
 }
 
 export async function softDeleteConcurso(id: string): Promise<void> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   const sb = createClient();
   const { error } = await sb
     .from('concursos')
@@ -356,6 +372,10 @@ function setDisciplinas(next: CacheState<Disciplina>) {
 }
 
 export async function loadDisciplinas(): Promise<void> {
+  if (isGuestMode()) {
+    setDisciplinas({ data: [], loading: false, error: null });
+    return;
+  }
   if (disciplinasCache.loading) return;
   setDisciplinas({ ...disciplinasCache, loading: true, error: null });
 
@@ -402,6 +422,7 @@ function normalizeDisciplinaInput(input: DisciplinaInput): {
 export async function createDisciplina(
   input: DisciplinaInput
 ): Promise<Disciplina> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateDisciplinaInput(input);
   const norm = normalizeDisciplinaInput(input);
 
@@ -444,6 +465,7 @@ export async function updateDisciplina(
   id: string,
   patch: Partial<DisciplinaInput>
 ): Promise<Disciplina> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   // Valida só o que veio
   validateDisciplinaInput({ nome: 'placeholder', ...patch });
   const norm = normalizeDisciplinaInput({ nome: 'placeholder', ...patch });
@@ -504,6 +526,11 @@ export async function updateDisciplina(
  * loop. Falhas são logadas mas não throw — caller não precisa try/catch.
  */
 export async function ensureDisciplinasExist(nomes: string[]): Promise<void> {
+  if (isGuestMode()) {
+    // No modo visitante, disciplinas vivem só no campo `disciplina_id` da
+    // questão (string). Não há tabela pra inserir, então no-op.
+    return;
+  }
   if (!nomes.length) return;
 
   // Garante cache carregada (idempotente: loadDisciplinas é noop se já loading)
@@ -551,6 +578,7 @@ export async function ensureDisciplinasExist(nomes: string[]): Promise<void> {
 }
 
 export async function softDeleteDisciplina(id: string): Promise<void> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   const sb = createClient();
   const now = new Date().toISOString();
 
@@ -671,6 +699,10 @@ function setCD(next: CacheState<ConcursoDisciplina>) {
  * Posteriormente o hook filtra por concurso_id no front.
  */
 export async function loadConcursoDisciplinas(): Promise<void> {
+  if (isGuestMode()) {
+    setCD({ data: [], loading: false, error: null });
+    return;
+  }
   if (cdCache.loading) return;
   setCD({ ...cdCache, loading: true, error: null });
 
@@ -694,6 +726,7 @@ export async function loadConcursoDisciplinas(): Promise<void> {
 export async function linkConcursoDisciplina(
   input: ConcursoDisciplinaInput
 ): Promise<ConcursoDisciplina> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateConcursoDisciplinaInput(input);
 
   const sb = createClient();
@@ -743,6 +776,7 @@ export async function updateConcursoDisciplina(
   id: string,
   patch: Partial<Pick<ConcursoDisciplinaInput, 'peso' | 'qtd_questoes_prova'>>
 ): Promise<ConcursoDisciplina> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   // Valida só os campos numéricos relevantes
   validateConcursoDisciplinaInput({
     concurso_id: '00000000-0000-0000-0000-000000000000',
@@ -782,6 +816,7 @@ export async function updateConcursoDisciplina(
  * é só uma associação, não precisa preservar histórico.
  */
 export async function unlinkConcursoDisciplina(id: string): Promise<void> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   const sb = createClient();
   const { error } = await sb.from('concurso_disciplinas').delete().eq('id', id);
   if (error) throw new Error(error.message);
@@ -915,6 +950,10 @@ function setTopicos(next: CacheState<Topico>) {
 }
 
 export async function loadTopicos(): Promise<void> {
+  if (isGuestMode()) {
+    setTopicos({ data: [], loading: false, error: null });
+    return;
+  }
   if (topicosCache.loading) return;
   setTopicos({ ...topicosCache, loading: true, error: null });
 
@@ -963,6 +1002,7 @@ function normalizeTopicoInput(input: TopicoInput): {
 }
 
 export async function createTopico(input: TopicoInput): Promise<Topico> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateTopicoInput(input);
   const norm = normalizeTopicoInput(input);
 
@@ -1004,6 +1044,7 @@ export async function updateTopico(
   id: string,
   patch: Partial<TopicoInput>
 ): Promise<Topico> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   validateTopicoInput({
     nome: 'placeholder',
     disciplina_id: '00000000-0000-0000-0000-000000000000',
@@ -1066,6 +1107,7 @@ export async function updateTopico(
  * pra evitar tópicos órfãos visíveis depois de remover o pai.
  */
 export async function softDeleteTopico(id: string): Promise<void> {
+  if (isGuestMode()) throw new Error(GUEST_DISABLED_MSG);
   // BFS na cache pra coletar todos os descendentes
   const idsParaDeletar = new Set<string>([id]);
   const fila: string[] = [id];

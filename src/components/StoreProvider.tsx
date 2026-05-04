@@ -12,10 +12,12 @@ import { ConfirmHost } from './ConfirmDialog';
 export function StoreProvider({
   userId,
   userEmail: _userEmail,
+  isGuest: _isGuest,
   children,
 }: {
   userId: string;
   userEmail: string | null;
+  isGuest?: boolean;
   children: React.ReactNode;
 }) {
   useEffect(() => {
