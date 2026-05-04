@@ -96,6 +96,7 @@ export function BancoList() {
   const [tempoFilter, setTempoFilter] = useState<
     '' | 'hoje' | 'ontem' | 'semana' | 'nunca'
   >('');
+  const [favFilter, setFavFilter] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<
     'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
   >('recente');
@@ -193,7 +194,7 @@ export function BancoList() {
     useActiveConcursoFilter();
 
   // Reset paginação + foco quando filtros mudam
-  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}|${tempoFilter}`;
+  const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}|${tempoFilter}|${favFilter}`;
   useMemo(() => {
     setVisibleCount(PAGE_SIZE);
     setFocusedIdx(-1);
@@ -278,6 +279,7 @@ export function BancoList() {
           if ((q.stats?.attempts ?? 0) > 0) return false;
         }
       }
+      if (favFilter && !q.tags?.includes('★')) return false;
       if (tempoFilter) {
         const lastReviewed = q.srs?.lastReviewed ?? 0;
         const today0 = startOfDay(now);
@@ -323,7 +325,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, tempoFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -477,6 +479,28 @@ export function BancoList() {
     }
     scheduleSync(500);
     toast(`Tags removidas de ${updated} questão(ões).`, 'success');
+  };
+
+  const FAV_TAG = '★';
+  const isFav = (q: { tags?: string[] | null }) =>
+    !!q.tags?.includes(FAV_TAG);
+
+  const toggleFav = (id: string) => {
+    const q = questions.find((x) => x.id === id);
+    if (!q) return;
+    const cur = q.tags ?? [];
+    if (cur.includes(FAV_TAG)) {
+      updateQuestionLocal(id, {
+        tags: cur.filter((t) => t !== FAV_TAG),
+      });
+    } else {
+      if (cur.length >= 30) {
+        toast('Limite de 30 tags atingido — remova uma antes', 'warn');
+        return;
+      }
+      updateQuestionLocal(id, { tags: [...cur, FAV_TAG] });
+    }
+    scheduleSync(500);
   };
 
   const bulkSetDificuldade = async (valor: 1 | 2 | 3 | 4 | 5 | null) => {
@@ -670,6 +694,13 @@ export function BancoList() {
           void deleteOne(q.id);
           break;
         }
+        case 'F': {
+          // Capital F = alterna favorito da focada (minúsculo já é livre)
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          toggleFav(sorted[focusedIdx].id);
+          break;
+        }
         case 'Escape':
           if (focusedIdx >= 0) {
             e.preventDefault();
@@ -752,6 +783,7 @@ export function BancoList() {
         if (notasFilter) ativos.push('notas');
         if (latexFilter) ativos.push('LaTeX');
         if (tempoFilter) ativos.push('última revisão');
+        if (favFilter) ativos.push('favoritas');
         const hasAtivos = ativos.length > 0;
         const hasPresets = presets.length > 0;
         if (!hasAtivos && !hasPresets) return null;
@@ -785,6 +817,7 @@ export function BancoList() {
                     setNotasFilter('');
                     setLatexFilter('');
                     setTempoFilter('');
+                    setFavFilter(false);
                   }}
                 >
                   🧹 Limpar todos
@@ -964,6 +997,15 @@ export function BancoList() {
           <option value="acerto_asc">↑ Menor % acerto</option>
           <option value="dificuldade_desc">↓ Mais difíceis</option>
         </select>
+        <button
+          type="button"
+          className={favFilter ? 'primary' : 'ghost'}
+          onClick={() => setFavFilter((v) => !v)}
+          title="Mostrar só favoritas (★)"
+          aria-pressed={favFilter}
+        >
+          {favFilter ? '★ Favoritas' : '☆ Favoritas'}
+        </button>
         <button
           type="button"
           className={compact ? 'primary' : 'ghost'}
@@ -1235,6 +1277,20 @@ export function BancoList() {
                   </div>
                 </div>
                 <div className="actions row gap">
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => toggleFav(q.id)}
+                    title={isFav(q) ? 'Desmarcar favorita' : 'Marcar como favorita'}
+                    aria-label={isFav(q) ? 'Desmarcar favorita' : 'Marcar favorita'}
+                    aria-pressed={isFav(q)}
+                    style={{
+                      color: isFav(q) ? '#f59e0b' : 'var(--muted)',
+                      fontSize: '1.05rem',
+                    }}
+                  >
+                    {isFav(q) ? '★' : '☆'}
+                  </button>
                   {(q.type === 'objetiva' ||
                     q.type === 'cloze' ||
                     q.type === 'flashcard') && (

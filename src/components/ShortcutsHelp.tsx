@@ -101,6 +101,7 @@ export function ShortcutsHelp() {
               <Row k="Enter" desc="Editar questão focada (drawer)" />
               <Row k="Espaço" desc="Marcar/desmarcar checkbox da focada" />
               <Row k="x ou Delete" desc="Excluir focada (com confirm)" />
+              <Row k="F" desc="Marcar/desmarcar como favorita (★)" />
               <Row k="Esc" desc="Remove foco" />
             </Section>
 
