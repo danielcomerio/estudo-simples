@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore, selectActiveQuestions, selectDisciplinas } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
@@ -62,11 +62,25 @@ export function Dashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [totalRecForShortcut, totalAttemptsForShortcut, router]);
 
+  // Delay antes de mostrar empty state. Sem isso, o painel pisca
+  // "Bem-vindo + Em 3 passos" enquanto o seed está sendo carregado
+  // (caso comum: visitante tem 2745 questões depois de ~1-2s). Com 3s
+  // de margem, o seed comum termina antes e o empty state nem aparece.
+  const [emptyStateAllowed, setEmptyStateAllowed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setEmptyStateAllowed(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
   // isso, o painel pisca "0 questões" antes do pull inicial completar.
   const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
-  if (!hydrated || firstSyncInFlight) {
+  const total = questions.length;
+  // Antes de declarar "banco vazio", também espera o delay (pra dar
+  // chance do seed carregar) ou que tenha pelo menos uma questão.
+  const stillBootstrapping = !emptyStateAllowed && total === 0;
+  if (!hydrated || firstSyncInFlight || stillBootstrapping) {
     return (
       <>
         <div className="grid-cards">
@@ -83,8 +97,6 @@ export function Dashboard() {
       </>
     );
   }
-
-  const total = questions.length;
 
   // Empty state: usuário recém-chegado sem nenhuma questão.
   // Mostra onboarding em 3 passos em vez do painel padrão zerado.
