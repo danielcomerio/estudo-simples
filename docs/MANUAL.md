@@ -21,7 +21,10 @@ Este documento é mantido junto com o código — sempre que algo muda, ele é a
 11. [Configurações (`/configuracoes`)](#11-configuracoes-configuracoes)
 12. [Plataforma compartilhada (modo master)](#12-plataforma-compartilhada-modo-master)
 13. [Atalhos de teclado](#13-atalhos-de-teclado)
-14. [Memorização — princípios usados](#14-memorizacao--principios-usados)
+14. [Planos](#14-planos)
+15. [Páginas públicas e legais](#15-paginas-publicas-e-legais)
+16. [Admin (operacional)](#16-admin-operacional)
+17. [Memorização — princípios usados](#17-memorizacao--principios-usados)
 
 ---
 
@@ -258,6 +261,7 @@ Selecione um concurso como **ativo** no Topbar pra filtrar todas as listagens (b
 
 ## 11. Configurações (`/configuracoes`)
 
+- **Assinatura**: mostra plano atual (Grátis ou ✨ Pro) com status. Pro: botão "⚙ Gerenciar assinatura" abre o Stripe Customer Portal pra cancelar, atualizar cartão, baixar faturas. Free: "Upgrade pro Pro →" leva pra /planos.
 - **Algoritmo SRS**: SM-2 (default) ou FSRS-6 (opt-in). Coexistem sem perda de dados.
 - **Meta diária** (revisões/dia).
 - **Tema**: auto / claro / escuro.
@@ -265,7 +269,8 @@ Selecione um concurso como **ativo** no Topbar pra filtrar todas as listagens (b
 - **📊 Uso de armazenamento**: questões + IDB usage (estimate) com warning quando >80%.
 - **Backup completo**: download/import (questões + hierarquia + simulados + settings).
 - **Cadastros**: links pra Concursos, Disciplinas.
-- **Sobre o app**: versão e referências.
+- **Sobre o app**: versão, referências, links pra `/manual`, `/privacidade`, `/termos`.
+- **Zona de risco**: 🗑 Excluir minha conta permanentemente — apaga tudo (questões, histórico, perfil), cancela assinatura Pro automaticamente. LGPD art. 18. Confirmação dupla (dialog + digitar e-mail).
 
 ---
 
@@ -319,7 +324,73 @@ Pressione `?` em qualquer página pra abrir a lista completa.
 
 ---
 
-## 14. Memorização — princípios usados
+### Trial gratuito de 14 dias
+
+Primeiro checkout do usuário inclui automaticamente 14 dias grátis (sem cobrança no Stripe). Acesso total ao Pro durante o trial. Cobrança só começa após o fim, e usuário pode cancelar a qualquer momento. Status `trialing` mostrado em /configuracoes com data de término.
+
+Stripe gerencia: usuário não pode iniciar trial duas vezes (rastreado pelo customer_id). Ao recadastrar com mesmo email, trial é negado.
+
+## 14. Planos
+
+| Feature | Grátis | Pro |
+|---|---|---|
+| Questões personais | 500 | Ilimitado |
+| Concursos cadastrados | 1 | Ilimitado |
+| SRS (SM-2 + FSRS-6) | ✓ | ✓ |
+| Active recall, simulado, cards | ✓ | ✓ |
+| Imagens em questões | — | ✓ |
+| Mnemônicos | — | ✓ |
+| Predição de nota por concurso | — | ✓ |
+| Calibração metacognitiva | — | ✓ |
+| Export CSV | — | ✓ |
+| Suporte prioritário | — | ✓ |
+
+**Limite enforçado no banco**: trigger PostgreSQL rejeita INSERT acima do limite free. Não há como bypass via devtools, curl direto, ou outras vias.
+
+**Pagamento**: Stripe Checkout (não armazenamos dados de cartão). Cancela a qualquer momento pelo Customer Portal em /configuracoes.
+
+Detalhes de configuração admin: ver `docs/BILLING_SETUP.md` no repo.
+
+---
+
+## 15. Páginas públicas e legais
+
+Acessíveis sem login (e indexáveis por busca):
+
+- **`/inicio`** — landing page com hero, features, FAQ.
+- **`/planos`** — comparativo Grátis vs Pro com Checkout (R$ 19,90/mês ou R$ 179/ano).
+- **`/manual`** — esta página (renderizada do `docs/MANUAL.md`).
+- **`/privacidade`** — Política de Privacidade (LGPD).
+- **`/termos`** — Termos de Uso.
+- **`/contato`** — canais de suporte (LGPD, billing, bug, feedback) com prefixos no assunto pra triagem.
+
+Erros e roteamento:
+
+- **`/sitemap.xml`** + **`/robots.txt`** gerados automaticamente. Crawlers indexam só rotas públicas.
+- **404** — página customizada `/_not-found` com atalhos pras rotas principais.
+- **Erro inesperado** — `error.tsx` (boundary do segmento root) e `global-error.tsx` (boundary global, fora do layout). Mostram refs anônimas pro user copiar ao reportar.
+
+Todas têm o `PublicFooter` com links pra navegar entre elas.
+
+## 16. Admin (operacional)
+
+Rota `/admin` protegida por env var `ADMIN_USER_IDS` (lista UUIDs separados por vírgula). Não-admin é redirecionado pra `/`. Mostra:
+
+- Usuários totais, Pro ativos, em trial, cancelados, past-due
+- Signups últimos 30 dias
+- Questões ativas (todas contas)
+- Eventos de analytics últimos 30 dias
+- MRR/ARR estimados, conversão (pro + trial / totais)
+
+Queries via service role (bypass RLS) — só agregações, sem dados de usuário individual.
+
+### Analytics de uso
+
+Tabela `analytics_events` recebe eventos privacy-first (sem PII, sem IP, sem fingerprinting). Eventos atualmente trackados: `checkout.started` (com props.interval). Mais eventos podem ser adicionados via `track('event.name', { ...props })` em qualquer client component.
+
+Visualização atual: contagem total agregada em /admin. Pra dashboards mais ricos, exporte da tabela via service role.
+
+## 17. Memorização — princípios usados
 
 O app é construído sobre evidências da ciência cognitiva:
 

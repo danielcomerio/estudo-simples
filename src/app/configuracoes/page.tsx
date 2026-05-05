@@ -5,8 +5,16 @@ import { ThemeSection } from '@/components/ThemeSection';
 import { DailyGoalSection } from '@/components/DailyGoalSection';
 import { PlatformSeedSection } from '@/components/PlatformSeedSection';
 import { StorageInfo } from '@/components/StorageInfo';
+import { BillingSection } from '@/components/BillingSection';
+import { DeleteAccountSection } from '@/components/DeleteAccountSection';
+import { createClient } from '@/lib/supabase/server';
 
-export default function ConfiguracoesPage() {
+export default async function ConfiguracoesPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email ?? null;
   return (
     <>
       <div className="card">
@@ -16,6 +24,8 @@ export default function ConfiguracoesPage() {
           tópicos) ficam em páginas dedicadas.
         </p>
       </div>
+
+      <BillingSection />
 
       <AlgorithmSection />
 
@@ -59,7 +69,7 @@ export default function ConfiguracoesPage() {
             Tipos suportados: objetiva, discursiva, cloze, flashcard.
           </li>
         </ul>
-        <div className="row gap" style={{ marginTop: 12 }}>
+        <div className="row gap wrap" style={{ marginTop: 12 }}>
           <Link
             href="/manual"
             className="ghost"
@@ -69,10 +79,34 @@ export default function ConfiguracoesPage() {
               border: '1px solid var(--border)',
             }}
           >
-            📖 Ler manual completo →
+            📖 Manual completo →
+          </Link>
+          <Link
+            href="/privacidade"
+            className="ghost"
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            🔒 Privacidade
+          </Link>
+          <Link
+            href="/termos"
+            className="ghost"
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            📋 Termos
           </Link>
         </div>
       </div>
+
+      {email && <DeleteAccountSection email={email} />}
     </>
   );
 }

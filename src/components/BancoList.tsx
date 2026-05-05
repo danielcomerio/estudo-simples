@@ -23,6 +23,7 @@ import {
 } from '@/lib/hierarchy';
 import { setActiveConcursoId } from '@/lib/settings';
 import { saveQueue } from '@/lib/study-queue';
+import { PlanLimitBanner } from './PlanLimitBanner';
 import { confirmDialog } from './ConfirmDialog';
 import { QuestionCreateDrawer } from './QuestionCreateDrawer';
 import { BancoBrowse } from './BancoBrowse';
@@ -1220,6 +1221,8 @@ export function BancoList() {
           </div>
         );
       })()}
+
+      <PlanLimitBanner />
 
       <h2 style={{ margin: '0 0 10px' }}>
         Banco atual

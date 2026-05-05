@@ -3,7 +3,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 type CookiePayload = { name: string; value: string; options?: CookieOptions };
 
-const PUBLIC_PATHS = ['/login', '/signup', '/auth/callback', '/manual'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/signup',
+  '/auth/callback',
+  '/manual',
+  '/inicio',
+  '/planos',
+  '/privacidade',
+  '/termos',
+  '/contato',
+  // API routes do Stripe usam própria auth (signature/cookies). Webhook
+  // recebe POST direto do Stripe sem nossa sessão.
+  '/api/stripe/webhook',
+];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
