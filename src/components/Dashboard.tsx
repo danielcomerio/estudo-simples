@@ -20,6 +20,48 @@ export function Dashboard() {
   const router = useRouter();
   const { concurso: activeConcurso } = useActiveConcursoFilter();
 
+  // Pré-computa totais usados em atalhos de teclado. Hooks têm que vir
+  // antes dos early returns abaixo (regra do React) — então defina aqui
+  // mesmo (questions vazio devolve 0 e os atalhos checam > 0).
+  const totalAttemptsForShortcut = questions.reduce(
+    (s, q) => s + (q.stats?.attempts || 0),
+    0
+  );
+  const tomorrowForShortcut = startOfDay(Date.now()) + DAY_MS;
+  const dueTodayForShortcut = questions.filter(
+    (q) => (q.srs?.dueDate ?? 0) < tomorrowForShortcut
+  ).length;
+  const erradasRecentesForShortcut = questions.filter((q) => {
+    const h = q.stats?.history || [];
+    return h.slice(-5).some((r) => r.result === 'wrong' || r.result === 'timeout');
+  }).length;
+  const novasForShortcut = questions.filter(
+    (q) => !q.srs?.lastReviewed && q.type === 'objetiva'
+  ).length;
+  const totalRecForShortcut =
+    Math.min(15, dueTodayForShortcut) +
+    Math.min(5, erradasRecentesForShortcut) +
+    Math.min(5, novasForShortcut);
+
+  // Atalho P (capital): inicia sessão recomendada se houver
+  // Atalho R (capital): inicia revisão pré-prova (30q variadas)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'P' && totalRecForShortcut > 0) {
+        e.preventDefault();
+        router.push(`/estudar?modo=srs&qtd=${totalRecForShortcut}&auto=1`);
+      } else if (e.key === 'R' && totalAttemptsForShortcut > 0) {
+        e.preventDefault();
+        router.push(`/estudar?modo=final-prova&qtd=30&auto=1`);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [totalRecForShortcut, totalAttemptsForShortcut, router]);
+
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
   // isso, o painel pisca "0 questões" antes do pull inicial completar.
@@ -136,12 +178,19 @@ export function Dashboard() {
             ? 'l3'
             : 'l4';
 
-  // Streak atual (dias consecutivos com >=1 revisão até hoje)
+  // Streak atual (dias consecutivos com >=1 revisão até hoje).
+  // Hoje conta com "graça": se hoje ainda não estudou mas ontem sim,
+  // a streak ainda está viva (conta de ontem pra trás). streakAtRisk
+  // sinaliza esse estado — o user precisa fazer pelo menos 1 questão
+  // hoje pra não quebrar.
+  const todayCount = days[days.length - 1]?.count ?? 0;
   let streak = 0;
-  for (let i = days.length - 1; i >= 0; i--) {
+  const startIdx = todayCount === 0 ? days.length - 2 : days.length - 1;
+  for (let i = startIdx; i >= 0; i--) {
     if (days[i].count > 0) streak++;
     else break;
   }
+  const streakAtRisk = todayCount === 0 && streak > 0;
   // Maior streak no histórico de 90 dias (ou retroage se houver dados)
   let bestStreak = 0;
   let curStreak = 0;
@@ -161,6 +210,19 @@ export function Dashboard() {
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
+  // Tempo total estudado hoje (soma timeMs das revisões de hoje).
+  // Só conta as que registraram tempo (objetivas no submit).
+  const todayStart = startOfDay(Date.now());
+  let tempoHojeMs = 0;
+  for (const q of questions) {
+    for (const h of q.stats?.history || []) {
+      if (h.date >= todayStart && typeof h.timeMs === 'number') {
+        tempoHojeMs += h.timeMs;
+      }
+    }
+  }
+  const tempoHojeMin = Math.round(tempoHojeMs / 60000);
+
   // Contagem regressiva pra prova (se concurso ativo tem data_prova)
   const diasParaProva = (() => {
     if (!activeConcurso?.data_prova) return null;
@@ -170,15 +232,32 @@ export function Dashboard() {
     return dias;
   })();
 
-  // Por disciplina, vencendo hoje
-  const dueByDisc: Record<string, number> = {};
+  // Por disciplina: total, vencendo hoje, %acerto. Pra um ranking
+  // visual no painel — usuário identifica quais disciplinas estão
+  // pedindo mais atenção sem precisar entrar em /stats.
+  const discMap = new Map<
+    string,
+    { total: number; due: number; attempts: number; correct: number }
+  >();
   for (const q of questions) {
-    if ((q.srs?.dueDate ?? 0) < tomorrow) {
-      const d = q.disciplina_id || '—';
-      dueByDisc[d] = (dueByDisc[d] || 0) + 1;
+    const d = q.disciplina_id || '—';
+    let cur = discMap.get(d);
+    if (!cur) {
+      cur = { total: 0, due: 0, attempts: 0, correct: 0 };
+      discMap.set(d, cur);
     }
+    cur.total++;
+    if ((q.srs?.dueDate ?? 0) < tomorrow) cur.due++;
+    cur.attempts += q.stats?.attempts ?? 0;
+    cur.correct += q.stats?.correct ?? 0;
   }
-  const dueChips = Object.entries(dueByDisc).sort((a, b) => b[1] - a[1]);
+  const discBreakdown = Array.from(discMap.entries())
+    .map(([nome, d]) => ({
+      nome,
+      ...d,
+      acertoPct: d.attempts > 0 ? d.correct / d.attempts : null,
+    }))
+    .sort((a, b) => b.due - a.due || b.total - a.total);
 
   // Counts pra quick actions
   const erradasRecentes = questions.filter((q) => {
@@ -208,19 +287,61 @@ export function Dashboard() {
   const recNovas = Math.min(5, novasNuncaEstudadas);
   const totalRec = recVencendo + recErradas + recNovas;
 
-  // Atalho P (capital): inicia sessão recomendada se houver
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === 'P' && totalRec > 0) {
-        e.preventDefault();
-        router.push(`/estudar?modo=srs&qtd=${totalRec}&auto=1`);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [totalRec, router]);
+  // Dominadas: questões com >=5 acertos consecutivos no fim do histórico.
+  // É o sinal mais barato de "memorizado de verdade".
+  let dominadas = 0;
+  for (const q of questions) {
+    const h = q.stats?.history || [];
+    if (h.length < 5) continue;
+    if (h.slice(-5).every((r) => r.result === 'correct' || r.result === 'self_pass')) dominadas++;
+  }
+
+  // Conquistas: marcos atingidos. Mostramos até 4 de categorias variadas
+  // (esforço, consistência, memorização, qualidade, banco) pra não ficar
+  // só "streak streak streak". Cada categoria contribui no máximo 1 chip.
+  const achievements: { emoji: string; label: string }[] = [];
+  // Streak atual
+  const streakTiers = [3, 7, 14, 30, 60, 90, 180, 365];
+  for (let i = streakTiers.length - 1; i >= 0; i--) {
+    if (streak >= streakTiers[i]) {
+      achievements.push({ emoji: '🔥', label: `Streak ${streakTiers[i]}d` });
+      break;
+    }
+  }
+  // Total de tentativas (esforço acumulado)
+  const attemptTiers = [50, 100, 250, 500, 1000, 2500, 5000, 10000];
+  for (let i = attemptTiers.length - 1; i >= 0; i--) {
+    if (totalAttempts >= attemptTiers[i]) {
+      achievements.push({ emoji: '🎯', label: `${attemptTiers[i]} respondidas` });
+      break;
+    }
+  }
+  // Dominadas (memorização)
+  const domTiers = [10, 25, 50, 100, 250, 500, 1000];
+  for (let i = domTiers.length - 1; i >= 0; i--) {
+    if (dominadas >= domTiers[i]) {
+      achievements.push({ emoji: '🏆', label: `${domTiers[i]} dominadas` });
+      break;
+    }
+  }
+  // % acerto geral (com base mínima de 100 tentativas pra ser justo)
+  if (totalAttempts >= 100) {
+    const pct = totalCorrect / totalAttempts;
+    if (pct >= 0.9) achievements.push({ emoji: '💎', label: '90% acerto' });
+    else if (pct >= 0.8) achievements.push({ emoji: '🎖', label: '80% acerto' });
+    else if (pct >= 0.7) achievements.push({ emoji: '🥇', label: '70% acerto' });
+  }
+  // Banco (organização)
+  const bankTiers = [100, 500, 1000, 2500, 5000];
+  for (let i = bankTiers.length - 1; i >= 0; i--) {
+    if (total >= bankTiers[i]) {
+      achievements.push({ emoji: '📚', label: `${bankTiers[i]} no banco` });
+      break;
+    }
+  }
+
+  // (Atalhos P e R já registrados via useEffect no topo do componente —
+  //  hooks precisam vir antes dos early returns.)
 
   return (
     <>
@@ -240,12 +361,37 @@ export function Dashboard() {
           <div className="stat-value">{fmtPercent(totalCorrect, totalAttempts)}</div>
           <div className="stat-sub">{totalAttempts} tentativa{totalAttempts === 1 ? '' : 's'}</div>
         </div>
-        <div className="card stat" title={`Maior: ${bestStreak} dia(s) · ${diasEstudados} dia(s) estudados nos últimos 90`}>
-          <div className="stat-label">Streak</div>
+        <div
+          className="card stat"
+          title={`Maior: ${bestStreak} dia(s) · ${diasEstudados} dia(s) estudados nos últimos 90${streakAtRisk ? ' · em risco hoje' : ''}`}
+          style={
+            streakAtRisk
+              ? {
+                  borderColor: 'var(--warn, #d97706)',
+                  background: 'var(--warn-bg, rgba(217, 119, 6, 0.08))',
+                }
+              : undefined
+          }
+        >
+          <div className="stat-label">Streak{streakAtRisk ? ' ⚠️' : ''}</div>
           <div className="stat-value">{streak}</div>
           <div className="stat-sub">
             dia{streak === 1 ? '' : 's'} consecutivo{streak === 1 ? '' : 's'}
-            {bestStreak > streak && (
+            {streakAtRisk && (
+              <>
+                <br />
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--warn, #d97706)',
+                    fontWeight: 600,
+                  }}
+                >
+                  em risco — estude hoje
+                </span>
+              </>
+            )}
+            {!streakAtRisk && bestStreak > streak && (
               <>
                 <br />
                 <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>
@@ -253,7 +399,7 @@ export function Dashboard() {
                 </span>
               </>
             )}
-            {bestStreak === streak && streak > 0 && (
+            {!streakAtRisk && bestStreak === streak && streak > 0 && (
               <>
                 <br />
                 <span
@@ -330,6 +476,7 @@ export function Dashboard() {
             </strong>{' '}
             <span className="muted">
               · {reviewsToday}/{dailyGoal} revisões hoje
+              {tempoHojeMin > 0 && ` · ⏱ ${tempoHojeMin} min`}
             </span>
           </div>
           <Link
@@ -368,6 +515,36 @@ export function Dashboard() {
           </p>
         )}
       </div>
+
+      {achievements.length > 0 && (
+        <div className="card" style={{ padding: '12px 16px' }}>
+          <div
+            className="row gap wrap"
+            style={{ alignItems: 'center', gap: 10 }}
+          >
+            <strong
+              style={{ fontSize: '0.92rem', color: 'var(--muted)' }}
+              title={`${dominadas} questão(ões) com 5+ acertos seguidos · ${diasEstudados} dia(s) estudados nos últimos 90`}
+            >
+              🏆 Conquistas
+            </strong>
+            {achievements.slice(0, 4).map((a) => (
+              <span
+                key={a.label}
+                className="chip"
+                style={{
+                  background: 'var(--primary-soft)',
+                  borderColor: 'var(--primary)',
+                  color: 'var(--primary)',
+                  fontWeight: 600,
+                }}
+              >
+                {a.emoji} {a.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {totalRec > 0 && (() => {
         const minEstim = Math.ceil((totalRec * 90) / 60);
@@ -448,6 +625,16 @@ export function Dashboard() {
               <button type="button">⏳ Revisar {pendentes} pendentes</button>
             </Link>
           )}
+          {totalAttempts >= 30 && (
+            <Link
+              href="/estudar?modo=final-prova&qtd=30&auto=1"
+              title="Mistura SRS vencidas + inimigas + recém-aprendidas + variadas. Atalho R."
+            >
+              <button type="button">
+                🎓 Revisão pré-prova (R)
+              </button>
+            </Link>
+          )}
         </div>
 
         <div
@@ -492,18 +679,85 @@ export function Dashboard() {
 
 
       <div className="card">
-        <h2>Vencendo hoje, por disciplina</h2>
-        <div className="chips">
-          {dueChips.length === 0 ? (
-            <span className="muted">Nada vencendo. Belo trabalho.</span>
-          ) : (
-            dueChips.map(([d, n]) => (
-              <span key={d} className="chip">
-                {d} <strong>· {n}</strong>
-              </span>
-            ))
-          )}
-        </div>
+        <h2>Por disciplina</h2>
+        {discBreakdown.length === 0 ? (
+          <span className="muted">Sem disciplinas no banco.</span>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {discBreakdown.slice(0, 12).map((d) => {
+              const pct = d.acertoPct == null ? null : Math.round(d.acertoPct * 100);
+              const cor =
+                pct == null
+                  ? 'var(--muted)'
+                  : pct >= 70
+                    ? '#22c55e'
+                    : pct >= 40
+                      ? '#f59e0b'
+                      : '#ef4444';
+              return (
+                <div key={d.nome}>
+                  <div
+                    className="row between"
+                    style={{ alignItems: 'center', marginBottom: 4 }}
+                  >
+                    <div style={{ fontSize: '0.88rem', fontWeight: 500 }}>
+                      {d.nome}
+                      {d.due > 0 && (
+                        <span
+                          className="muted"
+                          style={{ marginLeft: 8, fontSize: '0.82rem' }}
+                        >
+                          🔴 {d.due} vencendo
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="muted"
+                      style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                    >
+                      {pct != null ? `${pct}% · ` : ''}
+                      {d.total} questão(ões)
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      height: 6,
+                      background: 'var(--bg-elev)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 999,
+                      overflow: 'hidden',
+                    }}
+                    title={
+                      pct != null
+                        ? `${d.correct}/${d.attempts} acertos`
+                        : 'Sem tentativas ainda'
+                    }
+                  >
+                    {pct != null && (
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${pct}%`,
+                          background: cor,
+                          transition: 'width 320ms ease',
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {discBreakdown.length > 12 && (
+              <div
+                className="muted"
+                style={{ fontSize: '0.82rem', marginTop: 4, textAlign: 'center' }}
+              >
+                + {discBreakdown.length - 12} disciplina(s). Veja todas em{' '}
+                <Link href="/stats">/stats</Link>.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

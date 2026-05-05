@@ -456,6 +456,8 @@ function DiscRunningView({
     scheduleSync(800);
   };
 
+  const progressPct = Math.round(((idx + (rated ? 1 : 0)) / total) * 100);
+
   return (
     <div className="card">
       <div className="session-bar">
@@ -465,6 +467,10 @@ function DiscRunningView({
         <button type="button" className="ghost" onClick={onQuit}>
           Encerrar
         </button>
+      </div>
+
+      <div className="session-progress-bar" style={{ marginBottom: 12 }}>
+        <div className="fill" style={{ width: progressPct + '%' }} />
       </div>
 
       <article className="question-area">
@@ -515,6 +521,8 @@ function DiscRunningView({
 
         {revealed && (
           <DiscReveal
+            q={q}
+            algorithm={algorithm}
             payload={payload}
             quesitos={quesitos}
             grades={grades}
@@ -531,6 +539,8 @@ function DiscRunningView({
 }
 
 function DiscReveal({
+  q,
+  algorithm,
   payload,
   quesitos,
   grades,
@@ -540,6 +550,8 @@ function DiscReveal({
   rate,
   onNext,
 }: {
+  q: Question;
+  algorithm: 'sm2' | 'fsrs';
   payload: DiscursivaPayload;
   quesitos: Quesito[];
   grades: Record<number, number>;
@@ -680,20 +692,35 @@ function DiscReveal({
       <p className="muted center">
         {rated ? 'Avaliação registrada. Próxima revisão agendada.' : 'Como foi essa questão?'}
       </p>
-      <div className="row gap center wrap">
-        <button type="button" className="rate again" disabled={rated} onClick={() => rate(0)}>
-          De novo
-        </button>
-        <button type="button" className="rate hard" disabled={rated} onClick={() => rate(3)}>
-          Difícil
-        </button>
-        <button type="button" className="rate good" disabled={rated} onClick={() => rate(4)}>
-          Bom
-        </button>
-        <button type="button" className="rate easy" disabled={rated} onClick={() => rate(5)}>
-          Fácil
-        </button>
-      </div>
+      {(() => {
+        const preview = (quality: number) => {
+          const card = { srs: { ...q.srs } };
+          applyReview(card, quality, algorithm);
+          const due = card.srs?.dueDate ?? Date.now();
+          const dDays = Math.max(0, Math.round((due - Date.now()) / 86400000));
+          if (dDays < 1) return '<1d';
+          if (dDays === 1) return '1d';
+          if (dDays < 30) return `${dDays}d`;
+          if (dDays < 365) return `${Math.round(dDays / 30)}mo`;
+          return `${Math.round(dDays / 365)}a`;
+        };
+        return (
+          <div className="row gap center wrap">
+            <button type="button" className="rate again" disabled={rated} onClick={() => rate(0)}>
+              De novo<small>{preview(0)}</small>
+            </button>
+            <button type="button" className="rate hard" disabled={rated} onClick={() => rate(3)}>
+              Difícil<small>{preview(3)}</small>
+            </button>
+            <button type="button" className="rate good" disabled={rated} onClick={() => rate(4)}>
+              Bom<small>{preview(4)}</small>
+            </button>
+            <button type="button" className="rate easy" disabled={rated} onClick={() => rate(5)}>
+              Fácil<small>{preview(5)}</small>
+            </button>
+          </div>
+        );
+      })()}
 
       {rated && (
         <div className="row gap right" style={{ marginTop: 16 }}>

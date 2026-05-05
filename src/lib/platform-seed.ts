@@ -106,7 +106,8 @@ export async function loadPlatformSeed(userId: string): Promise<number> {
     addQuestionsBulk(items, userId);
     markApplied(userId);
     return items.length;
-  } catch {
+  } catch (e) {
+    console.error('[platform-seed] erro:', e);
     return 0;
   }
 }

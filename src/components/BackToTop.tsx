@@ -32,24 +32,7 @@ export function BackToTop({ threshold = 800 }: { threshold?: number }) {
             : 'smooth',
         })
       }
-      style={{
-        position: 'fixed',
-        right: 16,
-        bottom: 16,
-        zIndex: 40,
-        width: 44,
-        height: 44,
-        borderRadius: '50%',
-        border: '1px solid var(--border)',
-        background: 'var(--bg-elev)',
-        color: 'var(--text)',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-        fontSize: '1.1rem',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className="back-to-top-btn"
     >
       ↑
     </button>

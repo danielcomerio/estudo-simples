@@ -19,6 +19,7 @@ import {
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
+import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/lib/study-queue';
 import { renderClozeHTML } from '@/lib/cloze';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
@@ -173,21 +174,42 @@ export function CardsRunner() {
     clearSession('cards');
   };
 
-  // Auto-start de 1 card via ?qid=ID
+  // Auto-start: 1 card via ?qid=ID, ou fila de IDs via ?queue=1
   const searchParams = useSearchParams();
   const autoStartedRef = useRef(false);
   useEffect(() => {
     if (autoStartedRef.current || phase !== 'config') return;
     const qid = searchParams.get('qid');
-    if (!qid) return;
-    const q = allRaw.find(
-      (x) => x.id === qid && (x.type === 'cloze' || x.type === 'flashcard')
-    );
-    if (q) {
-      autoStartedRef.current = true;
-      setPool([q]);
-      setIdx(0);
-      setPhase('running');
+    if (qid) {
+      const q = allRaw.find(
+        (x) => x.id === qid && (x.type === 'cloze' || x.type === 'flashcard')
+      );
+      if (q) {
+        autoStartedRef.current = true;
+        setPool([q]);
+        setIdx(0);
+        setPhase('running');
+      }
+      return;
+    }
+    if (searchParams.get('queue') === '1') {
+      const qd = readStudyQueue();
+      if (qd && qd.kind === 'cards' && qd.ids.length > 0) {
+        const queuePool = qd.ids
+          .map((id) =>
+            allRaw.find(
+              (x) => x.id === id && (x.type === 'cloze' || x.type === 'flashcard')
+            )
+          )
+          .filter((x): x is Question => !!x);
+        if (queuePool.length > 0) {
+          autoStartedRef.current = true;
+          clearStudyQueue();
+          setPool(queuePool);
+          setIdx(0);
+          setPhase('running');
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, allRaw]);
@@ -595,9 +617,11 @@ function CardView({
     onNext();
   };
 
+  const progressPct = Math.round(((idx + (allRevealed ? 1 : 0)) / total) * 100);
+
   return (
     <div className="card">
-      <div className="row between" style={{ marginBottom: 12 }}>
+      <div className="row between" style={{ marginBottom: 8 }}>
         <div className="muted" style={{ fontSize: '0.88rem' }}>
           {idx + 1}/{total} ·{' '}
           {q.type === 'cloze' ? '🟦 Cloze' : '🃏 Flashcard'}
@@ -621,6 +645,10 @@ function CardView({
         <button type="button" className="ghost" onClick={onQuit}>
           Sair
         </button>
+      </div>
+
+      <div className="session-progress-bar" style={{ marginBottom: 12 }}>
+        <div className="fill" style={{ width: progressPct + '%' }} />
       </div>
 
       {q.type === 'cloze' ? (
@@ -667,29 +695,43 @@ function CardView({
             Próxima [Enter]
           </button>
         </div>
-      ) : (
-        <div
-          className="row gap"
-          style={{
-            marginTop: 18,
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-          }}
-        >
-          <button type="button" className="danger" onClick={() => rate(0)}>
-            1 · De novo
-          </button>
-          <button type="button" onClick={() => rate(3)}>
-            2 · Difícil
-          </button>
-          <button type="button" className="primary" onClick={() => rate(4)}>
-            3 · Bom
-          </button>
-          <button type="button" onClick={() => rate(5)}>
-            4 · Fácil
-          </button>
-        </div>
-      )}
+      ) : (() => {
+        const preview = (quality: number) => {
+          if (free) return '';
+          const card = { srs: { ...q.srs } };
+          applyReview(card, quality, algorithm);
+          const due = card.srs?.dueDate ?? Date.now();
+          const dDays = Math.max(0, Math.round((due - Date.now()) / 86400000));
+          if (dDays < 1) return '<1d';
+          if (dDays === 1) return '1d';
+          if (dDays < 30) return `${dDays}d`;
+          if (dDays < 365) return `${Math.round(dDays / 30)}mo`;
+          return `${Math.round(dDays / 365)}a`;
+        };
+        return (
+          <div
+            className="row gap"
+            style={{
+              marginTop: 18,
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+            }}
+          >
+            <button type="button" className="danger" onClick={() => rate(0)}>
+              1 · De novo{preview(0) && ` · ${preview(0)}`}
+            </button>
+            <button type="button" onClick={() => rate(3)}>
+              2 · Difícil{preview(3) && ` · ${preview(3)}`}
+            </button>
+            <button type="button" className="primary" onClick={() => rate(4)}>
+              3 · Bom{preview(4) && ` · ${preview(4)}`}
+            </button>
+            <button type="button" onClick={() => rate(5)}>
+              4 · Fácil{preview(5) && ` · ${preview(5)}`}
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "backfill:disciplinas": "tsx scripts/backfill-disciplinas.ts"
+    "backfill:disciplinas": "tsx scripts/backfill-disciplinas.ts",
+    "export:platform": "tsx scripts/export-platform.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

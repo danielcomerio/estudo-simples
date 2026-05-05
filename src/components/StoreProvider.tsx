@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
-import { hydrate, migrateGuestToUser, resetStore } from '@/lib/store';
+import { useEffect, useRef } from 'react';
+import { hydrate, migrateGuestToUser, resetStore, useStore } from '@/lib/store';
 import { scheduleSync, startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
 import { applyTheme, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
+import { clearSeedFlag, loadPlatformSeed } from '@/lib/platform-seed';
 import { toast } from './Toast';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmHost } from './ConfirmDialog';
@@ -76,6 +77,48 @@ export function StoreProvider({
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
   }, [userId]);
+
+  // Carrega seed da plataforma quando apropriado:
+  //  - guest: assim que hydrate completa e banco está vazio
+  //  - autenticado: após primeiro pull (lastPullAt setado) E banco vazio
+  //
+  // O flag em localStorage garante que cada user só recebe seed 1x.
+  // Pra forçar recarga depois (atualização da plataforma), use
+  // `clearSeedFlag(userId)` via /configuracoes.
+  const hydrated = useStore((s) => s.hydrated);
+  const lastPullAt = useStore((s) => s.lastPullAt);
+  // Conta SÓ as ativas (sem soft-deleted) — alinha com o que UI exibe.
+  // Se contássemos `s.questions.length` cru, lixo deletado preso na IDB
+  // mascararia "banco vazio" e o seed nunca carregaria.
+  const activeQuestionsCount = useStore(
+    (s) => s.questions.filter((q) => !q.deleted_at).length
+  );
+  const seedTriedRef = useRef(false);
+  useEffect(() => {
+    if (!hydrated || seedTriedRef.current) return;
+    // Quando o banco está vazio, sempre tenta carregar o seed —
+    // limpamos o flag primeiro pra recuperar de qualquer estado "preso"
+    // (flag em LS sobreviveu mas IDB perdeu os dados, bug antigo, etc.).
+    // Se banco não-vazio, o effect nem chega aqui (gate abaixo).
+    const tryLoadSeed = () => {
+      seedTriedRef.current = true;
+      clearSeedFlag(userId);
+      void loadPlatformSeed(userId).then((n) => {
+        if (n > 0) {
+          toast(`📦 ${n} questão(ões) da plataforma carregadas.`, 'success');
+          if (userId !== 'guest') scheduleSync(800);
+        }
+      });
+    };
+    if (userId === 'guest') {
+      if (activeQuestionsCount === 0) tryLoadSeed();
+      return;
+    }
+    // Autenticado: espera primeiro pull pra evitar duplicar com dados
+    // já no servidor (caso usuário esteja entrando em outro device).
+    if (!lastPullAt) return;
+    if (activeQuestionsCount === 0) tryLoadSeed();
+  }, [hydrated, userId, lastPullAt, activeQuestionsCount]);
 
   // Se trocar de usuário (rota → outro user), reseta cache.
   useEffect(() => {

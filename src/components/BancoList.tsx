@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   useStore,
   selectActiveQuestions,
@@ -20,6 +21,7 @@ import {
   useTopicos,
 } from '@/lib/hierarchy';
 import { setActiveConcursoId } from '@/lib/settings';
+import { saveQueue } from '@/lib/study-queue';
 import { confirmDialog } from './ConfirmDialog';
 import { QuestionCreateDrawer } from './QuestionCreateDrawer';
 import { BancoBrowse } from './BancoBrowse';
@@ -83,6 +85,7 @@ export function BancoList() {
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
   const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
+  const router = useRouter();
 
   // Mapa nome → cor pra color-coding rápido nos itens
   const discCorMap = useMemo(() => {
@@ -99,7 +102,7 @@ export function BancoList() {
   const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
   const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
   const [srsFilter, setSrsFilter] = useState<
-    '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo'
+    '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo' | 'dominadas' | 'inimigas'
   >('');
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
   const [notasFilter, setNotasFilter] = useState<'' | 'com' | 'sem'>('');
@@ -289,6 +292,20 @@ export function BancoList() {
           if (createdAt < sevenDaysAgo) return false;
         } else if (srsFilter === 'sem_estudo') {
           if ((q.stats?.attempts ?? 0) > 0) return false;
+        } else if (srsFilter === 'dominadas') {
+          // 5+ acertos consecutivos no fim do histórico = memorizada
+          const h = q.stats?.history || [];
+          if (h.length < 5) return false;
+          const ok = h
+            .slice(-5)
+            .every((r) => r.result === 'correct' || r.result === 'self_pass');
+          if (!ok) return false;
+        } else if (srsFilter === 'inimigas') {
+          // >=3 tentativas E acerto < 30% = persiste errando
+          const a = q.stats?.attempts ?? 0;
+          const c = q.stats?.correct ?? 0;
+          if (a < 3) return false;
+          if (c / a >= 0.3) return false;
         }
       }
       if (favFilter && !q.tags?.includes('★')) return false;
@@ -713,6 +730,36 @@ export function BancoList() {
           toggleFav(sorted[focusedIdx].id);
           break;
         }
+        case 'V': {
+          // Capital V = alterna verificacao da focada (verificada ↔ null).
+          // Dá pra varrer um bloco rapidão enquanto navega com j/k.
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          const cur = sorted[focusedIdx].verificacao;
+          const next = cur === 'verificada' ? null : 'verificada';
+          updateQuestionLocal(sorted[focusedIdx].id, { verificacao: next });
+          scheduleSync(500);
+          toast(
+            next === 'verificada' ? '✓ Verificada' : 'Verificação removida',
+            'success'
+          );
+          break;
+        }
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5': {
+          // Sem modifiers: número seta dificuldade da focada (1-5)
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (focusedIdx < 0 || focusedIdx >= visible) return;
+          e.preventDefault();
+          const dif = parseInt(e.key, 10) as 1 | 2 | 3 | 4 | 5;
+          updateQuestionLocal(sorted[focusedIdx].id, { dificuldade: dif });
+          scheduleSync(500);
+          toast(`Dificuldade ${dif} aplicada`, 'success');
+          break;
+        }
         case 'Escape':
           if (focusedIdx >= 0) {
             e.preventDefault();
@@ -884,23 +931,91 @@ export function BancoList() {
         );
       })()}
 
+      {(() => {
+        // Chips de filtro rápido. Counts globais (não filtrados) pra dar
+        // sensação de panorama. Click toggla — repetir desativa.
+        const nowMs = Date.now();
+        const tomorrow0 = startOfDay(nowMs) + DAY_MS;
+        let cAtrasadas = 0;
+        let cHoje = 0;
+        let cInimigas = 0;
+        let cDominadas = 0;
+        let cNovas = 0;
+        for (const q of questions) {
+          const due = q.srs?.dueDate ?? 0;
+          if (due < startOfDay(nowMs)) cAtrasadas++;
+          else if (due < tomorrow0) cHoje++;
+          if (!q.srs?.lastReviewed) cNovas++;
+          const a = q.stats?.attempts ?? 0;
+          const c = q.stats?.correct ?? 0;
+          if (a >= 3 && c / a < 0.3) cInimigas++;
+          const h = q.stats?.history || [];
+          if (
+            h.length >= 5 &&
+            h.slice(-5).every(
+              (r) => r.result === 'correct' || r.result === 'self_pass'
+            )
+          ) {
+            cDominadas++;
+          }
+        }
+        const chips: {
+          key: typeof srsFilter;
+          label: string;
+          n: number;
+          color?: string;
+        }[] = [
+          { key: 'atrasadas', label: '🔴 Atrasadas', n: cAtrasadas, color: 'var(--danger)' },
+          { key: 'hoje', label: '📅 Hoje', n: cHoje },
+          { key: 'novas', label: '✨ Novas', n: cNovas },
+          { key: 'inimigas', label: '⚔ Inimigas', n: cInimigas, color: 'var(--danger)' },
+          { key: 'dominadas', label: '🏆 Dominadas', n: cDominadas },
+        ];
+        return (
+          <div
+            className="row gap wrap"
+            style={{ marginBottom: 10, fontSize: '0.85rem' }}
+          >
+            {chips.map((c) => {
+              const active = srsFilter === c.key;
+              if (c.n === 0 && !active) return null;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  className="chip"
+                  onClick={() => setSrsFilter(active ? '' : c.key)}
+                  title={
+                    active
+                      ? 'Clique de novo pra remover esse filtro'
+                      : `Filtrar: ${c.label.replace(/^\S+\s/, '')}`
+                  }
+                  style={{
+                    cursor: 'pointer',
+                    background: active ? 'var(--primary-soft)' : undefined,
+                    borderColor: active ? 'var(--primary)' : undefined,
+                    color: active ? 'var(--primary)' : c.color,
+                    fontWeight: active ? 600 : undefined,
+                  }}
+                >
+                  {c.label} <strong>· {c.n}</strong>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      <h2 style={{ margin: '0 0 10px' }}>Banco atual</h2>
+
       <div
         className="row gap wrap banco-filters"
         style={{
           marginBottom: 14,
-          position: 'sticky',
-          top: 'var(--topbar-h, 60px)',
-          zIndex: 20,
-          background: 'var(--bg-elev)',
-          paddingTop: 8,
-          paddingBottom: 8,
-          margin: '-8px -2px 14px',
-          paddingLeft: 2,
-          paddingRight: 2,
+          paddingBottom: 12,
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <h2 style={{ margin: 0, marginRight: 'auto' }}>Banco atual</h2>
         <input
           ref={searchRef}
           type="search"
@@ -957,6 +1072,8 @@ export function BancoList() {
           <option value="novas">✨ Nunca estudadas</option>
           <option value="sem_estudo">○ Zero tentativas</option>
           <option value="recentes">🆕 Importadas últimos 7d</option>
+          <option value="dominadas">🏆 Dominadas (5+ acertos seguidos)</option>
+          <option value="inimigas">⚔ Inimigas (≥3 tentativas, &lt;30%)</option>
         </select>
         <select
           value={imgFilter}
@@ -1045,6 +1162,40 @@ export function BancoList() {
           title="Navegar pelas questões filtradas como flashcard, sem afetar SRS"
         >
           📖 Modo leitura
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            // Decide pra onde mandar com base no tipo dominante.
+            // Se selecionou: usa selecionadas; senão: filtradas (até 200).
+            const baseList = selected.size > 0
+              ? sorted.filter((q) => selected.has(q.id))
+              : sorted.slice(0, 200);
+            const objs = baseList.filter((q) => q.type === 'objetiva');
+            const cards = baseList.filter(
+              (q) => q.type === 'cloze' || q.type === 'flashcard'
+            );
+            // Se misturou, prioriza objetiva (caminho mais comum)
+            if (objs.length === 0 && cards.length === 0) {
+              toast('Nenhuma questão estudável no filtro', 'warn');
+              return;
+            }
+            if (objs.length >= cards.length) {
+              saveQueue(objs.map((q) => q.id), 'objetiva');
+              router.push('/estudar?queue=1');
+            } else {
+              saveQueue(cards.map((q) => q.id), 'cards');
+              router.push('/cards?queue=1');
+            }
+          }}
+          disabled={sorted.length === 0}
+          title={
+            selected.size > 0
+              ? `Estudar as ${selected.size} selecionadas`
+              : `Estudar até 200 das filtradas (${sorted.length} no filtro)`
+          }
+        >
+          ▶ Estudar {selected.size > 0 ? `${selected.size} selecionada(s)` : 'filtradas'}
         </button>
         <button type="button" onClick={selectAllFiltered}>
           Selecionar tudo (filtrado)
@@ -1243,6 +1394,24 @@ export function BancoList() {
                         🏷 {q.tags.length}
                       </span>
                     )}
+                    {q.stats?.history && q.stats.history.length >= 2 && (() => {
+                      // Tempo médio das tentativas que registraram timeMs
+                      const times = q.stats.history
+                        .map((h) => h.timeMs)
+                        .filter((t): t is number => typeof t === 'number' && t > 0);
+                      if (times.length === 0) return null;
+                      const avg = times.reduce((a, b) => a + b, 0) / times.length;
+                      const sec = Math.round(avg / 1000);
+                      if (sec < 1) return null;
+                      return (
+                        <span
+                          title={`Tempo médio nas últimas tentativas`}
+                          className="muted"
+                        >
+                          ⏱ {sec}s
+                        </span>
+                      );
+                    })()}
                     {(q.stats?.attempts ?? 0) >= 3 && (() => {
                       const a = q.stats!.attempts;
                       const c = q.stats!.correct ?? 0;
@@ -1264,6 +1433,32 @@ export function BancoList() {
                           }}
                         >
                           {pct}%
+                        </span>
+                      );
+                    })()}
+                    {q.stats?.history && q.stats.history.length >= 5 && (() => {
+                      // Indicador de domínio: 5+ acertos consecutivos no fim
+                      // do histórico = memorizada com força. Pequeno troféu.
+                      const last5 = q.stats.history.slice(-5);
+                      const ok = last5.every(
+                        (r) => r.result === 'correct' || r.result === 'self_pass'
+                      );
+                      if (!ok) return null;
+                      return (
+                        <span title="Dominada (5+ acertos seguidos)">🏆</span>
+                      );
+                    })()}
+                    {(q.stats?.attempts ?? 0) >= 3 && (() => {
+                      // Inimiga: ≥3 tentativas, acerto < 30%
+                      const a = q.stats!.attempts;
+                      const c = q.stats!.correct ?? 0;
+                      if (c / a >= 0.3) return null;
+                      return (
+                        <span
+                          title="Inimiga (≥3 tentativas, <30% acerto)"
+                          style={{ color: 'var(--danger)' }}
+                        >
+                          ⚔
                         </span>
                       );
                     })()}
@@ -1424,6 +1619,55 @@ export function BancoList() {
           </button>
         </div>
       )}
+
+      {filtered.length > 0 && (() => {
+        // Quick-stats footer baseado no filtro atual: dominadas, inimigas,
+        // vencendo hoje, novas. Útil pra ter pulse rápido de um filtro.
+        const nowMs = Date.now();
+        const tomorrow = startOfDay(nowMs) + DAY_MS;
+        let dominadas = 0;
+        let inimigas = 0;
+        let vencendo = 0;
+        let novas = 0;
+        for (const q of filtered) {
+          const h = q.stats?.history || [];
+          if (
+            h.length >= 5 &&
+            h.slice(-5).every(
+              (r) => r.result === 'correct' || r.result === 'self_pass'
+            )
+          ) {
+            dominadas++;
+          }
+          const a = q.stats?.attempts ?? 0;
+          const c = q.stats?.correct ?? 0;
+          if (a >= 3 && c / a < 0.3) inimigas++;
+          if ((q.srs?.dueDate ?? 0) < tomorrow) vencendo++;
+          if (!q.srs?.lastReviewed) novas++;
+        }
+        return (
+          <div
+            className="row gap wrap"
+            style={{
+              marginTop: 12,
+              padding: '8px 14px',
+              fontSize: '0.85rem',
+              borderTop: '1px solid var(--border)',
+            }}
+          >
+            <span className="muted">📊 No filtro:</span>
+            <span title="Questões com 5+ acertos seguidos">🏆 {dominadas} dominadas</span>
+            <span
+              title="Questões com ≥3 tentativas e &lt;30% acerto"
+              style={{ color: 'var(--danger)' }}
+            >
+              ⚔ {inimigas} inimigas
+            </span>
+            <span title="Vencendo até amanhã">📅 {vencendo} vencendo</span>
+            <span title="Sem nenhuma revisão registrada">✨ {novas} novas</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }

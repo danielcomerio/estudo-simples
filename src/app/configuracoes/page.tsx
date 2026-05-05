@@ -3,6 +3,7 @@ import { AlgorithmSection } from '@/components/AlgorithmSection';
 import { BackupSection } from '@/components/BackupSection';
 import { ThemeSection } from '@/components/ThemeSection';
 import { DailyGoalSection } from '@/components/DailyGoalSection';
+import { PlatformSeedSection } from '@/components/PlatformSeedSection';
 
 export default function ConfiguracoesPage() {
   return (
@@ -20,6 +21,8 @@ export default function ConfiguracoesPage() {
       <DailyGoalSection />
 
       <ThemeSection />
+
+      <PlatformSeedSection />
 
       <BackupSection />
 

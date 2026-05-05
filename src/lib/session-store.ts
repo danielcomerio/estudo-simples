@@ -30,6 +30,7 @@ export type StoredSession = {
   embaralhar: boolean;
   tempoLimite: number;
   free?: boolean;
+  activeRecall?: boolean;
   correct: number;
   wrong: number;
   skipped: number;

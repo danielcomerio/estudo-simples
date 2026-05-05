@@ -8,6 +8,7 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { GlobalDropZone } from '@/components/GlobalDropZone';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { OnboardingTour } from '@/components/OnboardingTour';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -66,6 +67,7 @@ export default async function RootLayout({
             <main id="main-content" className="page">
               {children}
             </main>
+            <MobileBottomNav />
             <ToastHost />
           </StoreProvider>
         ) : (

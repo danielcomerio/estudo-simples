@@ -24,6 +24,7 @@ import {
   readSession,
   saveSession,
 } from '@/lib/session-store';
+import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/lib/study-queue';
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
@@ -49,6 +50,8 @@ type SessionState = {
   startedAt: number;
   /** Modo livre: stats contam, SRS não muda. Default false. */
   free?: boolean;
+  /** Active recall: esconde alternativas até user revelar. */
+  activeRecall?: boolean;
 };
 
 const defaultCfg: SessionConfig = {
@@ -61,6 +64,7 @@ const defaultCfg: SessionConfig = {
   embaralhar: true,
   interleaving: false,
   free: false,
+  activeRecall: false,
 };
 
 function buildPool(all: Question[], cfg: SessionConfig): Question[] {
@@ -97,6 +101,48 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
       const ay = (y.stats?.correct ?? 0) / Math.max(1, y.stats?.attempts ?? 1);
       return ax - ay;
     });
+  } else if (cfg.modo === 'final-prova') {
+    // Mistura agressiva pra revisão pré-prova: vencidas SRS (40%) +
+    // inimigas (30%) + recém-aprendidas (20%) + variadas aleatórias
+    // (10%, ou o que faltar). Sem duplicatas. Embaralha resultado pra
+    // simular ordem de prova real.
+    const qtd = Math.max(1, cfg.qtd);
+    const dueSRS = pool
+      .filter((q) => (q.srs?.dueDate ?? 0) < now)
+      .slice()
+      .sort((a, b) => (a.srs?.dueDate ?? 0) - (b.srs?.dueDate ?? 0));
+    const inimigas = pool.filter((q) => {
+      const a = q.stats?.attempts ?? 0;
+      const c = q.stats?.correct ?? 0;
+      if (a < 3) return false;
+      return c / a < 0.3;
+    });
+    const recemAprendidas = pool.filter((q) => {
+      const h = q.stats?.history || [];
+      if (h.length < 1 || h.length > 4) return false;
+      return h
+        .slice(-2)
+        .every((r) => r.result === 'correct' || r.result === 'self_pass');
+    });
+    const variadas = shuffle(pool);
+
+    const seen = new Set<string>();
+    const out: Question[] = [];
+    const addUpTo = (qs: Question[], n: number) => {
+      for (const q of qs) {
+        if (out.length >= qtd) return;
+        if (n <= 0) return;
+        if (seen.has(q.id)) continue;
+        seen.add(q.id);
+        out.push(q);
+        n--;
+      }
+    };
+    addUpTo(shuffle(dueSRS), Math.round(qtd * 0.4));
+    addUpTo(shuffle(inimigas), Math.round(qtd * 0.3));
+    addUpTo(shuffle(recemAprendidas), Math.round(qtd * 0.2));
+    addUpTo(variadas, qtd - out.length);
+    pool = shuffle(out);
   }
 
   if (cfg.modo === 'aleatorio') {
@@ -162,6 +208,7 @@ export function QuestionRunner() {
     embaralhar: boolean;
     tempoLimite: number;
     free?: boolean;
+    activeRecall?: boolean;
     startedAt: number;
   } | null>(null);
 
@@ -187,6 +234,7 @@ export function QuestionRunner() {
       embaralhar: stored.embaralhar,
       tempoLimite: stored.tempoLimite,
       free: stored.free,
+      activeRecall: stored.activeRecall,
       startedAt: stored.startedAt,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -203,6 +251,7 @@ export function QuestionRunner() {
         embaralhar: session.embaralhar,
         tempoLimite: session.tempoLimite,
         free: session.free,
+        activeRecall: session.activeRecall,
         correct: session.correct,
         wrong: session.wrong,
         skipped: session.skipped,
@@ -231,6 +280,7 @@ export function QuestionRunner() {
       embaralhar: pausedAvailable.embaralhar,
       tempoLimite: pausedAvailable.tempoLimite,
       free: pausedAvailable.free,
+      activeRecall: pausedAvailable.activeRecall,
       correct: pausedAvailable.correct,
       wrong: pausedAvailable.wrong,
       skipped: pausedAvailable.skipped,
@@ -274,6 +324,31 @@ export function QuestionRunner() {
         return;
       }
     }
+    // Se queue=1, pega IDs da fila local salva pelo /banco
+    if (searchParams.get('queue') === '1') {
+      const q = readStudyQueue();
+      if (q && q.kind === 'objetiva' && q.ids.length > 0) {
+        const pool = q.ids
+          .map((id) => allRaw.find((x) => x.id === id && x.type === 'objetiva'))
+          .filter((x): x is Question => !!x);
+        if (pool.length > 0) {
+          autoStartedRef.current = true;
+          clearStudyQueue();
+          setSession({
+            pool: cfg.embaralhar ? shuffle(pool) : pool,
+            idx: 0,
+            embaralhar: cfg.embaralhar,
+            tempoLimite: 0,
+            correct: 0,
+            wrong: 0,
+            skipped: 0,
+            startedAt: Date.now(),
+          });
+          setPhase('running');
+          return;
+        }
+      }
+    }
     const modo = searchParams.get('modo');
     const qtd = searchParams.get('qtd');
     const auto = searchParams.get('auto');
@@ -285,6 +360,7 @@ export function QuestionRunner() {
       'erros',
       'novas',
       'inimigas',
+      'final-prova',
     ];
     const newCfg: SessionConfig = { ...cfg };
     if (modo && (validModos as string[]).includes(modo)) {
@@ -308,6 +384,8 @@ export function QuestionRunner() {
           wrong: 0,
           skipped: 0,
           startedAt: Date.now(),
+          free: newCfg.free,
+          activeRecall: newCfg.activeRecall,
         });
         setPhase('running');
       }
@@ -328,6 +406,7 @@ export function QuestionRunner() {
       skipped: 0,
       startedAt: Date.now(),
       free: cfg.free,
+      activeRecall: cfg.activeRecall,
     });
     setPhase('running');
   };
@@ -360,6 +439,22 @@ export function QuestionRunner() {
         onRestart={() => {
           setSession(null);
           setPhase('config');
+        }}
+        onRepeat={() => {
+          // Repete as MESMAS questões em modo livre (free=true) pra não
+          // duplicar o agendamento SRS — o usuário acabou de revisar.
+          setSession({
+            pool: session.pool,
+            idx: 0,
+            embaralhar: session.embaralhar,
+            tempoLimite: session.tempoLimite,
+            correct: 0,
+            wrong: 0,
+            skipped: 0,
+            startedAt: Date.now(),
+            free: true,
+          });
+          setPhase('running');
         }}
       />
     );
@@ -514,6 +609,7 @@ export function QuestionRunner() {
             <option value="erros">Só as que errei recentemente</option>
             <option value="inimigas">⚔ Inimigas (≥3 tentativas, &lt;30% acerto)</option>
             <option value="novas">Só novas (nunca vistas)</option>
+            <option value="final-prova">🎓 Revisão pré-prova (mistura SRS + inimigas + recém-aprendidas)</option>
           </select>
         </label>
 
@@ -588,6 +684,19 @@ export function QuestionRunner() {
             Modo livre (não muda agendamento SRS)
           </span>
         </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.activeRecall}
+            onChange={(e) =>
+              setCfg({ ...cfg, activeRecall: e.target.checked })
+            }
+          />
+          <span title="Esconde alternativas até você apertar Espaço/Enter. Força lembrar antes de ver as opções — evidência forte de melhor memorização (Roediger & Karpicke 2006).">
+            🧠 Active recall (esconder alternativas até revelar)
+          </span>
+        </label>
       </div>
 
       <div className="row gap">
@@ -626,6 +735,9 @@ function RunningView({
   const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(session.tempoLimite);
   const [focusMode, setFocusMode] = useState(false);
+  // Active recall: alternativas ficam escondidas até user revelar.
+  // Quando session.activeRecall=false, sempre true (default visível).
+  const [revealed, setRevealed] = useState(!session.activeRecall);
   const startedAtRef = useRef(Date.now());
   const ratedRef = useRef(false);
 
@@ -668,13 +780,15 @@ function RunningView({
     setChosen(null);
     setConfidence(null);
     setTimeLeft(session.tempoLimite);
+    setRevealed(!session.activeRecall);
     startedAtRef.current = Date.now();
     ratedRef.current = false;
-  }, [q.id, session.tempoLimite]);
+  }, [q.id, session.tempoLimite, session.activeRecall]);
 
-  // Timer
+  // Timer — não roda enquanto active recall está escondendo as
+  // alternativas (sem opção visível, contagem regressiva é injusta).
   useEffect(() => {
-    if (!session.tempoLimite || answered) return;
+    if (!session.tempoLimite || answered || !revealed) return;
     const h = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
@@ -687,7 +801,7 @@ function RunningView({
     }, 1000);
     return () => clearInterval(h);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q.id, answered]);
+  }, [q.id, answered, revealed]);
 
   const submit = (letra: string | null, timeOut = false) => {
     if (answered) return;
@@ -814,6 +928,22 @@ function RunningView({
         setFocusMode((v) => !v);
         return;
       }
+      // Active recall: Espaço/Enter revela alternativas se ainda escondidas
+      if (!revealed && !answered) {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault();
+          setRevealed(true);
+          return;
+        }
+        // Tab ainda pula
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          skip();
+          return;
+        }
+        // A-E ignorado até revelar (pra não vazar opção sem ver)
+        return;
+      }
       if (!answered) {
         // Tab pula questão (skip soft, não conta como erro)
         if (e.key === 'Tab') {
@@ -829,7 +959,15 @@ function RunningView({
           return;
         }
       } else {
-        // Após responder
+        // Após responder. Shift+1..5 seta dificuldade da questão sem
+        // afetar o rate SRS — útil pra recalibrar enquanto revisa.
+        if (e.shiftKey && /^[1-5]$/.test(e.key)) {
+          e.preventDefault();
+          const dif = parseInt(e.key, 10) as 1 | 2 | 3 | 4 | 5;
+          updateQuestionLocal(q.id, { dificuldade: dif });
+          scheduleSync(500);
+          return;
+        }
         if (e.key === '1') rate(0);
         else if (e.key === '2') rate(3);
         else if (e.key === '3' || e.key === 'Enter' || e.key === ' ') rate(4);
@@ -839,7 +977,7 @@ function RunningView({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answered, alts, q.id]);
+  }, [answered, alts, q.id, revealed]);
 
   // Swipe horizontal: ← pula questão (só antes de responder, pra não pular sem rate)
   useSwipe({
@@ -1005,29 +1143,57 @@ function RunningView({
           </div>
         )}
 
-        <div className="alternativas">
-          {alts.map((a) => {
-            let cls = 'alt';
-            if (answered) {
-              if (a.letra === correctLetra) cls += ' correct';
-              else if (chosen && a.letra === chosen) cls += ' wrong';
-            } else if (chosen === a.letra) {
-              cls += ' selected';
-            }
-            return (
-              <button
-                key={a.letra}
-                type="button"
-                className={cls}
-                disabled={answered}
-                onClick={() => submit(a.letra)}
-              >
-                <span className="letra">{a.letra}</span>
-                <span className="texto">{a.texto || ''}</span>
-              </button>
-            );
-          })}
-        </div>
+        {!revealed ? (
+          <div
+            style={{
+              padding: 24,
+              border: '1px dashed var(--border)',
+              borderRadius: 'var(--radius)',
+              background: 'var(--bg-elev-2)',
+              textAlign: 'center',
+              margin: '14px 0',
+            }}
+          >
+            <div style={{ fontSize: '0.95rem', marginBottom: 8 }}>
+              🧠 <strong>Active recall</strong> — pense na resposta antes
+              de ver as opções.
+            </div>
+            <div className="muted" style={{ fontSize: '0.85rem', marginBottom: 14 }}>
+              Quando estiver pronto, revele as alternativas.
+            </div>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setRevealed(true)}
+            >
+              Revelar alternativas (Espaço)
+            </button>
+          </div>
+        ) : (
+          <div className="alternativas">
+            {alts.map((a) => {
+              let cls = 'alt';
+              if (answered) {
+                if (a.letra === correctLetra) cls += ' correct';
+                else if (chosen && a.letra === chosen) cls += ' wrong';
+              } else if (chosen === a.letra) {
+                cls += ' selected';
+              }
+              return (
+                <button
+                  key={a.letra}
+                  type="button"
+                  className={cls}
+                  disabled={answered}
+                  onClick={() => submit(a.letra)}
+                >
+                  <span className="letra">{a.letra}</span>
+                  <span className="texto">{a.texto || ''}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </article>
 
       {answered && (
@@ -1093,25 +1259,45 @@ function RunningView({
         </div>
       )}
 
-      {answered && (
-        <div className="srs-rate">
-          <p className="muted center">Como foi essa questão?</p>
-          <div className="row gap center wrap">
-            <button type="button" className="rate again" onClick={() => rate(0)}>
-              De novo<small>1</small>
-            </button>
-            <button type="button" className="rate hard" onClick={() => rate(3)}>
-              Difícil<small>2</small>
-            </button>
-            <button type="button" className="rate good" onClick={() => rate(4)}>
-              Bom<small>3 · Enter</small>
-            </button>
-            <button type="button" className="rate easy" onClick={() => rate(5)}>
-              Fácil<small>4</small>
-            </button>
+      {answered && (() => {
+        // Preview do próximo intervalo SRS sem aplicar — clone, simula,
+        // descarta. Caller real vai chamar applyReview com o card real.
+        const preview = (quality: number) => {
+          if (session.free) return null;
+          const card = { srs: { ...q.srs } };
+          applyReview(card, quality, algorithm);
+          const due = card.srs?.dueDate ?? Date.now();
+          const dDays = Math.max(0, Math.round((due - Date.now()) / DAY_MS));
+          if (dDays < 1) return '<1d';
+          if (dDays === 1) return '1d';
+          if (dDays < 30) return `${dDays}d`;
+          if (dDays < 365) return `${Math.round(dDays / 30)}mo`;
+          return `${Math.round(dDays / 365)}a`;
+        };
+        const pAgain = preview(0);
+        const pHard = preview(3);
+        const pGood = preview(4);
+        const pEasy = preview(5);
+        return (
+          <div className="srs-rate">
+            <p className="muted center">Como foi essa questão?</p>
+            <div className="row gap center wrap">
+              <button type="button" className="rate again" onClick={() => rate(0)}>
+                De novo<small>1{pAgain && ` · ${pAgain}`}</small>
+              </button>
+              <button type="button" className="rate hard" onClick={() => rate(3)}>
+                Difícil<small>2{pHard && ` · ${pHard}`}</small>
+              </button>
+              <button type="button" className="rate good" onClick={() => rate(4)}>
+                Bom<small>3 · Enter{pGood && ` · ${pGood}`}</small>
+              </button>
+              <button type="button" className="rate easy" onClick={() => rate(5)}>
+                Fácil<small>4{pEasy && ` · ${pEasy}`}</small>
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="row gap right" style={{ marginTop: 16 }}>
         {!answered && (
@@ -1144,7 +1330,15 @@ function RunningView({
   );
 }
 
-function Summary({ session, onRestart }: { session: SessionState; onRestart: () => void }) {
+function Summary({
+  session,
+  onRestart,
+  onRepeat,
+}: {
+  session: SessionState;
+  onRestart: () => void;
+  onRepeat?: () => void;
+}) {
   const allQuestions = useStore(selectActiveQuestions);
 
   const total = session.correct + session.wrong;
@@ -1268,6 +1462,15 @@ function Summary({ session, onRestart }: { session: SessionState; onRestart: () 
         <button type="button" className="primary" onClick={onRestart}>
           Nova sessão
         </button>
+        {onRepeat && (
+          <button
+            type="button"
+            onClick={onRepeat}
+            title="Refaz as mesmas questões em modo livre (não altera SRS)"
+          >
+            🔁 Repetir essas mesmas
+          </button>
+        )}
         {proximasVencendo > 0 && (
           <Link
             href={`/estudar?modo=srs&qtd=${Math.min(20, proximasVencendo)}&auto=1`}

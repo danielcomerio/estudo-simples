@@ -95,6 +95,7 @@ export function ShortcutsHelp() {
 
             <Section title="/ (painel)">
               <Row k="P" desc="Começa sessão recomendada (se houver)" />
+              <Row k="R" desc="Revisão pré-prova (30 questões variadas)" />
             </Section>
 
             <Section title="/banco">
@@ -106,16 +107,20 @@ export function ShortcutsHelp() {
               <Row k="Espaço" desc="Marcar/desmarcar checkbox da focada" />
               <Row k="x ou Delete" desc="Excluir focada (com confirm)" />
               <Row k="F" desc="Marcar/desmarcar como favorita (★)" />
+              <Row k="V" desc="Alternar verificação da focada (verificada ↔ pendente)" />
+              <Row k="1–5" desc="Setar dificuldade da focada (1=fácil, 5=muito difícil)" />
               <Row k="Esc" desc="Remove foco" />
             </Section>
 
             <Section title="/estudar (objetivas)">
               <Row k="A-E" desc="Marcar alternativa correspondente" />
+              <Row k="Espaço/Enter" desc="(active recall) Revelar alternativas escondidas" />
               <Row k="Tab" desc="Pular questão (skip soft, não conta)" />
               <Row k="1" desc="Após responder: De novo (q=0)" />
               <Row k="2" desc="Difícil (q=3)" />
               <Row k="3 ou Enter" desc="Bom (q=4)" />
               <Row k="4" desc="Fácil (q=5)" />
+              <Row k="Shift+1–5" desc="Após responder: setar dificuldade da questão (1=fácil, 5=muito difícil)" />
               <Row k="Z" desc="Desfazer última resposta (até 6s)" />
               <Row k="F" desc="Modo foco (esconde topbar)" />
             </Section>

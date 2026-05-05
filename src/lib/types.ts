@@ -276,7 +276,8 @@ export type StudyMode =
   | 'dificuldade'
   | 'erros'
   | 'novas'
-  | 'inimigas';
+  | 'inimigas'
+  | 'final-prova';
 
 export type SessionConfig = {
   disciplinas: string[];
@@ -293,6 +294,10 @@ export type SessionConfig = {
    *  Útil pra revisão pré-prova ou simulação sem interferir no
    *  schedule de longo prazo. */
   free?: boolean;
+  /** Active recall: esconde alternativas até user revelar. Força
+   *  pensar antes de ver opções (priming). Espaço/Enter revela.
+   *  Memorização comprovadamente mais forte (Roediger & Karpicke). */
+  activeRecall?: boolean;
 };
 
 export type DiscSessionConfig = {

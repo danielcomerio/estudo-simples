@@ -52,6 +52,16 @@ export function OnboardingTour() {
   const questions = useStore(selectActiveQuestions);
   const [step, setStep] = useState(0);
   const [seen, setSeen] = useState<boolean | null>(null);
+  // Delay antes de mostrar o tour. Sem isso, a tela pisca: hydrate
+  // completa com banco vazio → tour aparece → seed carrega 2745
+  // questões em ~1s → tour some silenciosamente. 3s é suficiente pro
+  // seed comum (6.5MB) baixar e popular o store. Em conexão lenta, o
+  // tour aparece — e depois fecha. Imperfeito mas raro.
+  const [delayPassed, setDelayPassed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setDelayPassed(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -83,7 +93,9 @@ export function OnboardingTour() {
     setSeen(true);
   };
 
-  // Não mostra se: ainda não hidrato, já viu, OU já tem questões
+  // Não mostra se: ainda não hidrato, já viu, ou tem questões.
+  // Também aguarda delayPassed (3s) pra dar chance do seed carregar
+  // antes — evita o flash de <1s no boot do visitante.
   if (!hydrated) return null;
   if (seen !== false) return null;
   if (questions.length > 0) {
@@ -92,6 +104,7 @@ export function OnboardingTour() {
     finish();
     return null;
   }
+  if (!delayPassed) return null;
 
   const cur = STEPS[step];
   const last = step === STEPS.length - 1;
