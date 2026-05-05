@@ -1196,6 +1196,26 @@ label.check-row input {
 .rate {
   padding: 11px 18px;
   font-weight: 600;
+  min-height: 44px;
+}
+@media (max-width: 539px) {
+  .rate {
+    flex: 1 1 calc(50% - 4px);
+    padding: 14px 8px;
+    font-size: 0.95rem;
+  }
+  /* Sticky no fundo durante a sessão pra evitar scroll vertical
+   * antes de avaliar — botões sempre alcançáveis com o polegar. */
+  .srs-rate {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    background: var(--bg-elev);
+    padding: 8px;
+    margin: 8px -8px -8px -8px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    z-index: 10;
+  }
 }
 .rate small {
   display: block;
@@ -1386,6 +1406,147 @@ label.check-row input {
 }
 
 /* ============ Toast ============ */
+@media print {
+  /* Esconde elementos interativos / navegação */
+  .topbar,
+  .mobile-bottom-nav,
+  .toast-stack,
+  .back-to-top-btn,
+  .undo-chip,
+  .skip-link,
+  .offline-banner,
+  button,
+  .banco-filters,
+  nav,
+  form {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border: 1px solid #aaa !important;
+    page-break-inside: avoid;
+    background: white !important;
+    color: black !important;
+  }
+  a {
+    color: black !important;
+    text-decoration: underline;
+  }
+  .meta,
+  .muted {
+    color: #555 !important;
+  }
+}
+
+@keyframes goalFall {
+  to {
+    transform: translateY(120vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Respeita prefers-reduced-motion: zera transições e animações */
+/* /stats em mobile: heatmap scroll horizontal pra não quebrar layout.
+ * Gráficos respeitam grid responsivo. */
+@media (max-width: 759px) {
+  .heatmap-wrap,
+  .heatmap-month-labels {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .stats-table {
+    font-size: 0.82rem;
+  }
+  .stats-table .col-hide-sm {
+    display: none;
+  }
+}
+
+/* /banco em mobile: filtros viram coluna pra evitar overflow lateral.
+ * Bulk actions row também flexível. */
+@media (max-width: 759px) {
+  .banco-filters {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .banco-filters input,
+  .banco-filters select {
+    max-width: 100% !important;
+    width: 100%;
+  }
+  .banco-item {
+    padding: 10px;
+  }
+  .banco-item .meta {
+    font-size: 0.78rem;
+  }
+}
+
+/* Mobile: inputs com font-size >= 16px evitam zoom automático do
+ * iOS Safari. Aumenta tap-target em controls comuns. */
+@media (max-width: 759px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    min-height: 40px;
+  }
+  /* Botões touch-friendly */
+  button,
+  .tab,
+  .chip,
+  .rate {
+    min-height: 40px;
+  }
+  /* Close buttons (✕) em modals/drawers ficam tap-friendly */
+  button.icon,
+  .ghost.icon {
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.05rem;
+  }
+  /* Cards menos padding pra caber mais */
+  .card {
+    padding: 14px;
+  }
+  /* Dialogs ocupam tela toda em mobile, com padding pra notch */
+  dialog {
+    max-width: 100vw !important;
+    width: 100% !important;
+    max-height: 90vh !important;
+    margin: 0 !important;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 16px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001s !important;
+    scroll-behavior: auto !important;
+  }
+  /* Esconde confetti totalmente — sem motion zero é só visual ruído */
+  [aria-hidden][style*="goalFall"] {
+    display: none !important;
+  }
+}
+
+.heatmap .day.clickable {
+  cursor: pointer;
+}
+.heatmap .day.clickable:hover {
+  outline: 1px solid var(--primary);
+  outline-offset: 1px;
+}
+
 .back-to-top-btn {
   position: fixed;
   right: 16px;
@@ -1412,6 +1573,36 @@ label.check-row input {
   .back-to-top-btn {
     bottom: calc(72px + env(safe-area-inset-bottom));
   }
+}
+
+/* Tap feedback em itens clicáveis pra mobile. Sutil. */
+.banco-item:active,
+.alt:active,
+.chip:active,
+.mbn-item:active {
+  transform: scale(0.98);
+  transition: transform 80ms;
+}
+
+/* Focus visível pra navegação por teclado (sem prejudicar mouse).
+ * Usa :focus-visible — só aparece em Tab, não em click. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.tab:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* KaTeX em mobile: fórmulas longas precisam scroll horizontal pra
+ * não estourar viewport. */
+.katex-display,
+.katex {
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 /* Mobile bottom nav: visível só <760, esconde em focus mode */
@@ -1474,6 +1665,15 @@ label.check-row input {
   /* Reserva espaço pra não cobrir conteúdo da página */
   main.page {
     padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Pomodoro / floating widgets sobem acima da bottom nav em mobile */
+@media (max-width: 759px) {
+  [aria-label="Abrir Pomodoro"],
+  [aria-label="Pomodoro: foco em andamento"],
+  [aria-label="Pomodoro: pausa em andamento"] {
+    bottom: calc(72px + env(safe-area-inset-bottom)) !important;
   }
 }
 body.focus-mode .mobile-bottom-nav {

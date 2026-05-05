@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { enterAsGuest, signup, type AuthState } from '../auth/actions';
 import { useIsGuest } from '@/lib/settings';
+import { PasswordInput } from '@/components/PasswordInput';
 
 const initial: AuthState = { error: null, message: null };
 
@@ -89,24 +90,12 @@ export default function SignupPage() {
 
         <label>
           <span>Senha (mín. 8 caracteres)</span>
-          <input
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+          <PasswordInput name="password" autoComplete="new-password" />
         </label>
 
         <label>
           <span>Repita a senha</span>
-          <input
-            type="password"
-            name="password2"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
+          <PasswordInput name="password2" autoComplete="new-password" />
         </label>
 
         {state.error && <div className="auth-error">{state.error}</div>}

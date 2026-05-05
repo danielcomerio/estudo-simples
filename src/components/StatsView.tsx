@@ -17,6 +17,14 @@ import {
 import { useActiveConcursoId } from '@/lib/settings';
 import { useSimuladosForUser } from '@/lib/simulado-store';
 import { calcularResultado } from '@/lib/simulado';
+import {
+  buildDisciplinasCSV,
+  buildHistoryCSV,
+  buildQuestionsCSV,
+  downloadFile,
+} from '@/lib/stats-export';
+import { readSessions } from '@/lib/sessions-log';
+import { toast } from './Toast';
 import type { Concurso, ConcursoDisciplina, Disciplina, Simulado } from '@/lib/types';
 
 /** Escopo de filtragem das estatísticas — separado do concurso ativo
@@ -153,6 +161,7 @@ export function StatsView() {
             {questions.length} questão(ões) no banco
           </span>
         )}
+        <ExportCSVMenu questions={questions} />
       </div>
 
       {effectiveConcursoId && (
@@ -163,6 +172,12 @@ export function StatsView() {
           allVinculos={allVinculos}
         />
       )}
+
+      <PeriodoSnapshot questions={questions} />
+
+      <WeekdayDistributionSection questions={questions} />
+
+      <SessionsLogSection />
 
       <SemanaSection questions={questions} />
 
@@ -187,6 +202,8 @@ export function StatsView() {
       <BancasSection questions={questions} />
 
       <TagsSection questions={questions} />
+
+      <TagRankingSection questions={questions} />
 
       <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
 
@@ -1043,6 +1060,398 @@ function ProgressaoSection({
  *
  * Esconde quando nenhuma questão tem tags (evita seção vazia).
  */
+/**
+ * Distribuição de revisões por dia da semana. Útil pra notar padrão
+ * (estuda mais segunda? menos sábado?). Total = todas as revisões do
+ * histórico carregado.
+ */
+function WeekdayDistributionSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0, 0, 0]; // Sun-Sat
+    let acertosOK = [0, 0, 0, 0, 0, 0, 0];
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const dow = new Date(h.date).getDay();
+        counts[dow]++;
+        if (h.result === 'correct' || h.result === 'self_pass') {
+          acertosOK[dow]++;
+        }
+      }
+    }
+    return counts.map((c, i) => ({
+      label: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][i],
+      total: c,
+      pct: c > 0 ? Math.round((100 * acertosOK[i]) / c) : 0,
+    }));
+  }, [questions]);
+
+  const max = Math.max(1, ...data.map((d) => d.total));
+  const totalAll = data.reduce((s, d) => s + d.total, 0);
+  if (totalAll === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>📅 Por dia da semana</h2>
+      <p
+        className="muted"
+        style={{ marginTop: 0, fontSize: '0.85rem', marginBottom: 12 }}
+      >
+        Distribuição de revisões e taxa de acerto por dia.
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: 6,
+        }}
+      >
+        {data.map((d) => {
+          const h = d.total > 0 ? Math.max(8, (d.total / max) * 80) : 4;
+          return (
+            <div
+              key={d.label}
+              style={{
+                background: 'var(--bg-elev-2)',
+                borderRadius: 'var(--radius)',
+                padding: 6,
+                textAlign: 'center',
+              }}
+              title={`${d.total} revisões · ${d.pct}% acerto`}
+            >
+              <div style={{ fontSize: '0.7rem', color: 'var(--muted)' }}>
+                {d.label}
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  height: 80,
+                  marginTop: 4,
+                }}
+              >
+                <div
+                  style={{
+                    width: 14,
+                    height: `${h}px`,
+                    background:
+                      d.pct >= 70 ? '#22c55e' : d.pct >= 40 ? '#f59e0b' : '#ef4444',
+                    borderRadius: '3px 3px 0 0',
+                    transition: 'height 0.3s',
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '0.78rem', marginTop: 2 }}>{d.total}</div>
+              {d.total > 0 && (
+                <div
+                  className="muted"
+                  style={{ fontSize: '0.68rem' }}
+                >
+                  {d.pct}%
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Lista as últimas 10 sessões concluídas (de qualquer tipo). Útil pra
+ * ver tendência de % acerto sessão a sessão.
+ */
+function SessionsLogSection() {
+  const [sessions, setSessions] = useState<ReturnType<typeof readSessions>>([]);
+  useEffect(() => {
+    setSessions(readSessions());
+  }, []);
+  const last10 = sessions.slice(0, 10);
+  if (last10.length === 0) return null;
+
+  const fmtDate = (ms: number) =>
+    new Date(ms).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  const fmtDur = (ms: number) => {
+    const min = Math.round(ms / 60000);
+    if (min < 1) return '<1min';
+    if (min < 60) return `${min}min`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m === 0 ? `${h}h` : `${h}h${m}min`;
+  };
+  const kindIcon = (k: string) => {
+    if (k === 'estudar') return '🎯';
+    if (k === 'discursivas') return '✍️';
+    if (k === 'cards') return '🃏';
+    if (k === 'simulado') return '📝';
+    return '·';
+  };
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 12px' }}>📜 Últimas sessões</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {last10.map((s) => {
+          const total = s.correct + s.wrong;
+          const pct = total > 0 ? Math.round((100 * s.correct) / total) : null;
+          const cor =
+            pct == null
+              ? 'var(--muted)'
+              : pct >= 70
+                ? '#22c55e'
+                : pct >= 40
+                  ? '#f59e0b'
+                  : '#ef4444';
+          return (
+            <div
+              key={s.id}
+              className="row gap"
+              style={{
+                padding: '6px 10px',
+                background: 'var(--bg-elev-2)',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.85rem',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ width: 22, textAlign: 'center' }}>
+                {kindIcon(s.kind)}
+              </span>
+              <span style={{ minWidth: 110 }}>{fmtDate(s.startedAt)}</span>
+              <span className="muted">{s.total} questão(ões)</span>
+              {pct != null && (
+                <span style={{ color: cor, fontWeight: 500 }}>{pct}%</span>
+              )}
+              <span className="muted" style={{ marginLeft: 'auto' }}>
+                {fmtDur(s.durationMs)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Snapshot rápido de períodos: 7 dias / 30 dias / total. Cada coluna
+ * mostra revisões, % acerto e dias estudados. Útil pra ver tendência
+ * sem entrar em detalhes — comparação visual instantânea.
+ */
+function PeriodoSnapshot({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const periods = useMemo(() => {
+    const now = Date.now();
+    const todayStart = new Date(now).setHours(0, 0, 0, 0);
+    const cutoff7 = todayStart - 6 * DAY_MS; // últimos 7 dias incluindo hoje
+    const cutoff30 = todayStart - 29 * DAY_MS;
+
+    const stats = {
+      d7: { rev: 0, correct: 0, days: new Set<number>() },
+      d30: { rev: 0, correct: 0, days: new Set<number>() },
+      all: { rev: 0, correct: 0, days: new Set<number>() },
+    };
+
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const d = new Date(h.date).setHours(0, 0, 0, 0);
+        const ok = h.result === 'correct' || h.result === 'self_pass';
+        stats.all.rev += 1;
+        if (ok) stats.all.correct += 1;
+        stats.all.days.add(d);
+        if (h.date >= cutoff30) {
+          stats.d30.rev += 1;
+          if (ok) stats.d30.correct += 1;
+          stats.d30.days.add(d);
+          if (h.date >= cutoff7) {
+            stats.d7.rev += 1;
+            if (ok) stats.d7.correct += 1;
+            stats.d7.days.add(d);
+          }
+        }
+      }
+    }
+    return [
+      {
+        label: 'Últimos 7 dias',
+        emoji: '📅',
+        rev: stats.d7.rev,
+        correct: stats.d7.correct,
+        days: stats.d7.days.size,
+        max: 7,
+      },
+      {
+        label: 'Últimos 30 dias',
+        emoji: '📆',
+        rev: stats.d30.rev,
+        correct: stats.d30.correct,
+        days: stats.d30.days.size,
+        max: 30,
+      },
+      {
+        label: 'Total',
+        emoji: '∞',
+        rev: stats.all.rev,
+        correct: stats.all.correct,
+        days: stats.all.days.size,
+        max: null,
+      },
+    ];
+  }, [questions]);
+
+  if (periods[2].rev === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 12px' }}>📊 Por período</h2>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {periods.map((p) => {
+          const pct = p.rev > 0 ? Math.round((p.correct / p.rev) * 100) : 0;
+          const consistencia = p.max
+            ? `${p.days}/${p.max} dias`
+            : `${p.days} dias`;
+          return (
+            <div
+              key={p.label}
+              style={{
+                background: 'var(--bg-elev-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: 12,
+              }}
+            >
+              <div className="muted" style={{ fontSize: '0.78rem', marginBottom: 4 }}>
+                {p.emoji} {p.label}
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>
+                {p.rev} <span className="muted" style={{ fontSize: '0.85rem', fontWeight: 400 }}>revisões</span>
+              </div>
+              <div style={{ fontSize: '0.85rem', marginTop: 4 }}>
+                <span style={{ color: pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444' }}>
+                  {pct}% acerto
+                </span>{' '}
+                <span className="muted">· {consistencia}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Top 5 tags com pior desempenho (>=10 tentativas pra evitar vieses
+ * de baixa amostra). Ordena por % acerto crescente. Útil pra direcionar
+ * estudo: aparece destacado, com call-to-action de filtrar /banco.
+ */
+function TagRankingSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const piores = useMemo(() => {
+    const m = new Map<string, { attempts: number; correct: number; total: number }>();
+    for (const q of questions) {
+      const tags = q.tags ?? [];
+      const a = q.stats?.attempts ?? 0;
+      const c = q.stats?.correct ?? 0;
+      if (a === 0 || tags.length === 0) continue;
+      for (const t of tags) {
+        const agg = m.get(t) ?? { attempts: 0, correct: 0, total: 0 };
+        agg.attempts += a;
+        agg.correct += c;
+        agg.total += 1;
+        m.set(t, agg);
+      }
+    }
+    return Array.from(m.entries())
+      .filter(([, s]) => s.attempts >= 10)
+      .map(([t, s]) => ({ tag: t, ...s, pct: s.correct / s.attempts }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 5);
+  }, [questions]);
+
+  if (piores.length === 0) return null;
+
+  return (
+    <div
+      className="card"
+      style={{
+        background: 'var(--danger-soft, rgba(239, 68, 68, 0.08))',
+        border: '1px solid var(--danger, #ef4444)',
+      }}
+    >
+      <h2 style={{ margin: '0 0 6px' }}>🚨 Tags com pior desempenho</h2>
+      <p className="muted" style={{ marginTop: 0, marginBottom: 12, fontSize: '0.88rem' }}>
+        Top 5 tags onde você mais erra (≥10 tentativas). Foque aqui pra
+        ganho direto de aprovação.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {piores.map((t) => {
+          const pct = Math.round(t.pct * 100);
+          return (
+            <div key={t.tag}>
+              <div className="row between" style={{ marginBottom: 3, fontSize: '0.88rem' }}>
+                <Link
+                  href={`/banco?search=${encodeURIComponent('tag:' + t.tag)}`}
+                  style={{ fontWeight: 500 }}
+                >
+                  🏷 {t.tag}
+                </Link>
+                <span className="muted" style={{ fontSize: '0.82rem' }}>
+                  {pct}% · {t.correct}/{t.attempts} · {t.total} questão(ões)
+                </span>
+              </div>
+              <div
+                style={{
+                  height: 6,
+                  background: 'var(--bg-elev)',
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${pct}%`,
+                    background:
+                      pct < 30
+                        ? '#ef4444'
+                        : pct < 50
+                          ? '#f59e0b'
+                          : 'var(--primary)',
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TagsSection({
   questions,
 }: {
@@ -2127,6 +2536,99 @@ function CargaProximaSection({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Menu de export CSV. Mostra dropdown com 3 opções: questões agregadas,
+ * disciplinas agregadas, e histórico cru de revisões.
+ */
+function ExportCSVMenu({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const [open, setOpen] = useState(false);
+  if (questions.length === 0) return null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const exportQuestoes = () => {
+    const csv = buildQuestionsCSV(questions);
+    downloadFile(csv, `estudo-simples-questoes-${today}.csv`);
+    toast(`${questions.length} questão(ões) exportadas em CSV`, 'success');
+    setOpen(false);
+  };
+  const exportDisciplinas = () => {
+    const csv = buildDisciplinasCSV(questions);
+    downloadFile(csv, `estudo-simples-disciplinas-${today}.csv`);
+    toast('Disciplinas exportadas em CSV', 'success');
+    setOpen(false);
+  };
+  const exportHistorico = () => {
+    const csv = buildHistoryCSV(questions);
+    downloadFile(csv, `estudo-simples-historico-${today}.csv`);
+    toast('Histórico exportado em CSV', 'success');
+    setOpen(false);
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Exportar dados em CSV"
+      >
+        📥 Exportar CSV
+      </button>
+      {open && (
+        <>
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 50 }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: 4,
+              background: 'var(--bg-elev)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: 4,
+              zIndex: 51,
+              minWidth: 220,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={exportQuestoes}
+              className="ghost"
+              style={{ display: 'block', width: '100%', textAlign: 'left' }}
+            >
+              📄 Questões agregadas
+            </button>
+            <button
+              type="button"
+              onClick={exportDisciplinas}
+              className="ghost"
+              style={{ display: 'block', width: '100%', textAlign: 'left' }}
+            >
+              📚 Disciplinas agregadas
+            </button>
+            <button
+              type="button"
+              onClick={exportHistorico}
+              className="ghost"
+              style={{ display: 'block', width: '100%', textAlign: 'left' }}
+            >
+              📜 Histórico cru de revisões
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

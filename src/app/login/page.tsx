@@ -2,6 +2,7 @@
 
 import { Suspense } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
+import { PasswordInput } from '@/components/PasswordInput';
 // useFormStatus só lê pending do form pai — quando GuestSubmit estiver
 // dentro do form de login, é normal que o pending seja do login.
 import Link from 'next/link';
@@ -60,12 +61,7 @@ function LoginForm() {
 
       <label>
         <span>Senha</span>
-        <input
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          required
-        />
+        <PasswordInput name="password" autoComplete="current-password" />
       </label>
 
       {state.error && <div className="auth-error">{state.error}</div>}
@@ -111,3 +107,4 @@ export default function LoginPage() {
     </main>
   );
 }
+

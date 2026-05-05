@@ -82,6 +82,9 @@ export function QuestionEditDrawer({
   const [notesUser, setNotesUser] = useState(
     question.payload.notes_user ?? ''
   );
+  const [mnemonic, setMnemonic] = useState(
+    (question.payload as { mnemonic?: string }).mnemonic ?? ''
+  );
   const [alts, setAlts] = useState<EditableAlt[]>(() => {
     if (question.type !== 'objetiva') return [];
     const p = question.payload as ObjetivaPayload;
@@ -214,8 +217,11 @@ export function QuestionEditDrawer({
 
     if (notesUser.length > 10_000)
       return { patch: {}, error: 'notas: máximo 10.000 caracteres' };
+    if (mnemonic.length > 2000)
+      return { patch: {}, error: 'mnemônico: máximo 2.000 caracteres' };
 
     const notesNorm = notesUser.trim() || undefined;
+    const mnemoNorm = mnemonic.trim() || undefined;
 
     let payload: ObjetivaPayload | DiscursivaPayload;
     if (question.type === 'objetiva') {
@@ -254,6 +260,7 @@ export function QuestionEditDrawer({
         gabarito: corretas[0].letra,
         explicacao_geral: explicacao || undefined,
         notes_user: notesNorm,
+        mnemonic: mnemoNorm,
         imagens: imagens.length > 0 ? imagens : undefined,
       };
     } else {
@@ -263,6 +270,7 @@ export function QuestionEditDrawer({
         enunciado_completo: enun,
         espelho_resposta: espelho || prevPayload.espelho_resposta,
         notes_user: notesNorm,
+        mnemonic: mnemoNorm,
         imagens: imagens.length > 0 ? imagens : undefined,
       };
     }
@@ -363,6 +371,9 @@ export function QuestionEditDrawer({
     }
     if (notesUser) {
       (payload as { notes_user?: string }).notes_user = notesUser;
+    }
+    if (mnemonic.trim()) {
+      (payload as { mnemonic?: string }).mnemonic = mnemonic.trim();
     }
 
     if (!question.user_id) {
@@ -572,7 +583,19 @@ export function QuestionEditDrawer({
             value={tagsStr}
             onChange={(e) => setTagsStr(e.target.value)}
             placeholder="ex: pegadinha-FGV, art.5-CF, súmula-vinculante-13"
+            list="banco-tags-datalist"
           />
+          <datalist id="banco-tags-datalist">
+            {(() => {
+              const set = new Set<string>();
+              for (const q of allActive) {
+                for (const t of q.tags ?? []) set.add(t);
+              }
+              return Array.from(set)
+                .sort()
+                .map((t) => <option key={t} value={t} />);
+            })()}
+          </datalist>
         </label>
 
         {/* Enunciado */}
@@ -1002,19 +1025,56 @@ export function QuestionEditDrawer({
           />
         </label>
 
+        <label
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            marginBottom: 14,
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>
+            🧠 Mnemônico / dica de memorização (max 2k chars) — mostrado
+            no feedback após errar
+          </span>
+          <textarea
+            value={mnemonic}
+            onChange={(e) => setMnemonic(e.target.value)}
+            rows={2}
+            maxLength={2_000}
+            placeholder="Ex: ROOM = Recursos Operacionais Oriundos do Mercado"
+          />
+        </label>
+
         <div
           className="row gap"
           style={{ marginTop: 18, justifyContent: 'space-between' }}
         >
-          <button
-            type="button"
-            className="ghost"
-            onClick={duplicate}
-            disabled={submitting}
-            title="Cria cópia desta questão (autoral). Você pode editar a cópia depois pra evitar duplicata."
-          >
-            ⎘ Duplicar
-          </button>
+          <div className="row gap">
+            <button
+              type="button"
+              className="ghost"
+              onClick={duplicate}
+              disabled={submitting}
+              title="Cria cópia desta questão (autoral). Você pode editar a cópia depois pra evitar duplicata."
+            >
+              ⎘ Duplicar
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                  void navigator.clipboard.writeText(question.id);
+                  toast(`ID copiado: ${question.id.slice(0, 8)}…`, 'success', 2000);
+                }
+              }}
+              disabled={submitting}
+              title={`Copiar ID da questão (${question.id})`}
+            >
+              📋 ID
+            </button>
+          </div>
           <div className="row gap">
             <button type="button" className="ghost" onClick={() => close(false)}>
               Cancelar

@@ -20,9 +20,12 @@ import {
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/lib/study-queue';
+import { appendSession } from '@/lib/sessions-log';
+import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { renderClozeHTML } from '@/lib/cloze';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
+import { toast } from './Toast';
 import type {
   ClozePayload,
   DiscSessionConfig,
@@ -103,9 +106,24 @@ export function CardsRunner() {
   );
 
   const [phase, setPhase] = useState<Phase>('config');
-  const [cfg, setCfg] = useState<CardConfig>(defaultCfg);
+  const [cfg, setCfgRaw] = useState<CardConfig>(defaultCfg);
+  useEffect(() => {
+    const saved = loadPrefs<Partial<CardConfig>>('cards');
+    if (saved) setCfgRaw((c) => ({ ...c, ...saved, disciplinas: [] }));
+  }, []);
+  const setCfg = (next: CardConfig | ((prev: CardConfig) => CardConfig)) => {
+    setCfgRaw((prev) => {
+      const resolved =
+        typeof next === 'function' ? (next as (p: CardConfig) => CardConfig)(prev) : next;
+      const { disciplinas: _d, ...rest } = resolved;
+      savePrefs('cards', rest);
+      return resolved;
+    });
+  };
   const [pool, setPool] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
+  // Marca início da sessão pra calcular durationMs no log final.
+  const sessionStartRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -224,11 +242,21 @@ export function CardsRunner() {
     if (!p.length) return;
     setPool(p);
     setIdx(0);
+    sessionStartRef.current = Date.now();
     setPhase('running');
   };
 
   const next = () => {
     if (idx + 1 >= pool.length) {
+      appendSession({
+        kind: 'cards',
+        startedAt: sessionStartRef.current,
+        endedAt: Date.now(),
+        total: pool.length,
+        correct: 0,
+        wrong: 0,
+        durationMs: Date.now() - sessionStartRef.current,
+      });
       clearSession('cards');
       setPhase('summary');
     } else setIdx(idx + 1);
@@ -261,6 +289,22 @@ export function CardsRunner() {
     setUndoSnap(null);
     scheduleSync(800);
   };
+
+  // Atalho Z desfaz último rate (enquanto chip está visível)
+  useEffect(() => {
+    if (!undoSnap) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        undoLastRate();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoSnap]);
 
   if (phase === 'running' && pool[idx]) {
     return (
@@ -517,6 +561,7 @@ function CardView({
   //   Quando >= total, equivale a "totalmente revelado" (autoavaliação).
   // Pra flashcard: 0 = frente / >=1 = verso revelado.
   const [revealed, setRevealed] = useState(0);
+  const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const algorithm = useAlgorithm();
 
   const totalBlanks = useMemo(() => {
@@ -532,6 +577,7 @@ function CardView({
   // Reset ao trocar
   useEffect(() => {
     setRevealed(0);
+    setConfidence(null);
   }, [q.id]);
 
   // Atalhos: espaço/enter pra revelar próximo; após tudo revelado, 1-4 pra rate
@@ -553,6 +599,7 @@ function CardView({
         // Tab pula card (skip — não conta como study)
         if (e.key === 'Tab') {
           e.preventDefault();
+          toast('↪ Pulado', '', 1200);
           onNext();
         }
       } else {
@@ -600,6 +647,7 @@ function CardView({
         date: Date.now(),
         result: isCorrect ? ('correct' as const) : ('wrong' as const),
         quality,
+        ...(confidence !== null && { confidence }),
       },
     ];
 
@@ -666,8 +714,70 @@ function CardView({
 
       <QuestionImages urls={(q.payload as { imagens?: string[] }).imagens} />
 
+      {!allRevealed && (
+        <div
+          role="radiogroup"
+          aria-label="Confiança antes de revelar"
+          style={{
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            margin: '12px 0 4px',
+            padding: '8px 10px',
+            background: 'var(--bg-elev-2)',
+            borderRadius: 'var(--radius)',
+            fontSize: '0.85rem',
+          }}
+        >
+          <span className="muted" style={{ marginRight: 4 }}>
+            Quão certo está? <em>(opcional)</em>
+          </span>
+          {[
+            { v: 1 as const, label: '🤔 Chutei' },
+            { v: 2 as const, label: '😐 Incerto' },
+            { v: 3 as const, label: '💪 Confiante' },
+          ].map((opt) => {
+            const isOn = confidence === opt.v;
+            return (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => setConfidence(isOn ? null : opt.v)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid ' + (isOn ? 'var(--primary)' : 'var(--border)'),
+                  background: isOn ? 'var(--primary-soft)' : 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  color: 'var(--text)',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!allRevealed && (
+        <p
+          className="muted"
+          style={{
+            marginTop: 12,
+            marginBottom: 0,
+            fontSize: '0.82rem',
+            fontStyle: 'italic',
+          }}
+        >
+          💡 Pense na resposta antes de revelar — esse momento de
+          esforço fortalece a memorização (active recall).
+        </p>
+      )}
+
       {!allRevealed ? (
-        <div className="row gap" style={{ marginTop: 18 }}>
+        <div className="row gap" style={{ marginTop: 12 }}>
           <button
             type="button"
             className="primary"
@@ -779,6 +889,24 @@ function ClozeBody({
           }}
         />
       )}
+      {allRevealed && (payload as { mnemonic?: string }).mnemonic && (
+        <div
+          style={{
+            marginTop: 8,
+            padding: 10,
+            background: 'var(--primary-soft)',
+            borderLeft: '3px solid var(--primary)',
+            paddingLeft: 12,
+            borderRadius: 'var(--radius)',
+            fontSize: '0.92rem',
+          }}
+          dangerouslySetInnerHTML={{
+            __html:
+              '<strong>🧠 Mnemônico:</strong> ' +
+              renderRichText((payload as { mnemonic?: string }).mnemonic ?? ''),
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -821,6 +949,23 @@ function FlashcardBody({
             border: '1px solid var(--primary)',
           }}
           dangerouslySetInnerHTML={{ __html: renderRichText(payload.verso) }}
+        />
+      )}
+      {revealed && (payload as { mnemonic?: string }).mnemonic && (
+        <div
+          style={{
+            fontSize: '0.92rem',
+            padding: 10,
+            background: 'var(--bg-elev-2)',
+            borderLeft: '3px solid var(--primary)',
+            paddingLeft: 12,
+            borderRadius: 'var(--radius)',
+          }}
+          dangerouslySetInnerHTML={{
+            __html:
+              '<strong>🧠 Mnemônico:</strong> ' +
+              renderRichText((payload as { mnemonic?: string }).mnemonic ?? ''),
+          }}
         />
       )}
     </div>

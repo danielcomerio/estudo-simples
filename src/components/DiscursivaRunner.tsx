@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   selectActiveQuestions,
   selectDisciplinas,
@@ -18,8 +18,11 @@ import {
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
+import { appendSession } from '@/lib/sessions-log';
+import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { useSwipe } from '@/lib/use-swipe';
+import { UndoChip } from './UndoChip';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -73,9 +76,27 @@ export function DiscursivaRunner() {
   );
 
   const [phase, setPhase] = useState<Phase>('config');
-  const [cfg, setCfg] = useState<DiscSessionConfig>(defaultCfg);
+  const [cfg, setCfgRaw] = useState<DiscSessionConfig>(defaultCfg);
+  useEffect(() => {
+    const saved = loadPrefs<Partial<DiscSessionConfig>>('discursivas');
+    if (saved) setCfgRaw((c) => ({ ...c, ...saved, disciplinas: [] }));
+  }, []);
+  const setCfg = (
+    next: DiscSessionConfig | ((p: DiscSessionConfig) => DiscSessionConfig)
+  ) => {
+    setCfgRaw((prev) => {
+      const resolved =
+        typeof next === 'function'
+          ? (next as (p: DiscSessionConfig) => DiscSessionConfig)(prev)
+          : next;
+      const { disciplinas: _d, ...rest } = resolved;
+      savePrefs('discursivas', rest);
+      return resolved;
+    });
+  };
   const [pool, setPool] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
+  const sessionStartRef = useRef<number>(Date.now());
 
   useEffect(() => {
     if (phase !== 'running') return;
@@ -144,11 +165,21 @@ export function DiscursivaRunner() {
     if (!p.length) return;
     setPool(p);
     setIdx(0);
+    sessionStartRef.current = Date.now();
     setPhase('running');
   };
 
   const next = () => {
     if (idx + 1 >= pool.length) {
+      appendSession({
+        kind: 'discursivas',
+        startedAt: sessionStartRef.current,
+        endedAt: Date.now(),
+        total: pool.length,
+        correct: 0,
+        wrong: 0,
+        durationMs: Date.now() - sessionStartRef.current,
+      });
       clearSession('discursivas');
       setPhase('summary');
     } else setIdx(idx + 1);
@@ -342,6 +373,13 @@ function DiscRunningView({
   const [revealed, setRevealed] = useState(false);
   const [grades, setGrades] = useState<Record<number, number>>({});
   const [rated, setRated] = useState(false);
+  // Snapshot pra undo da última rate. Mantido por 6s.
+  const [undoSnap, setUndoSnap] = useState<{
+    qid: string;
+    prevSrs: typeof q.srs;
+    prevStats: typeof q.stats;
+    prevRated: boolean;
+  } | null>(null);
 
   // resetar ao trocar de questão; restaurar draft local se houver
   useEffect(() => {
@@ -431,6 +469,13 @@ function DiscRunningView({
 
   const rate = (quality: number) => {
     if (rated) return;
+    // Captura snapshot ANTES de aplicar — pra undoLastRate restaurar.
+    const snap = {
+      qid: q.id,
+      prevSrs: { ...q.srs },
+      prevStats: { ...q.stats },
+      prevRated: rated,
+    };
     setRated(true);
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
     applyReview(card, quality, algorithm);
@@ -454,7 +499,35 @@ function DiscRunningView({
       },
     }));
     scheduleSync(800);
+    setUndoSnap(snap);
   };
+
+  const undoLastRate = () => {
+    if (!undoSnap) return;
+    updateQuestionLocal(undoSnap.qid, {
+      srs: undoSnap.prevSrs,
+      stats: undoSnap.prevStats,
+    });
+    setRated(undoSnap.prevRated);
+    setUndoSnap(null);
+    scheduleSync(800);
+  };
+
+  // Atalho Z desfaz
+  useEffect(() => {
+    if (!undoSnap) return;
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        undoLastRate();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoSnap]);
 
   const progressPct = Math.round(((idx + (rated ? 1 : 0)) / total) * 100);
 
@@ -534,6 +607,12 @@ function DiscRunningView({
           />
         )}
       </article>
+      {undoSnap && (
+        <UndoChip
+          onUndo={undoLastRate}
+          onDismiss={() => setUndoSnap(null)}
+        />
+      )}
     </div>
   );
 }

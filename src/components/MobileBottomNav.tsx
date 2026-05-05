@@ -24,11 +24,16 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const questions = useStore(selectActiveQuestions);
 
-  const dueObjetivas = useMemo(() => {
+  const dueByType = useMemo(() => {
     const tomorrow = startOfDay(Date.now()) + DAY_MS;
-    return questions.filter(
-      (q) => q.type === 'objetiva' && (q.srs?.dueDate ?? 0) < tomorrow
-    ).length;
+    let obj = 0;
+    let cards = 0;
+    for (const q of questions) {
+      if ((q.srs?.dueDate ?? 0) >= tomorrow) continue;
+      if (q.type === 'objetiva') obj++;
+      else if (q.type === 'cloze' || q.type === 'flashcard') cards++;
+    }
+    return { obj, cards };
   }, [questions]);
 
   const isActive = (href: string) => {
@@ -36,11 +41,17 @@ export function MobileBottomNav() {
     return pathname?.startsWith(href);
   };
 
+  const badgeFor = (href: string): number => {
+    if (href === '/estudar') return dueByType.obj;
+    if (href === '/cards') return dueByType.cards;
+    return 0;
+  };
+
   return (
     <nav className="mobile-bottom-nav" role="navigation" aria-label="Navegação principal">
       {TABS.map((t) => {
         const active = isActive(t.href);
-        const showBadge = t.href === '/estudar' && dueObjetivas > 0;
+        const badge = badgeFor(t.href);
         return (
           <Link
             key={t.href}
@@ -51,9 +62,9 @@ export function MobileBottomNav() {
           >
             <span className="mbn-icon" aria-hidden>
               {t.icon}
-              {showBadge && (
-                <span className="mbn-badge" aria-label={`${dueObjetivas} vencendo`}>
-                  {dueObjetivas > 9 ? '9+' : dueObjetivas}
+              {badge > 0 && (
+                <span className="mbn-badge" aria-label={`${badge} vencendo`}>
+                  {badge > 9 ? '9+' : badge}
                 </span>
               )}
             </span>

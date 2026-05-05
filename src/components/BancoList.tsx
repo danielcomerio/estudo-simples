@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useStore,
   selectActiveQuestions,
@@ -17,6 +17,7 @@ import { hasMath, startOfDay } from '@/lib/utils';
 import {
   matchActiveConcurso,
   useActiveConcursoFilter,
+  useConcursos,
   useDisciplinas,
   useTopicos,
 } from '@/lib/hierarchy';
@@ -82,10 +83,20 @@ export function BancoList() {
   const disciplinas = useStore(selectDisciplinas);
   const { data: discMeta } = useDisciplinas();
   const hydrated = useStore((s) => s.hydrated);
+  // Delay igual ao Dashboard pra não flashar empty state durante seed
+  const [emptyAllowed, setEmptyAllowed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setEmptyAllowed(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
   const firstSyncInFlight = syncStatus === 'syncing' && !lastPullAt;
   const router = useRouter();
+  const params = useSearchParams();
+  // Aplica filtros vindos da URL na primeira render. Idempotente — só
+  // seta uma vez (initialApplied), pra não atropelar mudanças do user.
+  const initialAppliedRef = useRef(false);
 
   // Mapa nome → cor pra color-coding rápido nos itens
   const discCorMap = useMemo(() => {
@@ -106,14 +117,44 @@ export function BancoList() {
   >('');
   const [imgFilter, setImgFilter] = useState<'' | 'com' | 'sem'>('');
   const [notasFilter, setNotasFilter] = useState<'' | 'com' | 'sem'>('');
+  const [mnemoFilter, setMnemoFilter] = useState<'' | 'com' | 'sem'>('');
   const [latexFilter, setLatexFilter] = useState<'' | 'com' | 'sem'>('');
   const [tempoFilter, setTempoFilter] = useState<
     '' | 'hoje' | 'ontem' | 'semana' | 'nunca'
   >('');
   const [favFilter, setFavFilter] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<
-    'recente' | 'antiga' | 'atualizada' | 'due_asc' | 'attempts_desc' | 'acerto_asc' | 'dificuldade_desc'
-  >('recente');
+  type SortBy =
+    | 'recente'
+    | 'antiga'
+    | 'atualizada'
+    | 'due_asc'
+    | 'attempts_desc'
+    | 'acerto_asc'
+    | 'dificuldade_desc'
+    | 'last_reviewed_asc';
+  const [sortBy, setSortBy] = useState<SortBy>(() => {
+    if (typeof window === 'undefined') return 'recente';
+    try {
+      const v = localStorage.getItem('estudo-simples:banco:sort');
+      const valid: SortBy[] = [
+        'recente',
+        'antiga',
+        'atualizada',
+        'due_asc',
+        'attempts_desc',
+        'acerto_asc',
+        'dificuldade_desc',
+        'last_reviewed_asc',
+      ];
+      if (v && (valid as string[]).includes(v)) return v as SortBy;
+    } catch {}
+    return 'recente';
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('estudo-simples:banco:sort', sortBy);
+    } catch {}
+  }, [sortBy]);
   const [compact, setCompact] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     try {
@@ -130,6 +171,50 @@ export function BancoList() {
       );
     } catch {}
   }, [compact]);
+
+  // Persiste e restaura scroll position do /banco entre navegações.
+  // Salva sempre que o user rola; restaura ao montar (uma vez).
+  useEffect(() => {
+    const KEY = 'estudo-simples:banco:scrollY';
+    const onScroll = () => {
+      try {
+        sessionStorage.setItem(KEY, String(window.scrollY));
+      } catch {}
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    // Restaura na próxima frame (após o layout estabilizar)
+    requestAnimationFrame(() => {
+      try {
+        const v = sessionStorage.getItem(KEY);
+        if (v) window.scrollTo(0, parseInt(v, 10));
+      } catch {}
+    });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Aplica filtros via URL query (?search=foo, ?srs=inimigas, etc.)
+  useEffect(() => {
+    if (initialAppliedRef.current) return;
+    initialAppliedRef.current = true;
+    const s = params.get('search');
+    if (s) setSearch(s);
+    const qid = params.get('qid');
+    if (qid) {
+      // Abre o drawer da questão. Necessário aguardar hydrate.
+      setTimeout(() => setEditingId(qid), 100);
+    }
+    const srs = params.get('srs');
+    if (srs && ['atrasadas', 'hoje', 'novas', 'recentes', 'sem_estudo', 'dominadas', 'inimigas'].includes(srs)) {
+      setSrsFilter(srs as typeof srsFilter);
+    }
+    const tipoP = params.get('tipo');
+    if (tipoP && ['objetiva', 'discursiva'].includes(tipoP)) {
+      setTipo(tipoP as typeof tipo);
+    }
+    const discP = params.get('disc');
+    if (discP) setDisc(discP);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
   // Filtros salvos como preset (localStorage). Não sincroniza entre
   // dispositivos — preferência local.
   type Preset = {
@@ -222,13 +307,20 @@ export function BancoList() {
     const tagFilters: string[] = [];
     const discFilters: string[] = [];
     const bancaFilters: string[] = [];
+    const idFilters: string[] = [];
+    let dueWithinDays: number | null = null; // due:7d → 7
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
       if (lower.startsWith('tag:')) tagFilters.push(tok.slice(4).toLowerCase());
       else if (lower.startsWith('disc:')) discFilters.push(tok.slice(5).toLowerCase());
       else if (lower.startsWith('banca:')) bancaFilters.push(tok.slice(6).toLowerCase());
-      else freeTextParts.push(tok.toLowerCase());
+      else if (lower.startsWith('id:')) idFilters.push(tok.slice(3));
+      else if (lower.startsWith('due:')) {
+        const v = lower.slice(4);
+        const m = /^(\d+)d?$/.exec(v);
+        if (m) dueWithinDays = parseInt(m[1], 10);
+      } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
 
@@ -239,6 +331,16 @@ export function BancoList() {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      // id:XYZ filtra a questão específica
+      if (idFilters.length > 0) {
+        if (!idFilters.some((id) => q.id.startsWith(id))) return false;
+      }
+      // due:Xd filtra questões com dueDate dentro dos próximos X dias
+      if (dueWithinDays !== null) {
+        const due = q.srs?.dueDate ?? Infinity;
+        const limit = now + dueWithinDays * DAY_MS;
+        if (due > limit) return false;
+      }
       // Prefixos
       if (tagFilters.length > 0) {
         const tagsLower = (q.tags ?? []).map((t) => t.toLowerCase());
@@ -266,6 +368,11 @@ export function BancoList() {
         const has = Array.isArray(imgs) && imgs.length > 0;
         if (imgFilter === 'com' && !has) return false;
         if (imgFilter === 'sem' && has) return false;
+      }
+      if (mnemoFilter) {
+        const has = !!(q.payload as { mnemonic?: string }).mnemonic;
+        if (mnemoFilter === 'com' && !has) return false;
+        if (mnemoFilter === 'sem' && has) return false;
       }
       if (notasFilter) {
         const notas = (q.payload as { notes_user?: string }).notes_user;
@@ -354,7 +461,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -388,6 +495,14 @@ export function BancoList() {
       case 'dificuldade_desc':
         arr.sort((a, b) => (b.dificuldade ?? 0) - (a.dificuldade ?? 0));
         break;
+      case 'last_reviewed_asc':
+        // Mais negligenciadas primeiro (sem revisão = -Infinity = topo).
+        arr.sort(
+          (a, b) =>
+            (a.srs?.lastReviewed ?? -Infinity) -
+            (b.srs?.lastReviewed ?? -Infinity)
+        );
+        break;
     }
     return arr;
   }, [filtered, sortBy]);
@@ -405,6 +520,14 @@ export function BancoList() {
     setSelected((cur) => {
       const next = new Set(cur);
       for (const q of filtered) next.add(q.id);
+      return next;
+    });
+  };
+
+  const selectAllVisible = () => {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      for (const q of sorted.slice(0, visibleCount)) next.add(q.id);
       return next;
     });
   };
@@ -570,6 +693,58 @@ export function BancoList() {
     setSelected(new Set());
     scheduleSync(500);
     toast(`${selected.size} marcada(s) como ${label}.`, 'success');
+  };
+
+  const bulkResetSrs = async () => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const ok = await confirmDialog({
+      title: 'Limpar histórico de revisões',
+      message: `Vai resetar SRS e stats de ${selected.size} questão(ões) — começam do zero. As questões em si permanecem. Continuar?`,
+      danger: true,
+    });
+    if (!ok) return;
+    const now = Date.now();
+    const cleanSrs = {
+      easeFactor: 2.5,
+      interval: 0,
+      repetitions: 0,
+      dueDate: now,
+      lastReviewed: null,
+    };
+    const cleanStats = {
+      attempts: 0,
+      correct: 0,
+      wrong: 0,
+      history: [],
+    };
+    for (const id of selected) {
+      updateQuestionLocal(id, { srs: cleanSrs, stats: cleanStats });
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`Histórico resetado em ${selected.size} questão(ões).`, 'success');
+  };
+
+  const bulkSetConcurso = async (concursoId: string | null) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const label = concursoId ? 'concurso selecionado' : 'sem concurso';
+    const ok = await confirmDialog({
+      title: 'Vincular ao concurso em lote',
+      message: `Vincular ${selected.size} questão(ões) ao ${label}?`,
+    });
+    if (!ok) return;
+    for (const id of selected) {
+      updateQuestionLocal(id, { concurso_id: concursoId });
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`${selected.size} vinculada(s).`, 'success');
   };
 
   const deleteAllFiltered = async () => {
@@ -745,6 +920,28 @@ export function BancoList() {
           );
           break;
         }
+        case 'R': {
+          // Capital R: 1 questão aleatória do filtro atual → /estudar
+          if (sorted.length === 0) return;
+          e.preventDefault();
+          const candidatos = sorted.filter(
+            (qq) =>
+              qq.type === 'objetiva' ||
+              qq.type === 'cloze' ||
+              qq.type === 'flashcard'
+          );
+          if (candidatos.length === 0) {
+            toast('Sem questões estudáveis no filtro', 'warn');
+            return;
+          }
+          const random = candidatos[Math.floor(Math.random() * candidatos.length)];
+          const path =
+            random.type === 'objetiva'
+              ? `/estudar?qid=${random.id}`
+              : `/cards?qid=${random.id}`;
+          router.push(path);
+          break;
+        }
         case '1':
         case '2':
         case '3':
@@ -793,6 +990,24 @@ export function BancoList() {
       `estudo-simples-export-selecionadas-${qs.length}q-${new Date().toISOString().slice(0, 10)}.json`
     );
     toast(`${qs.length} selecionada(s) exportada(s).`, 'success');
+  };
+
+  const exportSelectedCSV = () => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const qs = questions.filter((q) => selected.has(q.id));
+    void import('@/lib/stats-export').then(
+      ({ buildQuestionsCSV, downloadFile }) => {
+        const csv = buildQuestionsCSV(qs);
+        downloadFile(
+          csv,
+          `estudo-simples-export-selecionadas-${qs.length}q-${new Date().toISOString().slice(0, 10)}.csv`
+        );
+        toast(`${qs.length} selecionada(s) em CSV.`, 'success');
+      }
+    );
   };
 
   return (
@@ -1006,7 +1221,25 @@ export function BancoList() {
         );
       })()}
 
-      <h2 style={{ margin: '0 0 10px' }}>Banco atual</h2>
+      <h2 style={{ margin: '0 0 10px' }}>
+        Banco atual
+        {selected.size > 0 && (
+          <span
+            style={{
+              marginLeft: 10,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              color: 'var(--primary)',
+              background: 'var(--primary-soft)',
+              padding: '2px 8px',
+              borderRadius: 999,
+              verticalAlign: 'middle',
+            }}
+          >
+            {selected.size} selecionada{selected.size === 1 ? '' : 's'}
+          </span>
+        )}
+      </h2>
 
       <div
         className="row gap wrap banco-filters"
@@ -1019,11 +1252,11 @@ export function BancoList() {
         <input
           ref={searchRef}
           type="search"
-          placeholder="Buscar (atalho: /). Use tag:x disc:y banca:z"
+          placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d id:xx"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ maxWidth: 320 }}
-          title="Prefixos: tag:foo disc:bar banca:FGV (tudo combinável). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui"
+          title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
         />
         <select value={disc} onChange={(e) => setDisc(e.target.value)}>
           <option value="">Todas as disciplinas</option>
@@ -1094,6 +1327,15 @@ export function BancoList() {
           <option value="sem">— Sem anotação</option>
         </select>
         <select
+          value={mnemoFilter}
+          onChange={(e) => setMnemoFilter(e.target.value as typeof mnemoFilter)}
+          title="Filtrar por mnemônico/dica de memorização"
+        >
+          <option value="">Mnemônico (qq)</option>
+          <option value="com">🧠 Com mnemônico</option>
+          <option value="sem">— Sem mnemônico</option>
+        </select>
+        <select
           value={latexFilter}
           onChange={(e) => setLatexFilter(e.target.value as typeof latexFilter)}
           title="Filtrar por presença de fórmulas LaTeX"
@@ -1125,6 +1367,7 @@ export function BancoList() {
           <option value="attempts_desc">↓ Mais estudadas</option>
           <option value="acerto_asc">↑ Menor % acerto</option>
           <option value="dificuldade_desc">↓ Mais difíceis</option>
+          <option value="last_reviewed_asc">💤 Mais negligenciadas</option>
         </select>
         <button
           type="button"
@@ -1200,6 +1443,13 @@ export function BancoList() {
         <button type="button" onClick={selectAllFiltered}>
           Selecionar tudo (filtrado)
         </button>
+        <button
+          type="button"
+          onClick={selectAllVisible}
+          title="Seleciona apenas as questões atualmente visíveis (página)"
+        >
+          Selecionar visíveis
+        </button>
         <button type="button" onClick={() => setSelected(new Set())}>
           Limpar seleção
         </button>
@@ -1223,6 +1473,43 @@ export function BancoList() {
           onAdd={bulkAddTags}
           onRemove={bulkRemoveTags}
         />
+        <BulkConcursoMenu
+          disabled={selected.size === 0}
+          onPick={bulkSetConcurso}
+        />
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => bulkAddTags('platform')}
+          title="Adiciona tag 'platform' às selecionadas (vão pro seed na próxima export)"
+        >
+          🌐 Marcar como plataforma
+        </button>
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => bulkRemoveTags('platform')}
+          title="Remove tag 'platform' das selecionadas"
+        >
+          🚫 Tirar da plataforma
+        </button>
+        <button
+          type="button"
+          className="danger"
+          disabled={selected.size === 0}
+          onClick={bulkResetSrs}
+          title="Zera SRS e stats das selecionadas"
+        >
+          🧹 Limpar histórico
+        </button>
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={exportSelectedCSV}
+          title="Exportar selecionadas em CSV (1 linha por questão)"
+        >
+          📥 CSV selecionadas
+        </button>
         <button type="button" className="danger" onClick={deleteAllFiltered}>
           Excluir TUDO no filtro
         </button>
@@ -1287,7 +1574,7 @@ export function BancoList() {
       )}
 
       <div className="banco-list">
-        {!hydrated || firstSyncInFlight ? (
+        {!hydrated || firstSyncInFlight || (!emptyAllowed && questions.length === 0) ? (
           <div className="empty">
             <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
             <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
@@ -1379,14 +1666,139 @@ export function BancoList() {
                     {q.verificacao === 'duvidosa' && (
                       <span title="Marcada como duvidosa (revisar antes de estudar)" style={{ color: 'var(--danger)' }}>⚠️</span>
                     )}
-                    {q.disciplina_id && <span>{q.disciplina_id}</span>}
-                    {q.tema && <span>{q.tema}</span>}
+                    {q.disciplina_id && (
+                      <button
+                        type="button"
+                        title="Filtrar por essa disciplina"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDisc(q.disciplina_id ?? '');
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          textDecoration: 'underline dotted',
+                        }}
+                      >
+                        {q.disciplina_id}
+                      </button>
+                    )}
+                    {q.tema && (
+                      <button
+                        type="button"
+                        title="Buscar por esse tema"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (q.tema) setSearch(q.tema);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          textDecoration: 'underline dotted',
+                        }}
+                      >
+                        {q.tema}
+                      </button>
+                    )}
                     <span>{q.type}</span>
                     {q.banca_estilo && !q.origem && <span>{q.banca_estilo}</span>}
                     {q.dificuldade != null && <span>dif {q.dificuldade}</span>}
                     {q.payload.notes_user && (
                       <span title="Tem anotações pessoais" aria-label="Tem anotações">
                         📝
+                      </span>
+                    )}
+                    {(q.payload as { mnemonic?: string }).mnemonic && (
+                      <span title="Tem mnemônico" aria-label="Tem mnemônico">
+                        🧠
+                      </span>
+                    )}
+                    {Array.isArray((q.payload as { imagens?: string[] }).imagens) &&
+                      ((q.payload as { imagens?: string[] }).imagens?.length ?? 0) > 0 && (
+                        <span title="Tem imagem" aria-label="Tem imagem">
+                          🖼
+                        </span>
+                      )}
+                    {(() => {
+                      // Importada nas últimas 24h — chip "✨ recém"
+                      const created = q.created_at ? new Date(q.created_at).getTime() : 0;
+                      if (!created) return null;
+                      const ageMs = Date.now() - created;
+                      if (ageMs > 24 * 60 * 60 * 1000) return null;
+                      return (
+                        <span
+                          title="Importada há menos de 24h"
+                          style={{ color: 'var(--primary)', fontSize: '0.72rem' }}
+                        >
+                          ✨ recém
+                        </span>
+                      );
+                    })()}
+                    {(() => {
+                      // Indicador de fase SRS (Anki-style):
+                      //   nova (sem rev) | aprendendo (<1d) | jovem (<21d) | madura (>=21d)
+                      const lastReviewed = q.srs?.lastReviewed ?? 0;
+                      if (!lastReviewed) {
+                        return (
+                          <span
+                            title="Nova (nunca revisada)"
+                            style={{
+                              fontSize: '0.72rem',
+                              color: 'var(--muted)',
+                            }}
+                          >
+                            ✨ nova
+                          </span>
+                        );
+                      }
+                      const interval = q.srs?.interval ?? 0;
+                      if (interval < 1) {
+                        return (
+                          <span
+                            title="Aprendendo (intervalo &lt; 1d)"
+                            style={{
+                              fontSize: '0.72rem',
+                              color: '#f59e0b',
+                            }}
+                          >
+                            📖 aprendendo
+                          </span>
+                        );
+                      }
+                      if (interval < 21) {
+                        return (
+                          <span
+                            title={`Jovem (intervalo ${Math.round(interval)}d)`}
+                            style={{
+                              fontSize: '0.72rem',
+                              color: 'var(--primary)',
+                            }}
+                          >
+                            🌱 jovem
+                          </span>
+                        );
+                      }
+                      return (
+                        <span
+                          title={`Madura (intervalo ${Math.round(interval)}d)`}
+                          style={{
+                            fontSize: '0.72rem',
+                            color: '#22c55e',
+                          }}
+                        >
+                          🌳 madura
+                        </span>
+                      );
+                    })()}
+                    {hasMath(enun) && (
+                      <span title="Tem fórmulas LaTeX" aria-label="Tem LaTeX">
+                        𝓛
                       </span>
                     )}
                     {q.tags && q.tags.length > 0 && (
@@ -1446,6 +1858,31 @@ export function BancoList() {
                       if (!ok) return null;
                       return (
                         <span title="Dominada (5+ acertos seguidos)">🏆</span>
+                      );
+                    })()}
+                    {(() => {
+                      // Indicador "tempo morto": vencida há 30+ dias e não
+                      // revisada nesse período. Sinal de que está sendo
+                      // ignorada e a memória provavelmente já caiu.
+                      const due = q.srs?.dueDate ?? 0;
+                      const last = q.srs?.lastReviewed ?? 0;
+                      const now = Date.now();
+                      if (!due || due > now) return null;
+                      const daysOverdue = Math.floor(
+                        (now - due) / (24 * 60 * 60 * 1000)
+                      );
+                      if (daysOverdue < 30) return null;
+                      const sinceLast = last
+                        ? Math.floor((now - last) / (24 * 60 * 60 * 1000))
+                        : 999;
+                      if (sinceLast < 30) return null;
+                      return (
+                        <span
+                          title={`Vencida há ${daysOverdue}d, não revisada há ${sinceLast}d. Memória provavelmente já caiu.`}
+                          style={{ color: 'var(--muted)' }}
+                        >
+                          💤 {daysOverdue}d
+                        </span>
                       );
                     })()}
                     {(q.stats?.attempts ?? 0) >= 3 && (() => {
@@ -1675,6 +2112,118 @@ export function BancoList() {
 /**
  * Menu dropdown pra setar dificuldade em massa.
  */
+/**
+ * Menu de bulk pra atribuir concurso a um conjunto de questões.
+ * Lista os concursos do user via useConcursos. Opção "—" desvincula.
+ */
+function BulkConcursoMenu({
+  disabled,
+  onPick,
+}: {
+  disabled: boolean;
+  onPick: (concursoId: string | null) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { data: concursos } = useConcursos();
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        title="Vincular ao concurso em lote"
+      >
+        Concurso… ▾
+      </button>
+      {open && (
+        <ul
+          role="menu"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            background: 'var(--bg-elev-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+            listStyle: 'none',
+            margin: 0,
+            padding: 4,
+            zIndex: 30,
+            minWidth: 220,
+            maxHeight: 300,
+            overflowY: 'auto',
+          }}
+        >
+          {(concursos ?? []).length === 0 ? (
+            <li
+              style={{
+                padding: '6px 10px',
+                fontSize: '0.85rem',
+                color: 'var(--muted)',
+              }}
+            >
+              Nenhum concurso. Cadastre em /concursos.
+            </li>
+          ) : (
+            (concursos ?? []).map((c) => (
+              <li key={c.id} role="presentation">
+                <button
+                  type="button"
+                  className="ghost"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                  }}
+                  onClick={() => {
+                    setOpen(false);
+                    void onPick(c.id);
+                  }}
+                >
+                  🎯 {c.nome}
+                </button>
+              </li>
+            ))
+          )}
+          <li role="presentation">
+            <button
+              type="button"
+              className="ghost"
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '6px 10px',
+                color: 'var(--muted)',
+              }}
+              onClick={() => {
+                setOpen(false);
+                void onPick(null);
+              }}
+            >
+              — Desvincular
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BulkDificuldadeMenu({
   disabled,
   onPick,

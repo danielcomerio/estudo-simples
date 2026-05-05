@@ -52,6 +52,23 @@ export function ConfirmHost() {
     }
   }, [cur]);
 
+  // Atalhos Y/N quando dialog está aberto
+  useEffect(() => {
+    if (!cur) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault();
+        close(true);
+      } else if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        close(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur]);
+
   const close = (ok: boolean) => {
     cur?.resolve(ok);
     if (dlgRef.current?.open) dlgRef.current.close();
@@ -64,7 +81,7 @@ export function ConfirmHost() {
       <p>{cur?.message || ''}</p>
       <div className="row gap right">
         <button type="button" onClick={() => close(false)}>
-          Cancelar
+          Cancelar (N)
         </button>
         <button
           type="button"
@@ -72,7 +89,7 @@ export function ConfirmHost() {
           onClick={() => close(true)}
           autoFocus
         >
-          Confirmar
+          Confirmar (Y)
         </button>
       </div>
     </dialog>

@@ -111,6 +111,17 @@ export function CommandPalette() {
         router.push('/banco');
         return;
       }
+      // Ctrl+B → /banco; Ctrl+E → /estudar
+      if (isMod && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault();
+        router.push('/banco');
+        return;
+      }
+      if (isMod && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        router.push('/estudar');
+        return;
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

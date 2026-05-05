@@ -89,8 +89,12 @@ export function ShortcutsHelp() {
               <Row k="Ctrl+K" desc="Abre/fecha command palette" />
               <Row k="Ctrl+P" desc="Idem (alternativo)" />
               <Row k="Ctrl+I" desc="Vai pra /banco (atalho de import)" />
+              <Row k="Ctrl+B" desc="Vai pra /banco" />
+              <Row k="Ctrl+E" desc="Vai pra /estudar" />
+              <Row k="Ctrl+F" desc="Busca global em todas as questões" />
               <Row k="Ctrl+Shift+L" desc="Cicla tema (auto / claro / escuro)" />
               <Row k="?" desc="Abre/fecha esta ajuda" />
+              <Row k="G H/B/E/C/D/S/M/K/O" desc="Vim-jump: g + letra navega (h painel, b banco, e estudar, c cards, d discursivas, s stats, m simulado, k concursos, o opções)" />
             </Section>
 
             <Section title="/ (painel)">
@@ -108,6 +112,7 @@ export function ShortcutsHelp() {
               <Row k="x ou Delete" desc="Excluir focada (com confirm)" />
               <Row k="F" desc="Marcar/desmarcar como favorita (★)" />
               <Row k="V" desc="Alternar verificação da focada (verificada ↔ pendente)" />
+              <Row k="R" desc="Estudar 1 questão aleatória do filtro atual" />
               <Row k="1–5" desc="Setar dificuldade da focada (1=fácil, 5=muito difícil)" />
               <Row k="Esc" desc="Remove foco" />
             </Section>
@@ -137,6 +142,11 @@ export function ShortcutsHelp() {
               <Row k="A-E" desc="Marcar alternativa" />
               <Row k="←/→" desc="Questão anterior/próxima" />
               <Row k="M" desc="Marcar/desmarcar pra revisar" />
+            </Section>
+
+            <Section title="/discursivas">
+              <Row k="1" desc="De novo · 2 Difícil · 3 Bom · 4 Fácil" />
+              <Row k="Z" desc="Desfazer última rate (até 6s)" />
             </Section>
 
             <Section title="QuestionEditDrawer">

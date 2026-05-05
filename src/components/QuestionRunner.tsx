@@ -25,11 +25,15 @@ import {
   saveSession,
 } from '@/lib/session-store';
 import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/lib/study-queue';
+import { appendSession } from '@/lib/sessions-log';
+import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { NoteInline } from './NoteInline';
+import { confirmDialog } from './ConfirmDialog';
+import { toast } from './Toast';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -48,10 +52,14 @@ type SessionState = {
   wrong: number;
   skipped: number;
   startedAt: number;
+  /** Streak de acertos seguidos na sessão atual (zerado em erro). */
+  streak?: number;
   /** Modo livre: stats contam, SRS não muda. Default false. */
   free?: boolean;
   /** Active recall: esconde alternativas até user revelar. */
   activeRecall?: boolean;
+  /** Re-injeta questões erradas no fim do pool. */
+  retryWrong?: boolean;
 };
 
 const defaultCfg: SessionConfig = {
@@ -65,6 +73,7 @@ const defaultCfg: SessionConfig = {
   interleaving: false,
   free: false,
   activeRecall: false,
+  retryWrong: false,
 };
 
 function buildPool(all: Question[], cfg: SessionConfig): Question[] {
@@ -197,7 +206,25 @@ export function QuestionRunner() {
   );
 
   const [phase, setPhase] = useState<Phase>('config');
-  const [cfg, setCfg] = useState<SessionConfig>(defaultCfg);
+  const [cfg, setCfgRaw] = useState<SessionConfig>(defaultCfg);
+  // Carrega prefs salvas no mount (mantém disciplinas vazio sempre — pra
+  // evitar pickear disciplinas que não existem mais).
+  useEffect(() => {
+    const saved = loadPrefs<Partial<SessionConfig>>('estudar');
+    if (saved) {
+      setCfgRaw((c) => ({ ...c, ...saved, disciplinas: [] }));
+    }
+  }, []);
+  const setCfg = (next: SessionConfig | ((prev: SessionConfig) => SessionConfig)) => {
+    setCfgRaw((prev) => {
+      const resolved =
+        typeof next === 'function' ? (next as (p: SessionConfig) => SessionConfig)(prev) : next;
+      // Salva sem disciplinas (campo dependente do banco)
+      const { disciplinas: _d, ...rest } = resolved;
+      savePrefs('estudar', rest);
+      return resolved;
+    });
+  };
   const [session, setSession] = useState<SessionState | null>(null);
   const [pausedAvailable, setPausedAvailable] = useState<{
     pool: Question[];
@@ -260,6 +287,27 @@ export function QuestionRunner() {
       'estudar'
     );
   }, [userId, phase, session]);
+
+  // Lembrete de pausa: depois de 30min sem parar, sugere uma pausa.
+  // Toast leve, não intrusivo. Memoria via ref pra não disparar mais
+  // de uma vez.
+  const pauseWarnedRef = useRef(false);
+  useEffect(() => {
+    if (phase !== 'running' || !session) return;
+    pauseWarnedRef.current = false;
+    const h = setInterval(() => {
+      const elapsedMin = (Date.now() - session.startedAt) / 60000;
+      if (elapsedMin >= 30 && !pauseWarnedRef.current) {
+        pauseWarnedRef.current = true;
+        toast(
+          '💤 Você está há 30+ minutos. Considera uma pausa rápida pra reter melhor.',
+          'warn',
+          8000
+        );
+      }
+    }, 60_000);
+    return () => clearInterval(h);
+  }, [phase, session]);
 
   // beforeunload protege fechar/recarregar aba durante sessão
   useEffect(() => {
@@ -386,6 +434,7 @@ export function QuestionRunner() {
           startedAt: Date.now(),
           free: newCfg.free,
           activeRecall: newCfg.activeRecall,
+          retryWrong: newCfg.retryWrong,
         });
         setPhase('running');
       }
@@ -407,15 +456,37 @@ export function QuestionRunner() {
       startedAt: Date.now(),
       free: cfg.free,
       activeRecall: cfg.activeRecall,
+      retryWrong: cfg.retryWrong,
     });
     setPhase('running');
   };
 
   const onFinish = () => {
+    if (session) {
+      appendSession({
+        kind: 'estudar',
+        startedAt: session.startedAt,
+        endedAt: Date.now(),
+        total: session.pool.length,
+        correct: session.correct,
+        wrong: session.wrong,
+        skipped: session.skipped,
+        durationMs: Date.now() - session.startedAt,
+      });
+    }
     clearStoredSession('estudar');
     setPhase('summary');
   };
-  const onQuit = () => {
+  const onQuit = async () => {
+    // Se já respondeu algo, confirma — evita perder progresso por click
+    // acidental no botão Encerrar.
+    if (session && (session.correct + session.wrong) > 0) {
+      const ok = await confirmDialog({
+        title: 'Encerrar sessão?',
+        message: `Você já respondeu ${session.correct + session.wrong} questão(ões) nesta sessão. As respostas ficam salvas. Encerrar e voltar pra config?`,
+      });
+      if (!ok) return;
+    }
     clearStoredSession('estudar');
     setSession(null);
     setPhase('config');
@@ -445,6 +516,21 @@ export function QuestionRunner() {
           // duplicar o agendamento SRS — o usuário acabou de revisar.
           setSession({
             pool: session.pool,
+            idx: 0,
+            embaralhar: session.embaralhar,
+            tempoLimite: session.tempoLimite,
+            correct: 0,
+            wrong: 0,
+            skipped: 0,
+            startedAt: Date.now(),
+            free: true,
+          });
+          setPhase('running');
+        }}
+        onRepeatErradas={(wrongs) => {
+          if (wrongs.length === 0) return;
+          setSession({
+            pool: shuffle(wrongs),
             idx: 0,
             embaralhar: session.embaralhar,
             tempoLimite: session.tempoLimite,
@@ -560,6 +646,17 @@ export function QuestionRunner() {
               Ir para o banco
             </button>
           </Link>
+          {activeConcurso && allRaw.filter((q) => q.type === 'objetiva').length > 0 && (
+            <button
+              type="button"
+              className="ghost"
+              style={{ marginLeft: 8 }}
+              onClick={() => setActiveConcursoId(null)}
+              title="Remove o filtro de concurso ativo (estuda todas)"
+            >
+              Estudar tudo (sem filtro)
+            </button>
+          )}
         </div>
       )}
 
@@ -695,6 +792,19 @@ export function QuestionRunner() {
           />
           <span title="Esconde alternativas até você apertar Espaço/Enter. Força lembrar antes de ver as opções — evidência forte de melhor memorização (Roediger & Karpicke 2006).">
             🧠 Active recall (esconder alternativas até revelar)
+          </span>
+        </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.retryWrong}
+            onChange={(e) =>
+              setCfg({ ...cfg, retryWrong: e.target.checked })
+            }
+          />
+          <span title="Quando você marcar 'De novo' (q=0), a questão volta no fim da sessão. Tipo Anki 'again steps'. Reforço imediato antes do schedule de longo prazo.">
+            🔁 Re-injetar erradas no fim da sessão
           </span>
         </label>
       </div>
@@ -837,7 +947,18 @@ function RunningView({
       ...s,
       correct: s.correct + (isCorrect ? 1 : 0),
       wrong: s.wrong + (isCorrect ? 0 : 1),
+      streak: isCorrect ? (s.streak ?? 0) + 1 : 0,
     }));
+
+    // Feedback haptico em mobile (no-op em desktop). Pulse curto pra
+    // certo, dois pulsos pra errado — discriminação tátil sem som.
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(isCorrect ? 20 : [20, 60, 20]);
+      } catch {
+        // alguns browsers requerem user gesture; ignorar erro
+      }
+    }
   };
 
   const rate = (quality: number) => {
@@ -865,6 +986,12 @@ function RunningView({
     }
     scheduleSync(800);
     setUndoSnap(snap);
+    // retryWrong: se rate=0 (de novo) e flag ativa, re-injeta a questão
+    // no fim do pool. Em-sessão, antes que o user encerre. Reforço
+    // imediato — Anki "again steps" simplificado.
+    if (session.retryWrong && quality === 0 && session.idx + 1 < session.pool.length + 5) {
+      update((s) => ({ ...s, pool: [...s.pool, q] }));
+    }
     next();
   };
 
@@ -914,6 +1041,7 @@ function RunningView({
 
   const skip = () => {
     update((s) => ({ ...s, skipped: s.skipped + 1 }));
+    toast('↪ Pulada', '', 1200);
     next();
   };
 
@@ -1001,6 +1129,12 @@ function RunningView({
           : '';
 
   const progressPct = Math.round(((session.idx + (answered ? 1 : 0)) / session.pool.length) * 100);
+  // Detecta se a questão atual já apareceu antes nesta sessão (caso
+  // retryWrong tenha re-injetado). Mostra banner discreto.
+  const earlierAppearances = session.pool
+    .slice(0, session.idx)
+    .filter((p) => p.id === q.id).length;
+  const isReplay = earlierAppearances > 0;
 
   return (
     <div className="card">
@@ -1010,12 +1144,34 @@ function RunningView({
           onDismiss={() => setUndoSnap(null)}
         />
       )}
+      {isReplay && (
+        <div
+          style={{
+            background: 'var(--warn-bg, rgba(217, 119, 6, 0.1))',
+            border: '1px solid var(--warn, #d97706)',
+            borderRadius: 'var(--radius)',
+            padding: '6px 10px',
+            marginBottom: 10,
+            fontSize: '0.82rem',
+            color: 'var(--warn, #d97706)',
+          }}
+        >
+          🔁 Revisão dentro da sessão (apareceu {earlierAppearances}× antes)
+          — boa hora pra fixar.
+        </div>
+      )}
       <div className="session-bar">
         <div className="session-progress">
           {session.idx + 1}/{session.pool.length}
           <span className="small">
             {session.correct}✓ · {session.wrong}✗
+            {(session.streak ?? 0) >= 3 && (
+              <span style={{ marginLeft: 6, color: 'var(--primary)' }}>
+                🔥 {session.streak}
+              </span>
+            )}
           </span>
+          <SessionElapsed startedAt={session.startedAt} />
         </div>
         {session.tempoLimite > 0 && (
           <div className={'session-timer ' + timerCls}>
@@ -1036,8 +1192,25 @@ function RunningView({
         </button>
       </div>
 
-      <div className="session-progress-bar">
-        <div className="fill" style={{ width: progressPct + '%' }} />
+      <div className="session-progress-bar" title={`${session.correct}✓ · ${session.wrong}✗ · ${progressPct}% concluído`}>
+        {(() => {
+          const total = session.correct + session.wrong;
+          const acertoPct = total > 0 ? Math.round((100 * session.correct) / total) : null;
+          const cor =
+            acertoPct == null
+              ? 'var(--primary)'
+              : acertoPct >= 70
+                ? '#22c55e'
+                : acertoPct >= 40
+                  ? '#f59e0b'
+                  : '#ef4444';
+          return (
+            <div
+              className="fill"
+              style={{ width: progressPct + '%', background: cor, transition: 'background 0.4s, width 0.3s' }}
+            />
+          );
+        })()}
       </div>
 
       <article className="question-area">
@@ -1255,6 +1428,25 @@ function RunningView({
             </div>
           )}
 
+          {payload.mnemonic && (
+            <div
+              className="feedback-block"
+              style={{
+                background: 'var(--primary-soft)',
+                borderLeft: '3px solid var(--primary)',
+                paddingLeft: 12,
+              }}
+            >
+              <strong>🧠 Mnemônico</strong>
+              <div
+                style={{ marginTop: 4 }}
+                dangerouslySetInnerHTML={{
+                  __html: renderRichText(payload.mnemonic),
+                }}
+              />
+            </div>
+          )}
+
           <NoteInline q={q} />
         </div>
       )}
@@ -1334,10 +1526,12 @@ function Summary({
   session,
   onRestart,
   onRepeat,
+  onRepeatErradas,
 }: {
   session: SessionState;
   onRestart: () => void;
   onRepeat?: () => void;
+  onRepeatErradas?: (poolWrongs: Question[]) => void;
 }) {
   const allQuestions = useStore(selectActiveQuestions);
 
@@ -1357,17 +1551,27 @@ function Summary({
     return tentativas > 0 ? Math.round((acerto / tentativas) * 100) : 0;
   }, [allQuestions]);
 
-  // Disciplinas estudadas nessa sessão (top 3 por count)
+  // Disciplinas estudadas nessa sessão. Pra cada uma, conta total +
+  // acertos (deduzidos do history das questões filtrado por timestamp
+  // >= session.startedAt — essas são as revisões dessa sessão).
   const discsEstudadas = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const m = new Map<string, { total: number; correct: number }>();
     for (const q of session.pool) {
       const d = q.disciplina_id || '—';
-      counts[d] = (counts[d] || 0) + 1;
+      const liveQ = allQuestions.find((x) => x.id === q.id) ?? q;
+      const sessionHistory = (liveQ.stats?.history ?? []).filter(
+        (h) => h.date >= session.startedAt
+      );
+      if (sessionHistory.length === 0) continue;
+      const agg = m.get(d) ?? { total: 0, correct: 0 };
+      for (const h of sessionHistory) {
+        agg.total++;
+        if (h.result === 'correct' || h.result === 'self_pass') agg.correct++;
+      }
+      m.set(d, agg);
     }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
-  }, [session.pool]);
+    return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total);
+  }, [session.pool, allQuestions, session.startedAt]);
 
   // Próximas vencendo até amanhã (excluindo as desta sessão)
   const sessionIds = useMemo(
@@ -1437,6 +1641,80 @@ function Summary({
         )}
       </div>
 
+      {(() => {
+        // Lista de questões erradas nesta sessão (com link rápido pra
+        // /banco?id pra ler o gabarito/explicação ou editar nota).
+        const allWrongs = session.pool
+          .map((q) => {
+            const live = allQuestions.find((x) => x.id === q.id);
+            const sessionHist = (live?.stats?.history ?? []).filter(
+              (h) => h.date >= session.startedAt
+            );
+            const lastWrong = sessionHist[sessionHist.length - 1];
+            if (!lastWrong) return null;
+            if (lastWrong.result === 'correct' || lastWrong.result === 'self_pass') return null;
+            const enun =
+              (q.payload as Record<string, unknown>).enunciado ??
+              (q.payload as Record<string, unknown>).enunciado_completo ??
+              (q.payload as Record<string, unknown>).texto ??
+              (q.payload as Record<string, unknown>).frente ??
+              '';
+            return { id: q.id, preview: String(enun).slice(0, 100), disc: q.disciplina_id ?? '' };
+          })
+          .filter((w): w is NonNullable<typeof w> => !!w);
+        const wrongs = allWrongs.slice(0, 5);
+        if (wrongs.length === 0) return null;
+        return (
+          <div
+            style={{
+              background: 'var(--danger-soft, rgba(239, 68, 68, 0.08))',
+              border: '1px solid var(--danger, #ef4444)',
+              borderRadius: 'var(--radius)',
+              padding: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div className="row between" style={{ marginBottom: 6, alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+              <strong>
+                ✗ Erradas nesta sessão ({allWrongs.length})
+              </strong>
+              {allWrongs.length > 5 && (
+                <Link
+                  href={`/estudar?modo=erros&qtd=${allWrongs.length}&auto=1`}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  Estudar todas →
+                </Link>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {wrongs.map((w) => (
+                <Link
+                  key={w.id}
+                  href={`/banco?search=${encodeURIComponent('id:' + w.id)}`}
+                  style={{
+                    fontSize: '0.82rem',
+                    padding: '4px 8px',
+                    background: 'var(--bg-elev-2)',
+                    borderRadius: 4,
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title="Abrir no /banco pra ler explicação ou anotar"
+                >
+                  {w.disc && <span className="muted">{w.disc} · </span>}
+                  {w.preview}
+                </Link>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <ul style={{ marginBottom: 14 }}>
         <li>
           ⏱ Tempo total: <strong>{elapsed}s</strong>
@@ -1444,9 +1722,14 @@ function Summary({
         </li>
         {discsEstudadas.length > 0 && (
           <li>
-            📚 Disciplinas:{' '}
+            📚 Por disciplina:{' '}
             <strong>
-              {discsEstudadas.map(([d, n]) => `${d} (${n})`).join(', ')}
+              {discsEstudadas
+                .map(([d, s]) => {
+                  const pct = s.total > 0 ? Math.round((100 * s.correct) / s.total) : 0;
+                  return `${d}: ${s.correct}/${s.total} (${pct}%)`;
+                })
+                .join(' · ')}
             </strong>
           </li>
         )}
@@ -1471,6 +1754,36 @@ function Summary({
             🔁 Repetir essas mesmas
           </button>
         )}
+        {onRepeatErradas && (() => {
+          const wrongs = session.pool
+            .map((q) => {
+              const live = allQuestions.find((x) => x.id === q.id);
+              const sessionHist = (live?.stats?.history ?? []).filter(
+                (h) => h.date >= session.startedAt
+              );
+              const lastWrong = sessionHist[sessionHist.length - 1];
+              if (!lastWrong) return null;
+              if (lastWrong.result === 'correct' || lastWrong.result === 'self_pass')
+                return null;
+              return live ?? q;
+            })
+            .filter((q): q is Question => !!q);
+          if (wrongs.length === 0) return null;
+          return (
+            <button
+              type="button"
+              onClick={() => onRepeatErradas(wrongs)}
+              title="Refaz só as questões que você errou nesta sessão (modo livre)"
+              style={{
+                background: 'var(--danger-soft, #4a1d1d)',
+                borderColor: 'var(--danger, #ef4444)',
+                color: 'var(--danger, #ef4444)',
+              }}
+            >
+              ✗ Repetir {wrongs.length} errada(s)
+            </button>
+          );
+        })()}
         {proximasVencendo > 0 && (
           <Link
             href={`/estudar?modo=srs&qtd=${Math.min(20, proximasVencendo)}&auto=1`}
@@ -1482,5 +1795,26 @@ function Summary({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Tempo decorrido na sessão atual. Atualiza a cada segundo.
+ * Mostra MM:SS pra brevidade.
+ */
+function SessionElapsed({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const h = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(h);
+  }, []);
+  const sec = Math.floor((now - startedAt) / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const label = m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`;
+  return (
+    <span className="small" style={{ marginLeft: 6 }}>
+      ⏱ {label}
+    </span>
   );
 }

@@ -10,6 +10,9 @@ import { clearSeedFlag, loadPlatformSeed } from '@/lib/platform-seed';
 import { toast } from './Toast';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmHost } from './ConfirmDialog';
+import { GlobalSearch } from './GlobalSearch';
+import { GoalCelebration } from './GoalCelebration';
+import { VimNav } from './VimNav';
 
 export function StoreProvider({
   userId,
@@ -132,6 +135,9 @@ export function StoreProvider({
       {children}
       <ConfirmHost />
       <CommandPalette />
+      <GlobalSearch />
+      <VimNav />
+      <GoalCelebration />
     </>
   );
 }

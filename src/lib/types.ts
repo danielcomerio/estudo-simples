@@ -69,6 +69,9 @@ export type ObjetivaPayload = {
   pegadinhas?: string[];
   /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
   notes_user?: string;
+  /** Mnemônico/dica/macete pra ajudar a lembrar. Mostrado no feedback
+   *  após errar. Default vazio. Editável pelo user via drawer. */
+  mnemonic?: string;
   /** URLs públicas de imagens (Supabase Storage). Renderizadas no
    *  enunciado em ordem. Útil pra questões de prova com gráfico/tabela. */
   imagens?: string[];
@@ -94,6 +97,9 @@ export type DiscursivaPayload = {
   apostas_relacionadas?: string[];
   /** Anotações pessoais do user sobre essa questão (não vem do JSON original). */
   notes_user?: string;
+  /** Mnemônico/dica/macete pra ajudar a lembrar. Mostrado no feedback
+   *  após errar. Default vazio. Editável pelo user via drawer. */
+  mnemonic?: string;
   /** URLs públicas de imagens (Supabase Storage). */
   imagens?: string[];
   [k: string]: unknown;
@@ -298,6 +304,10 @@ export type SessionConfig = {
    *  pensar antes de ver opções (priming). Espaço/Enter revela.
    *  Memorização comprovadamente mais forte (Roediger & Karpicke). */
   activeRecall?: boolean;
+  /** Anki-style learning steps: questão respondida com q=0 (de novo)
+   *  é re-injetada no fim do pool da sessão atual. Reforça antes do
+   *  schedule de longo prazo do FSRS pegar. */
+  retryWrong?: boolean;
 };
 
 export type DiscSessionConfig = {

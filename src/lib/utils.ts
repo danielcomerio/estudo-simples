@@ -31,13 +31,37 @@ export function escapeHtml(s: unknown): string {
  * Versão leve, sem KaTeX. Use renderRichText pra detecção automática
  * de math.
  */
+/**
+ * Aplica markdown básico em uma string já escapada (sem tags HTML
+ * "vivas"). Suporta:
+ *  - **bold** → <strong>
+ *  - *italic* (não confunde com **) → <em>
+ *  - `code` inline → <code>
+ *  - linhas iniciadas com "- " ou "* " → <li> agrupadas em <ul>
+ *
+ * Mantém-se conservador pra não bagunçar enunciados que usam asteriscos
+ * literalmente (ex: 5 * 3 = 15 — não vira itálico porque tem espaço dos
+ * dois lados antes/depois do delimitador interno).
+ */
+function applyBasicMarkdown(escaped: string): string {
+  let out = escaped;
+  // Code inline (antes de bold/italic pra não conflitar)
+  out = out.replace(/`([^`\n<]+?)`/g, '<code>$1</code>');
+  // Bold: **text**
+  out = out.replace(/\*\*([^*<\n]+?)\*\*/g, '<strong>$1</strong>');
+  // Italic: *text* (não em conjunto com **). Requer não-espaço antes do *.
+  out = out.replace(/(^|[^*])\*([^*<\n\s][^*<\n]*?)\*(?!\*)/g, '$1<em>$2</em>');
+  return out;
+}
+
 export function renderTextWithCode(s: unknown): string {
   if (s == null) return '';
   const parts = String(s).split(/```([\s\S]*?)```/g);
   let out = '';
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      out += escapeHtml(parts[i]).replace(/\n/g, '<br>');
+      const escaped = escapeHtml(parts[i]).replace(/\n/g, '<br>');
+      out += applyBasicMarkdown(escaped);
     } else {
       const inner = parts[i].replace(/^[a-z]*\n/i, '');
       out += `<pre>${escapeHtml(inner)}</pre>`;
@@ -111,6 +135,7 @@ export function renderTextWithCodeAndMath(s: unknown): string {
   );
 
   let out = escapeHtml(withInlineMath).replace(/\n/g, '<br>');
+  out = applyBasicMarkdown(out);
   out = out.replace(/ CODE(\d+) /g, (_m, idx) => codeBlocks[Number(idx)]);
   out = out.replace(/ MATH(\d+) /g, (_m, idx) => mathBlocks[Number(idx)]);
   return out;

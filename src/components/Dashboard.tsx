@@ -9,6 +9,7 @@ import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
 import { useDailyGoal } from '@/lib/settings';
 import { useActiveConcursoFilter } from '@/lib/hierarchy';
+import type { Question } from '@/lib/types';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -16,6 +17,8 @@ export function Dashboard() {
   const disciplinas = useStore(selectDisciplinas);
   const syncStatus = useStore((s) => s.syncStatus);
   const lastPullAt = useStore((s) => s.lastPullAt);
+  const userId = useStore((s) => s.userId);
+  const isGuest = userId === 'guest';
   const dailyGoal = useDailyGoal();
   const router = useRouter();
   const { concurso: activeConcurso } = useActiveConcursoFilter();
@@ -71,6 +74,8 @@ export function Dashboard() {
     const t = setTimeout(() => setEmptyStateAllowed(true), 3000);
     return () => clearTimeout(t);
   }, []);
+  // Dia clicado no heatmap (modal de detalhes)
+  const [heatmapDay, setHeatmapDay] = useState<number | null>(null);
 
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
@@ -192,15 +197,26 @@ export function Dashboard() {
 
   // Streak atual (dias consecutivos com >=1 revisão até hoje).
   // Hoje conta com "graça": se hoje ainda não estudou mas ontem sim,
-  // a streak ainda está viva (conta de ontem pra trás). streakAtRisk
-  // sinaliza esse estado — o user precisa fazer pelo menos 1 questão
-  // hoje pra não quebrar.
+  // a streak ainda está viva (conta de ontem pra trás).
+  //
+  // Freeze: permite até 1 dia perdido por janela de 7 dias sem quebrar.
+  // Marca o dia frozen visualmente. Reset do uso após 7 dias sem freeze.
+  // Conhecida UX em apps de hábito (Duolingo): tira pressão de "perder
+  // tudo" sem desincentivar consistência.
   const todayCount = days[days.length - 1]?.count ?? 0;
   let streak = 0;
+  let freezeUsed = false;
   const startIdx = todayCount === 0 ? days.length - 2 : days.length - 1;
   for (let i = startIdx; i >= 0; i--) {
-    if (days[i].count > 0) streak++;
-    else break;
+    if (days[i].count > 0) {
+      streak++;
+    } else if (!freezeUsed) {
+      // Usa o freeze: dia perdido conta como "ok", streak segue
+      freezeUsed = true;
+      streak++;
+    } else {
+      break;
+    }
   }
   const streakAtRisk = todayCount === 0 && streak > 0;
   // Maior streak no histórico de 90 dias (ou retroage se houver dados)
@@ -222,18 +238,21 @@ export function Dashboard() {
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
-  // Tempo total estudado hoje (soma timeMs das revisões de hoje).
+  // Tempo total estudado hoje + nos últimos 7 dias (soma timeMs).
   // Só conta as que registraram tempo (objetivas no submit).
   const todayStart = startOfDay(Date.now());
+  const week0 = todayStart - 6 * DAY_MS;
   let tempoHojeMs = 0;
+  let tempoSemanaMs = 0;
   for (const q of questions) {
     for (const h of q.stats?.history || []) {
-      if (h.date >= todayStart && typeof h.timeMs === 'number') {
-        tempoHojeMs += h.timeMs;
-      }
+      if (typeof h.timeMs !== 'number') continue;
+      if (h.date >= todayStart) tempoHojeMs += h.timeMs;
+      if (h.date >= week0) tempoSemanaMs += h.timeMs;
     }
   }
   const tempoHojeMin = Math.round(tempoHojeMs / 60000);
+  const tempoSemanaMin = Math.round(tempoSemanaMs / 60000);
 
   // Contagem regressiva pra prova (se concurso ativo tem data_prova)
   const diasParaProva = (() => {
@@ -357,6 +376,32 @@ export function Dashboard() {
 
   return (
     <>
+      {isGuest && (
+        <div
+          className="card"
+          style={{
+            background: 'var(--warn-bg, rgba(217, 119, 6, 0.08))',
+            border: '1px solid var(--warn, #d97706)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+            padding: 12,
+          }}
+        >
+          <div style={{ fontSize: '0.92rem' }}>
+            👤 Você está em <strong>modo visitante</strong> — dados ficam só
+            neste navegador. Crie conta pra sincronizar entre dispositivos.
+          </div>
+          <Link href="/signup">
+            <button type="button" className="primary">
+              Criar conta
+            </button>
+          </Link>
+        </div>
+      )}
+
       <div className="grid-cards">
         <div className="card stat">
           <div className="stat-label">Total</div>
@@ -385,7 +430,7 @@ export function Dashboard() {
               : undefined
           }
         >
-          <div className="stat-label">Streak{streakAtRisk ? ' ⚠️' : ''}</div>
+          <div className="stat-label">Streak{streakAtRisk ? ' ⚠️' : ''}{freezeUsed ? ' 🧊' : ''}</div>
           <div className="stat-value">{streak}</div>
           <div className="stat-sub">
             dia{streak === 1 ? '' : 's'} consecutivo{streak === 1 ? '' : 's'}
@@ -400,6 +445,20 @@ export function Dashboard() {
                   }}
                 >
                   em risco — estude hoje
+                </span>
+              </>
+            )}
+            {freezeUsed && !streakAtRisk && (
+              <>
+                <br />
+                <span
+                  style={{
+                    fontSize: '0.78rem',
+                    color: 'var(--muted)',
+                  }}
+                  title="Dia perdido coberto pelo freeze. Próximo dia perdido quebra a streak."
+                >
+                  🧊 freeze usado
                 </span>
               </>
             )}
@@ -489,6 +548,7 @@ export function Dashboard() {
             <span className="muted">
               · {reviewsToday}/{dailyGoal} revisões hoje
               {tempoHojeMin > 0 && ` · ⏱ ${tempoHojeMin} min`}
+              {tempoSemanaMin > tempoHojeMin && ` · 7d: ${Math.round(tempoSemanaMin / 60)}h${tempoSemanaMin % 60 > 0 ? (tempoSemanaMin % 60).toString().padStart(2, '0') : ''}`}
             </span>
           </div>
           <Link
@@ -623,6 +683,13 @@ export function Dashboard() {
               </button>
             </Link>
           )}
+          {inimigas > 0 && (
+            <Link href="/banco?srs=inimigas" title="Abrir /banco filtrado por inimigas">
+              <button type="button" className="ghost">
+                Ver todas {inimigas}
+              </button>
+            </Link>
+          )}
           {novasNuncaEstudadas > 0 && (
             <Link
               href={`/estudar?modo=novas&qtd=${Math.min(10, novasNuncaEstudadas)}&auto=1`}
@@ -684,8 +751,29 @@ export function Dashboard() {
 
       <div className="card">
         <h2>Atividade — últimos 90 dias</h2>
-        <Heatmap days={days} level={level} today={today} />
+        <Heatmap
+          days={days}
+          level={level}
+          today={today}
+          onDayClick={(d) => setHeatmapDay(d)}
+        />
       </div>
+
+      {heatmapDay !== null && (
+        <HeatmapDayModal
+          dayMs={heatmapDay}
+          questions={questions}
+          onClose={() => setHeatmapDay(null)}
+        />
+      )}
+
+      <PlanoSemanaSection
+        questions={questions}
+        today={today}
+        dailyGoal={dailyGoal}
+      />
+
+      <TopErradasSection questions={questions} />
 
       <PrevisaoSection questions={questions} today={today} />
 
@@ -772,6 +860,234 @@ export function Dashboard() {
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * Top 5 questões com pior taxa de acerto (>=3 tentativas). Inimigas
+ * absolutas — vencer essas é alto ROI. Click vai pra /estudar com aquela
+ * questão específica via ?qid.
+ */
+function TopErradasSection({ questions }: { questions: Question[] }) {
+  const top5 = questions
+    .filter((q) => {
+      const a = q.stats?.attempts ?? 0;
+      return a >= 3;
+    })
+    .map((q) => {
+      const a = q.stats?.attempts ?? 0;
+      const c = q.stats?.correct ?? 0;
+      const enun =
+        (q.payload as Record<string, unknown>).enunciado ??
+        (q.payload as Record<string, unknown>).enunciado_completo ??
+        (q.payload as Record<string, unknown>).texto ??
+        (q.payload as Record<string, unknown>).frente ??
+        '';
+      return {
+        id: q.id,
+        type: q.type,
+        disc: q.disciplina_id ?? '(sem)',
+        preview: String(enun).slice(0, 120),
+        a,
+        c,
+        pct: c / a,
+      };
+    })
+    .sort((x, y) => x.pct - y.pct)
+    .slice(0, 5);
+
+  if (top5.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 8px' }}>⚔ Suas inimigas</h2>
+      <p
+        className="muted"
+        style={{ marginTop: 0, marginBottom: 12, fontSize: '0.85rem' }}
+      >
+        Top 5 com pior acerto (≥3 tentativas). Vencer essas é alto retorno.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {top5.map((q) => {
+          const pct = Math.round(q.pct * 100);
+          const studyHref =
+            q.type === 'objetiva'
+              ? `/estudar?qid=${q.id}`
+              : q.type === 'cloze' || q.type === 'flashcard'
+                ? `/cards?qid=${q.id}`
+                : `/banco?search=${encodeURIComponent('id:' + q.id)}`;
+          return (
+            <Link
+              key={q.id}
+              href={studyHref}
+              style={{
+                display: 'block',
+                padding: '8px 10px',
+                background: 'var(--bg-elev-2)',
+                borderRadius: 'var(--radius)',
+                fontSize: '0.85rem',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+              title={`${q.c}/${q.a} acertos`}
+            >
+              <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 2 }}>
+                {q.disc} · {q.type} ·{' '}
+                <span style={{ color: 'var(--danger)', fontWeight: 500 }}>{pct}%</span>
+              </div>
+              <div
+                style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
+              >
+                {q.preview}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Plano da semana: 7 colunas (próximos 7 dias), cada uma mostra
+ * quantidade vencendo no dia + indicador de "leve / médio / pesado"
+ * relativo ao dailyGoal. Click no dia abre /estudar pre-filtrado.
+ *
+ * Diferente do PrevisaoSection (30 dias, gráfico de barras): este é
+ * acionável e foca na semana imediata. Útil pro user planejar tempo.
+ */
+function PlanoSemanaSection({
+  questions,
+  today,
+  dailyGoal,
+}: {
+  questions: Question[];
+  today: number;
+  dailyGoal: number;
+}) {
+  const daysLabels = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const week: { date: number; label: string; count: number; isToday: boolean }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = today + i * DAY_MS;
+    week.push({
+      date: d,
+      label: daysLabels[new Date(d).getDay()],
+      count: 0,
+      isToday: i === 0,
+    });
+  }
+  let atrasadas = 0;
+  for (const q of questions) {
+    const due = q.srs?.dueDate ?? 0;
+    if (!due) continue;
+    if (due < today) {
+      atrasadas++;
+      continue;
+    }
+    const diff = Math.floor((due - today) / DAY_MS);
+    if (diff <= 6) week[diff].count += atrasadas; // include atrasadas only on day 0?
+  }
+  // Atrasadas vão pra hoje (precisa recuperar)
+  week[0].count += atrasadas;
+  const total = week.reduce((s, d) => s + d.count, 0);
+  if (total === 0 && atrasadas === 0) return null;
+
+  const max = Math.max(dailyGoal, ...week.map((d) => d.count));
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>📅 Plano da semana</h2>
+      <p
+        className="muted"
+        style={{ marginTop: 0, fontSize: '0.85rem', marginBottom: 12 }}
+      >
+        Quantidade vencendo nos próximos 7 dias. Cor indica carga relativa
+        à sua meta diária ({dailyGoal}).
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(7, 1fr)',
+          gap: 6,
+        }}
+      >
+        {week.map((d, i) => {
+          const heavy = d.count > dailyGoal * 1.5;
+          const moderate = d.count > dailyGoal;
+          const cor = heavy
+            ? 'var(--danger)'
+            : moderate
+              ? 'var(--warn, #d97706)'
+              : d.count > 0
+                ? 'var(--primary)'
+                : 'var(--muted)';
+          return (
+            <div
+              key={i}
+              style={{
+                background: 'var(--bg-elev-2)',
+                border: d.isToday
+                  ? '2px solid var(--primary)'
+                  : '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: 8,
+                textAlign: 'center',
+              }}
+              title={`${new Date(d.date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' })}: ${d.count} questão(ões)`}
+            >
+              <div className="muted" style={{ fontSize: '0.7rem' }}>
+                {d.label}
+              </div>
+              <div
+                style={{
+                  fontSize: '1.2rem',
+                  fontWeight: 600,
+                  color: cor,
+                  marginTop: 2,
+                }}
+              >
+                {d.count}
+              </div>
+              <div
+                style={{
+                  height: 4,
+                  background: 'var(--bg-elev)',
+                  borderRadius: 999,
+                  marginTop: 4,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.min(100, (d.count / max) * 100)}%`,
+                    background: cor,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {atrasadas > 0 && (
+        <p
+          className="muted"
+          style={{
+            marginTop: 10,
+            fontSize: '0.82rem',
+            color: 'var(--danger)',
+          }}
+        >
+          🔴 {atrasadas} atrasada(s) acumuladas em "hoje" — recupere antes que
+          empile mais.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -898,10 +1214,12 @@ function Heatmap({
   days,
   level,
   today,
+  onDayClick,
 }: {
   days: { date: number; count: number }[];
   level: (n: number) => string;
   today: number;
+  onDayClick?: (dayMs: number) => void;
 }) {
   // Calcula padding inicial: se primeiro dia é uma quarta (3),
   // precisamos de 3 cells null antes dele pra começar na coluna certa.
@@ -974,8 +1292,28 @@ function Heatmap({
             ) : (
               <div
                 key={d.date}
+                role={onDayClick ? 'button' : undefined}
+                tabIndex={onDayClick ? 0 : undefined}
+                onClick={
+                  onDayClick && d.count > 0
+                    ? () => onDayClick(d.date)
+                    : undefined
+                }
+                onKeyDown={
+                  onDayClick && d.count > 0
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onDayClick(d.date);
+                        }
+                      }
+                    : undefined
+                }
                 className={
-                  'day ' + level(d.count) + (d.date === today ? ' today' : '')
+                  'day ' +
+                  level(d.count) +
+                  (d.date === today ? ' today' : '') +
+                  (onDayClick && d.count > 0 ? ' clickable' : '')
                 }
                 title={
                   new Date(d.date).toLocaleDateString('pt-BR', {
@@ -985,7 +1323,8 @@ function Heatmap({
                   }) +
                   ' · ' +
                   d.count +
-                  ' revisão(ões)'
+                  ' revisão(ões)' +
+                  (d.count > 0 && onDayClick ? ' (clique pra detalhes)' : '')
                 }
               />
             )
@@ -1000,6 +1339,183 @@ function Heatmap({
         <span className="day l3"></span>
         <span className="day l4"></span>
         <span>mais</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Modal mostrando detalhes do dia clicado no heatmap. Lista por
+ * disciplina: quantas revisões, % acerto, tempo total. Útil pra
+ * lembrar do que estudou um dia específico.
+ */
+function HeatmapDayModal({
+  dayMs,
+  questions,
+  onClose,
+}: {
+  dayMs: number;
+  questions: Question[];
+  onClose: () => void;
+}) {
+  // Esc fecha
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const dayStart = dayMs;
+  const dayEnd = dayMs + DAY_MS;
+
+  // Agrega revisões do dia por disciplina
+  const byDisc = new Map<
+    string,
+    { rev: number; correct: number; timeMs: number }
+  >();
+  let totalRev = 0;
+  let totalCorrect = 0;
+  let totalTimeMs = 0;
+  for (const q of questions) {
+    for (const h of q.stats?.history ?? []) {
+      if (h.date < dayStart || h.date >= dayEnd) continue;
+      totalRev++;
+      const ok = h.result === 'correct' || h.result === 'self_pass';
+      if (ok) totalCorrect++;
+      const tm = h.timeMs ?? 0;
+      totalTimeMs += tm;
+      const d = q.disciplina_id || '(sem disciplina)';
+      const agg = byDisc.get(d) ?? { rev: 0, correct: 0, timeMs: 0 };
+      agg.rev++;
+      if (ok) agg.correct++;
+      agg.timeMs += tm;
+      byDisc.set(d, agg);
+    }
+  }
+  const rows = Array.from(byDisc.entries()).sort((a, b) => b[1].rev - a[1].rev);
+  const dayLabel = new Date(dayMs).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  const totalPct = totalRev > 0 ? Math.round((100 * totalCorrect) / totalRev) : 0;
+  const fmtMin = (ms: number) => {
+    if (ms < 1000) return '—';
+    const min = Math.round(ms / 60000);
+    if (min < 1) return '<1min';
+    if (min < 60) return `${min}min`;
+    return `${Math.floor(min / 60)}h${(min % 60).toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        background: 'rgba(0,0,0,0.55)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--bg-elev)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          maxWidth: 520,
+          width: '100%',
+          padding: 24,
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+        }}
+      >
+        <div className="row between" style={{ alignItems: 'center', marginBottom: 12 }}>
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>📅 {dayLabel}</h2>
+          <button
+            type="button"
+            className="ghost icon"
+            onClick={onClose}
+            aria-label="Fechar"
+          >
+            ✕
+          </button>
+        </div>
+
+        {totalRev === 0 ? (
+          <p className="muted">Sem revisões nesse dia.</p>
+        ) : (
+          <>
+            <div
+              className="row gap"
+              style={{
+                background: 'var(--bg-elev-2)',
+                borderRadius: 'var(--radius)',
+                padding: 12,
+                marginBottom: 14,
+                fontSize: '0.92rem',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span><strong>{totalRev}</strong> revisões</span>
+              <span style={{ color: totalPct >= 70 ? '#22c55e' : totalPct >= 40 ? '#f59e0b' : '#ef4444' }}>
+                <strong>{totalPct}%</strong> acerto
+              </span>
+              {totalTimeMs > 0 && <span>⏱ {fmtMin(totalTimeMs)}</span>}
+            </div>
+
+            <h3 style={{ margin: '12px 0 8px', fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--muted)' }}>
+              Por disciplina
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {rows.map(([disc, s]) => {
+                const pct = Math.round((100 * s.correct) / s.rev);
+                return (
+                  <div
+                    key={disc}
+                    className="row gap"
+                    style={{
+                      padding: '6px 10px',
+                      background: 'var(--bg-elev-2)',
+                      borderRadius: 'var(--radius)',
+                      fontSize: '0.85rem',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span style={{ flex: 1 }}>{disc}</span>
+                    <span className="muted">{s.rev} rev</span>
+                    <span
+                      style={{
+                        color:
+                          pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {pct}%
+                    </span>
+                    {s.timeMs > 0 && (
+                      <span className="muted">{fmtMin(s.timeMs)}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
