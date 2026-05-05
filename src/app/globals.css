@@ -1597,6 +1597,75 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+/* Manual view: tipografia agradável pra leitura longa. */
+.manual-view h1 {
+  font-size: 1.6rem;
+  margin: 0 0 14px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.manual-view h2 {
+  font-size: 1.25rem;
+  margin: 22px 0 10px;
+}
+.manual-view h3 {
+  font-size: 1.05rem;
+  margin: 18px 0 8px;
+  color: var(--primary);
+}
+.manual-view h4 {
+  font-size: 0.95rem;
+  margin: 14px 0 6px;
+  color: var(--muted);
+}
+.manual-view p {
+  margin: 0 0 10px;
+}
+.manual-view ul,
+.manual-view ol {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+.manual-view li {
+  margin-bottom: 4px;
+}
+.manual-view code {
+  background: var(--bg-elev-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+.manual-view pre {
+  background: var(--bg-elev-2);
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  margin: 10px 0;
+}
+.manual-view blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 12px;
+  margin: 10px 0;
+  color: var(--muted);
+  font-style: italic;
+}
+.manual-view a {
+  color: var(--primary);
+}
+.manual-view hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 22px 0;
+}
+.manual-view kbd {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.82em;
+}
+
 /* KaTeX em mobile: fórmulas longas precisam scroll horizontal pra
  * não estourar viewport. */
 .katex-display,

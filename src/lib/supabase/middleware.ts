@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 type CookiePayload = { name: string; value: string; options?: CookieOptions };
 
-const PUBLIC_PATHS = ['/login', '/signup', '/auth/callback'];
+const PUBLIC_PATHS = ['/login', '/signup', '/auth/callback', '/manual'];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -51,8 +51,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Já autenticado (real ou guest) tentando acessar /login ou /signup → home
-  if ((user || isGuest) && (pathname === '/login' || pathname === '/signup')) {
+  // Real auth user tentando acessar /login ou /signup → home (já tem conta).
+  // Visitante PODE acessar /signup pra criar conta + migrar dados — esse é
+  // exatamente o ponto do modo visitante (testar e depois converter). Em
+  // /login também é permitido visitante caso queira logar com conta existente.
+  if (user && (pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

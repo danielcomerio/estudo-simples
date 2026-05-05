@@ -490,49 +490,14 @@ export function Dashboard() {
 
       {/* Contagem regressiva pra prova (só com concurso ativo + data) */}
       {diasParaProva !== null && diasParaProva >= 0 && (
-        <div
-          className="card"
-          style={{
-            background:
-              diasParaProva <= 7
-                ? 'var(--danger-soft, #4a1d1d)'
-                : diasParaProva <= 30
-                  ? 'var(--warn-bg, #4a3a1a)'
-                  : 'var(--bg-elev-2)',
-            border: `1px solid ${
-              diasParaProva <= 7
-                ? 'var(--danger, #ef4444)'
-                : diasParaProva <= 30
-                  ? 'var(--warn, #d97706)'
-                  : 'var(--border)'
-            }`,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 14,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ fontSize: '2.4rem', lineHeight: 1 }}>
-            {diasParaProva === 0 ? '🚨' : diasParaProva <= 7 ? '⏳' : '📅'}
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <strong style={{ fontSize: '1rem' }}>
-              {diasParaProva === 0
-                ? `Hoje é a prova: ${activeConcurso?.nome}`
-                : diasParaProva === 1
-                  ? `Amanhã é a prova: ${activeConcurso?.nome}`
-                  : `${diasParaProva} dias até a prova`}
-            </strong>
-            {diasParaProva > 1 && (
-              <div className="muted" style={{ fontSize: '0.85rem' }}>
-                {activeConcurso?.nome} —{' '}
-                {new Date(
-                  activeConcurso?.data_prova as string
-                ).toLocaleDateString('pt-BR')}
-              </div>
-            )}
-          </div>
-        </div>
+        <ProvaCountdownCard
+          diasParaProva={diasParaProva}
+          concursoNome={activeConcurso?.nome ?? ''}
+          dataProva={activeConcurso?.data_prova as string}
+          questions={questions}
+          dailyGoal={dailyGoal}
+          dominadas={dominadas}
+        />
       )}
 
       {/* Meta diária */}
@@ -1517,6 +1482,186 @@ function HeatmapDayModal({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Card de countdown rico pra prova. Mostra:
+ *  - Dias até a prova com cor escalonada (verde > 30d, amarelo 8-30d, vermelho ≤7d)
+ *  - Velocidade atual (rev/dia média últimos 7 dias)
+ *  - Projeção: total estimado até a prova
+ *  - Domínio atual (% dominadas no banco)
+ *  - Mensagem motivacional dependente do estado
+ *
+ * Não distingue tipos de questão — todas as objetivas/discursivas/cards
+ * entram. Histórico < 7 dias usa todos disponíveis.
+ */
+function ProvaCountdownCard({
+  diasParaProva,
+  concursoNome,
+  dataProva,
+  questions,
+  dailyGoal,
+  dominadas,
+}: {
+  diasParaProva: number;
+  concursoNome: string;
+  dataProva: string;
+  questions: Question[];
+  dailyGoal: number;
+  dominadas: number;
+}) {
+  // Calcula velocidade atual: revisões/dia nos últimos 7 dias estudados
+  const week0 = startOfDay(Date.now()) - 6 * DAY_MS;
+  let revUltimos7d = 0;
+  const diasComRev = new Set<number>();
+  for (const q of questions) {
+    for (const h of q.stats?.history ?? []) {
+      if (h.date < week0) continue;
+      revUltimos7d++;
+      diasComRev.add(startOfDay(h.date));
+    }
+  }
+  const diasAtivosNaSemana = Math.max(1, diasComRev.size);
+  const velocidadeMedia = Math.round(revUltimos7d / diasAtivosNaSemana);
+  const velocidadeAlvo = Math.max(velocidadeMedia, dailyGoal);
+
+  const projecaoTotal = velocidadeAlvo * diasParaProva;
+  const totalQuestoes = questions.length;
+  const dominadasPct =
+    totalQuestoes > 0 ? Math.round((100 * dominadas) / totalQuestoes) : 0;
+
+  // Mensagem motivacional contextual
+  let mensagem = '';
+  let tom: 'success' | 'warn' | 'danger' | 'info' = 'info';
+  if (diasParaProva === 0) {
+    mensagem = 'É HOJE. Confia em quem já estudou. Boa prova!';
+    tom = 'danger';
+  } else if (diasParaProva === 1) {
+    mensagem =
+      'Amanhã. Não estuda muito hoje — descansa e revisa só o essencial.';
+    tom = 'warn';
+  } else if (diasParaProva <= 3) {
+    mensagem =
+      'Reta final. Foco em revisar dominadas e bater poucas inimigas — não introduza novidade.';
+    tom = 'danger';
+  } else if (diasParaProva <= 7) {
+    mensagem =
+      'Última semana. Modo "🎓 Revisão pré-prova" no /estudar agora é seu melhor amigo.';
+    tom = 'danger';
+  } else if (diasParaProva <= 30) {
+    mensagem =
+      velocidadeMedia >= dailyGoal
+        ? `No ritmo (${velocidadeMedia}/dia). Mantenha consistência e continue derrubando inimigas.`
+        : `Acelera: pra cobrir tudo, mira em ~${dailyGoal}+ revisões/dia (você tá em ${velocidadeMedia}).`;
+    tom = velocidadeMedia >= dailyGoal ? 'success' : 'warn';
+  } else {
+    mensagem =
+      'Tempo bom. Foco em ampliar o banco e construir base — diversifica disciplinas via interleaving.';
+    tom = 'info';
+  }
+
+  const cor =
+    tom === 'danger'
+      ? 'var(--danger, #ef4444)'
+      : tom === 'warn'
+        ? 'var(--warn, #d97706)'
+        : tom === 'success'
+          ? '#22c55e'
+          : 'var(--primary)';
+  const bg =
+    tom === 'danger'
+      ? 'var(--danger-soft, rgba(239,68,68,0.08))'
+      : tom === 'warn'
+        ? 'var(--warn-bg, rgba(217,119,6,0.08))'
+        : tom === 'success'
+          ? 'rgba(34,197,94,0.08)'
+          : 'var(--primary-soft)';
+
+  return (
+    <div
+      className="card"
+      style={{
+        background: bg,
+        border: `1px solid ${cor}`,
+        padding: 16,
+      }}
+    >
+      <div className="row gap" style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: '2.6rem', lineHeight: 1, color: cor }}>
+          {diasParaProva === 0
+            ? '🚨'
+            : diasParaProva <= 3
+              ? '⚡'
+              : diasParaProva <= 7
+                ? '⏳'
+                : diasParaProva <= 30
+                  ? '📅'
+                  : '🎯'}
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <strong style={{ fontSize: '1.1rem', color: cor }}>
+            {diasParaProva === 0
+              ? `Hoje é a prova: ${concursoNome}`
+              : diasParaProva === 1
+                ? `Amanhã é a prova: ${concursoNome}`
+                : `${diasParaProva} dias até a prova`}
+          </strong>
+          {diasParaProva > 1 && concursoNome && (
+            <div className="muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>
+              {concursoNome} —{' '}
+              {new Date(dataProva).toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </div>
+          )}
+          <p style={{ margin: '8px 0 0', fontSize: '0.92rem', lineHeight: 1.5 }}>
+            {mensagem}
+          </p>
+        </div>
+      </div>
+
+      {diasParaProva >= 1 && totalQuestoes > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: 10,
+            marginTop: 14,
+            padding: '12px 0 0',
+            borderTop: `1px solid ${cor}`,
+          }}
+        >
+          <div>
+            <div className="muted" style={{ fontSize: '0.75rem' }}>
+              Velocidade atual
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+              {velocidadeMedia} <span style={{ fontWeight: 400, fontSize: '0.85rem' }}>rev/dia</span>
+            </div>
+          </div>
+          <div>
+            <div className="muted" style={{ fontSize: '0.75rem' }}>
+              Até a prova (estimado)
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+              ~{projecaoTotal.toLocaleString('pt-BR')} <span style={{ fontWeight: 400, fontSize: '0.85rem' }}>revisões</span>
+            </div>
+          </div>
+          <div>
+            <div className="muted" style={{ fontSize: '0.75rem' }}>
+              Domínio atual
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+              {dominadasPct}% <span style={{ fontWeight: 400, fontSize: '0.85rem' }}>({dominadas} questões)</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

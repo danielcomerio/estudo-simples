@@ -59,6 +59,19 @@ export default function ConfiguracoesPage() {
             Tipos suportados: objetiva, discursiva, cloze, flashcard.
           </li>
         </ul>
+        <div className="row gap" style={{ marginTop: 12 }}>
+          <Link
+            href="/manual"
+            className="ghost"
+            style={{
+              padding: '6px 12px',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            📖 Ler manual completo →
+          </Link>
+        </div>
       </div>
     </>
   );
