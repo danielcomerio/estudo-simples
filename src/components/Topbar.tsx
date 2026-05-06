@@ -121,7 +121,7 @@ export function Topbar({
           {mobileOpen ? '✕' : '☰'}
         </button>
         <span className="logo" aria-hidden />
-        <h1>Estudo Simples</h1>
+        <h1 className="topbar-brand-text">Estudo Simples</h1>
       </div>
 
       <nav
@@ -156,9 +156,13 @@ export function Topbar({
       </nav>
 
       <div className="right">
-        <InstallPWAButton />
+        <span className="topbar-desktop-only">
+          <InstallPWAButton />
+        </span>
 
-        <ShortcutsHelp />
+        <span className="topbar-desktop-only">
+          <ShortcutsHelp />
+        </span>
 
         <ThemeToggleQuick />
 

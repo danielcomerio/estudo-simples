@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PlanosCheckout } from '@/components/PlanosCheckout';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -18,6 +19,7 @@ export const metadata = {
 export default function Planos() {
   return (
     <>
+    <PublicHeader />
     <main
       style={{
         maxWidth: 1000,
@@ -56,6 +58,7 @@ export default function Planos() {
         >
           Comparativo de features
         </h2>
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <div
           style={{
             display: 'grid',
@@ -65,6 +68,7 @@ export default function Planos() {
             borderRadius: 'var(--radius)',
             overflow: 'hidden',
             fontSize: '0.9rem',
+            minWidth: 480,
           }}
         >
           <Cell strong>Feature</Cell>
@@ -94,6 +98,7 @@ export default function Planos() {
           <Row3 label="Mnemônicos / dicas" free="—" est="—" pro="✓" />
           <Row3 label="Suporte prioritário" free="—" est="—" pro="✓" />
           <Row3 label="Acesso antecipado a novidades" free="—" est="—" pro="✓" />
+        </div>
         </div>
       </section>
 

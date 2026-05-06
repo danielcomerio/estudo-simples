@@ -16,6 +16,22 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;');
 }
 
+/**
+ * Slug GitHub-style: lowercase, sem acento, espaços → hífen, remove
+ * pontuação. Casa com os anchors no sumário (`[texto](#slug)`).
+ */
+function slugify(s: string): string {
+  return s
+    .normalize('NFD')
+    // U+0300..U+036F = Combining Diacritical Marks (acentos separados)
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 function renderInline(s: string): string {
   let out = escapeHtml(s);
   // Code inline (antes do resto pra não conflitar)
@@ -95,8 +111,10 @@ function renderMarkdown(md: string): string {
       closeLists();
       closeBlockquote();
       const level = h[1].length;
-      const text = renderInline(h[2]);
-      out.push(`<h${level}>${text}</h${level}>`);
+      const rawText = h[2];
+      const id = slugify(rawText);
+      const text = renderInline(rawText);
+      out.push(`<h${level} id="${id}">${text}</h${level}>`);
       i++;
       continue;
     }

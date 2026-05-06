@@ -23,6 +23,7 @@ import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/li
 import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { renderClozeHTML } from '@/lib/cloze';
+import { haptic } from '@/lib/haptic';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { toast } from './Toast';
@@ -625,6 +626,7 @@ function CardView({
   });
 
   const rate = (quality: number) => {
+    haptic(quality >= 3 ? 'success' : 'error');
     if (free) {
       // Modo treino: não toca em SRS nem stats — só avança
       onNext();

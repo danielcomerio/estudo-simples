@@ -39,6 +39,23 @@ Este documento é mantido junto com o código — sempre que algo muda, ele é a
 
 ---
 
+### Mobile (carro chefe)
+
+App é mobile-first. Diferenças notáveis em telas até 760px:
+
+- **Topbar simplificada**: hamburger + logo + concurso (só ícone) + tema + sair. Sync pill, install PWA, atalhos e nome do app ficam pro desktop.
+- **Bottom nav fixo**: 5 atalhos polegar-friendly (Painel · Banco · Estudar · Cards · Stats) com badge de pendências. Indicador visual abaixo da rota ativa.
+- **🎯 FAB (botão flutuante)**: sobre a barra inferior, em qualquer rota fora de sessão. Vai direto pra `/estudar` com 10 questões SRS automáticas. Badge vermelho mostra qtd vencendo.
+- **Pull-to-refresh** no `/banco`: arrasta pra baixo no topo da página → força sync manual.
+- **Alternativas tap-target generoso** (min 56px de altura) com letra circular maior, padding 14px e gap 10px. Layout otimizado pra centenas de questões sem fadiga.
+- **Rate row sticky** no fundo da tela depois de responder — botões De novo / Difícil / Bom / Fácil sempre alcançáveis com o polegar, sem rolagem.
+- **Confidence rating em 3 colunas** (33% cada, min 44px) também tap-friendly.
+- **Haptic feedback**: vibração curta ao acertar, dois pulsos ao errar (Android — silencioso em iOS). Respeita `prefers-reduced-motion`.
+- **Sem double-tap zoom**: `touch-action: manipulation` mata o atraso de 300ms; pinch-zoom segue funcionando pra acessibilidade.
+- **Sem overflow horizontal**: `body { overflow-x: hidden }` impede que qualquer card largo crie scroll horizontal.
+
+---
+
 ## 2. Painel (`/`)
 
 Dashboard inicial com um overview do estudo:
@@ -47,7 +64,9 @@ Dashboard inicial com um overview do estudo:
 - **Banner de modo visitante** (se aplicável): atalho pra criar conta com migração.
 - **Countdown da prova**: aparece quando há concurso ativo com data definida. Mostra dias restantes, velocidade atual de estudo (rev/dia média), projeção de revisões até a prova, % do banco dominado, e mensagem motivacional ajustada conforme tempo restante.
 - **Meta diária**: progresso de revisões hoje vs meta + tempo total estudado.
-- **Conquistas**: chips com marcos atingidos (🔥 streak, 🎯 respondidas, 🏆 dominadas, 💎 % acerto, 📚 banco).
+- **🎯 Missões diárias**: 3 quests rotativas derivadas do histórico do dia (meta · disciplinas variadas · acertar inimigas · novas · % acerto). Click vai pra rota relevante.
+- **⚡ Novo recorde pessoal**: banner aparece quando hoje quebra o melhor dia anterior em revisões.
+- **Conquistas**: chips com marcos atingidos (🔥 streak, 🎯 respondidas, 🏆 dominadas, 💎 % acerto, 📚 banco, ⚡ PR).
 - **🎯 Hoje recomendado**: sessão sugerida misturando vencendo + erradas + novas. Atalho **P** começa direto.
 - **Comece agora**: quick actions pra modos de estudo (vencendo, inimigas, novas, pendentes, **🎓 Revisão pré-prova** atalho R).
 - **Atividade — últimos 90 dias**: heatmap GitHub-style, click no dia abre modal com detalhes (revisões + acerto + tempo, agrupado por disciplina).
@@ -145,6 +164,7 @@ Configuração é persistida entre sessões.
 - Confidence rating opcional (🤔 chutei / 😐 incerto / 💪 confiante) — calibra metacognição em /stats.
 - Nota inline (ahá-momento): captura insight no exato momento da revelação.
 - Após responder: explicação + alternativa correta + mnemônico (se houver).
+- **Em caso de erro**: aparece um picker rápido pra marcar a *causa* do erro (🧠 não sabia, 🤦 atenção, 📖 leitura, ⏱ tempo, 🎩 pegadinha). Anota no histórico — agregado depois em /stats com tip por categoria.
 - Rate buttons mostram **preview do próximo intervalo SRS** (1d, 6d, 2mo).
 
 ### Atalhos /estudar
@@ -237,6 +257,8 @@ Botão **📥 Exportar CSV** com 3 modos: questões agregadas, disciplinas agreg
 - **🚨 Tags com pior desempenho** (top 5 com ≥10 tentativas)
 - **Tags / Bancas / Origem / Concursos**: distribuição
 - **Calibração metacognitiva** (overconfidence/underconfidence baseada em confidence rating)
+- **Causas dos seus erros** (🧠 não sabia / 🤦 atenção / 📖 leitura / ⏱ tempo / 🎩 pegadinha) — distribuição agregada com tip de ação por categoria
+- **⚡ Níveis por disciplina** — XP por disciplina (acerto +10, sequência +12, self-pass +8) com barra de progresso até o próximo nível e badge colorido. Top 12 mostradas. Pura derivação do histórico, sem schema novo
 - **Simulados**: agregado + sparkline
 - **Desempenho por disciplina**
 
@@ -361,8 +383,8 @@ Detalhes de configuração admin: ver `docs/BILLING_SETUP.md` no repo.
 
 Acessíveis sem login (e indexáveis por busca):
 
-- **`/inicio`** — landing page com hero, trust strip, features, comparison vs Anki/QConcursos, social proof (testimonials), newsletter capture, FAQ.
-- **`/planos`** — comparativo Grátis vs Pro com Checkout (R$ 19,90/mês ou R$ 179/ano · 14 dias trial sem cartão).
+- **`/inicio`** — landing page com hero, trust strip, features, comparison vs Anki/QConcursos, social proof (testimonials), pricing teaser dos 3 planos, newsletter capture, FAQ.
+- **`/planos`** — comparativo dos 3 planos (Grátis · Estudante R$ 9,90/mês · Pro R$ 19,90/mês) com toggle mensal/anual e Checkout. 14 dias de trial nos planos pagos sem cartão.
 - **`/sobre`** — story, princípios, posicionamento. Conexão emocional pra conversão.
 - **`/roadmap`** — pronto / em construção / próximo / considerando / não-planejado. Transparência.
 - **`/concursos-populares`** — índice por banca (FGV, Cebraspe, FCC, IBFC) com SEO long-tail.
@@ -378,7 +400,7 @@ Erros e roteamento:
 - **404** — página customizada `/_not-found` com atalhos pras rotas principais.
 - **Erro inesperado** — `error.tsx` (boundary do segmento root) e `global-error.tsx` (boundary global, fora do layout). Mostram refs anônimas pro user copiar ao reportar.
 
-Todas têm o `PublicFooter` com links pra navegar entre elas.
+Todas têm o `PublicHeader` (logo sticky no topo + nav: Planos · Sobre · Bancas · Manual · Entrar · Começar) e o `PublicFooter` com links pra navegar entre elas. A logo do header é clicável pra voltar pro `/inicio` de qualquer página pública.
 
 ## 16. Admin (operacional)
 

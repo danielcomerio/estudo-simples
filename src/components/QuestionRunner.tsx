@@ -19,6 +19,7 @@ import {
 } from '@/lib/hierarchy';
 import { interleaveByGroup, renderRichText, shuffle, startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
+import { haptic } from '@/lib/haptic';
 import {
   clearSession as clearStoredSession,
   readSession,
@@ -32,6 +33,7 @@ import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { NoteInline } from './NoteInline';
+import { ErrorCausePicker } from './ErrorCausePicker';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 import type {
@@ -461,6 +463,31 @@ export function QuestionRunner() {
     setPhase('running');
   };
 
+  const quickStart = (
+    modo: SessionConfig['modo'],
+    qtd: number,
+    free = false
+  ) => {
+    const next = { ...cfg, modo, qtd, free };
+    setCfg(next);
+    const pool = buildPool(all, next);
+    if (!pool.length) return;
+    setSession({
+      pool,
+      idx: 0,
+      embaralhar: next.embaralhar,
+      tempoLimite: next.tempo,
+      correct: 0,
+      wrong: 0,
+      skipped: 0,
+      startedAt: Date.now(),
+      free: next.free,
+      activeRecall: next.activeRecall,
+      retryWrong: next.retryWrong,
+    });
+    setPhase('running');
+  };
+
   const onFinish = () => {
     if (session) {
       appendSession({
@@ -617,7 +644,83 @@ export function QuestionRunner() {
         </div>
       )}
 
-      <h2>Configurar sessão</h2>
+      {objCount > 0 && (
+        <section style={{ marginBottom: 18 }}>
+          <h2 style={{ margin: '0 0 10px' }}>⚡ Início rápido</h2>
+          <div className="quick-start-grid">
+            <button
+              type="button"
+              className="quick-start-btn"
+              onClick={() => quickStart('srs', 10)}
+              title="10 questões priorizando vencidas"
+            >
+              <span className="qs-emoji">🎯</span>
+              <span className="qs-label">10 SRS</span>
+              <span className="qs-sub">prioriza vencidas</span>
+            </button>
+            <button
+              type="button"
+              className="quick-start-btn"
+              onClick={() => quickStart('aleatorio', 20)}
+              title="20 questões aleatórias"
+            >
+              <span className="qs-emoji">🔀</span>
+              <span className="qs-label">20 random</span>
+              <span className="qs-sub">aleatório</span>
+            </button>
+            <button
+              type="button"
+              className="quick-start-btn"
+              onClick={() => quickStart('inimigas', 10)}
+              title="Suas inimigas: ≥3 tentativas, &lt;30% acerto"
+            >
+              <span className="qs-emoji">⚔</span>
+              <span className="qs-label">10 inimigas</span>
+              <span className="qs-sub">o que mais erra</span>
+            </button>
+            <button
+              type="button"
+              className="quick-start-btn"
+              onClick={() => quickStart('final-prova', 30)}
+              title="30 questões: SRS + inimigas + recém-aprendidas + variadas"
+            >
+              <span className="qs-emoji">🎓</span>
+              <span className="qs-label">Pré-prova</span>
+              <span className="qs-sub">30 mistas</span>
+            </button>
+          </div>
+          <p
+            className="muted"
+            style={{ fontSize: '0.82rem', margin: '10px 0 0' }}
+          >
+            Ou{' '}
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                const el = document.querySelector(
+                  '#estudar-config'
+                ) as HTMLElement | null;
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              style={{
+                padding: '0',
+                border: 'none',
+                background: 'none',
+                color: 'var(--primary)',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: 'inherit',
+              }}
+            >
+              configure uma sessão custom
+            </button>{' '}
+            abaixo.
+          </p>
+        </section>
+      )}
+
+      <h2 id="estudar-config">Configurar sessão</h2>
 
       {objCount === 0 && (
         <div
@@ -950,20 +1053,14 @@ function RunningView({
       streak: isCorrect ? (s.streak ?? 0) + 1 : 0,
     }));
 
-    // Feedback haptico em mobile (no-op em desktop). Pulse curto pra
-    // certo, dois pulsos pra errado — discriminação tátil sem som.
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-      try {
-        navigator.vibrate(isCorrect ? 20 : [20, 60, 20]);
-      } catch {
-        // alguns browsers requerem user gesture; ignorar erro
-      }
-    }
+    // Feedback háptico (mobile-only, no-op em desktop e iOS).
+    haptic(isCorrect ? 'success' : 'error');
   };
 
   const rate = (quality: number) => {
     if (ratedRef.current) return;
     ratedRef.current = true;
+    haptic('select');
     // Captura snapshot pra undo. Stats foi atualizado em submit() —
     // o snapshot guarda o stats POST-submit; undo restaura o cenário
     // de "respondi mas ainda não rateei" + decrementa contadores.
@@ -1297,17 +1394,9 @@ function RunningView({
                 <button
                   key={opt.v}
                   type="button"
+                  className={'confidence-btn' + (isOn ? ' active' : '')}
                   title={opt.tip}
                   onClick={() => setConfidence(isOn ? null : opt.v)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid ' + (isOn ? 'var(--primary)' : 'var(--border)'),
-                    background: isOn ? 'var(--primary-soft)' : 'transparent',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    color: 'var(--text)',
-                  }}
                 >
                   {opt.label}
                 </button>
@@ -1446,6 +1535,8 @@ function RunningView({
               />
             </div>
           )}
+
+          {!isCorrect && <ErrorCausePicker q={q} />}
 
           <NoteInline q={q} />
         </div>

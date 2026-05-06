@@ -32,6 +32,16 @@ export type HistoryEntry = {
    *  Usado pra calibração metacognitiva: errar uma "confiante"
    *  é sinal de overconfidence; acertar uma "chutei" é sorte. */
   confidence?: 1 | 2 | 3;
+  /** Causa do erro auto-classificada após errar. Permite estudo
+   *  direcionado: errei por gap de conceito vs por desatenção
+   *  exigem ações diferentes.
+   *    'concept'      = não sabia/não lembrei (estudar mais)
+   *    'careless'     = sabia mas marquei errado (atenção)
+   *    'interpret'    = interpretei mal o enunciado (leitura)
+   *    'time'         = pressão de tempo / timeout
+   *    'tricky'       = pegadinha da banca / detalhe sutil
+   */
+  errorCause?: 'concept' | 'careless' | 'interpret' | 'time' | 'tricky';
 };
 
 export type Stats = {

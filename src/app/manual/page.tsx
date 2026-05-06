@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { ManualView } from '@/components/ManualView';
+import { PublicHeader } from '@/components/PublicHeader';
+import { PublicFooter } from '@/components/PublicFooter';
 
 /**
  * Página de manual. Renderiza docs/MANUAL.md como HTML formatado.
@@ -18,5 +20,11 @@ export default function ManualPage() {
     content =
       '# Manual\n\nNão foi possível carregar o manual. Verifique `docs/MANUAL.md`.';
   }
-  return <ManualView markdown={content} />;
+  return (
+    <>
+      <PublicHeader />
+      <ManualView markdown={content} />
+      <PublicFooter />
+    </>
+  );
 }

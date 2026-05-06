@@ -177,6 +177,8 @@ export function StatsView() {
 
       <WeekdayDistributionSection questions={questions} />
 
+      <ErrorCausesSection questions={questions} />
+
       <SessionsLogSection />
 
       <SemanaSection questions={questions} />
@@ -192,6 +194,11 @@ export function StatsView() {
       <NemesisSection questions={questions} />
 
       <AprendizadoSection questions={questions} />
+
+      <DisciplinaXPSection
+        questions={questions}
+        allDisciplinas={allDisciplinas ?? []}
+      />
 
       <CargaProximaSection questions={questions} />
 
@@ -1154,6 +1161,136 @@ function WeekdayDistributionSection({
                   {d.pct}%
                 </div>
               )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Distribuição das causas dos erros. Mostra padrão pra direcionar:
+ * muitos "atenção" → trabalha foco; muitos "leitura" → ler com calma;
+ * muitos "conceito" → estuda mais.
+ */
+function ErrorCausesSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const counts: Record<string, number> = {
+      concept: 0,
+      careless: 0,
+      interpret: 0,
+      time: 0,
+      tricky: 0,
+    };
+    let total = 0;
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        if (h.errorCause) {
+          counts[h.errorCause] = (counts[h.errorCause] ?? 0) + 1;
+          total++;
+        }
+      }
+    }
+    return { counts, total };
+  }, [questions]);
+
+  if (data.total === 0) return null;
+
+  const labels: Record<string, { emoji: string; name: string; tip: string }> = {
+    concept: {
+      emoji: '🧠',
+      name: 'Não sabia (conceito)',
+      tip: 'Estude mais o assunto: explicação, vídeo, doutrina.',
+    },
+    careless: {
+      emoji: '🤦',
+      name: 'Atenção',
+      tip: 'Releia antes de marcar. Cobre alternativa pra evitar pular.',
+    },
+    interpret: {
+      emoji: '📖',
+      name: 'Leitura',
+      tip: 'Quebre enunciado em partes. Sublinhe palavras-chave.',
+    },
+    time: {
+      emoji: '⏱',
+      name: 'Tempo',
+      tip: 'Treine com cronômetro no /simulado. Aprenda a "pular e voltar".',
+    },
+    tricky: {
+      emoji: '🎩',
+      name: 'Pegadinha',
+      tip: 'Tag essas com `pegadinha` no /banco e revise antes da prova.',
+    },
+  };
+
+  const sorted = Object.entries(data.counts)
+    .map(([k, v]) => ({ key: k, count: v, pct: Math.round((100 * v) / data.total) }))
+    .filter((x) => x.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>🤔 Por que você erra</h2>
+      <p
+        className="muted"
+        style={{ marginTop: 0, fontSize: '0.85rem', marginBottom: 12 }}
+      >
+        Causas dos seus erros (auto-classificadas após errar). Padrão sugere
+        ação. Total: {data.total} erros classificados.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {sorted.map((row) => {
+          const meta = labels[row.key];
+          return (
+            <div key={row.key}>
+              <div
+                className="row between"
+                style={{ marginBottom: 4, fontSize: '0.88rem' }}
+              >
+                <span>
+                  {meta.emoji} <strong>{meta.name}</strong>
+                </span>
+                <span className="muted">
+                  {row.count} ({row.pct}%)
+                </span>
+              </div>
+              <div
+                style={{
+                  height: 6,
+                  background: 'var(--bg-elev)',
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${row.pct}%`,
+                    background:
+                      row.key === 'concept'
+                        ? 'var(--primary)'
+                        : row.key === 'careless'
+                          ? '#f59e0b'
+                          : row.key === 'interpret'
+                            ? '#a855f7'
+                            : row.key === 'time'
+                              ? '#ef4444'
+                              : '#06b6d4',
+                  }}
+                />
+              </div>
+              <p
+                className="muted"
+                style={{ margin: '4px 0 0', fontSize: '0.78rem' }}
+              >
+                {meta.tip}
+              </p>
             </div>
           );
         })}
@@ -2416,6 +2553,168 @@ function AprendizadoSection({
       </div>
     </div>
   );
+}
+
+/**
+ * Sistema de XP e níveis por disciplina — derivado puro do histórico,
+ * sem schema novo. Cada acerto vale 10 XP, self_pass 8, errado 0.
+ * Bonus de +2 por sequência (acerto após acerto).
+ *
+ * Level = floor(sqrt(xp / 25)) + 1 → cresce devagar nos altos níveis,
+ * dando sensação de progresso constante sem inflacionar.
+ *  - Lv 2 = 25 XP   (~3 acertos)
+ *  - Lv 3 = 100 XP  (~10 acertos)
+ *  - Lv 5 = 400 XP  (~40 acertos)
+ *  - Lv 10 = 2025 XP
+ */
+function DisciplinaXPSection({
+  questions,
+  allDisciplinas,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+  allDisciplinas: { id: string; nome: string }[];
+}) {
+  const data = useMemo(() => {
+    const xpByDisc = new Map<string, number>();
+    for (const q of questions) {
+      const d = q.disciplina_id;
+      if (!d) continue;
+      const h = q.stats?.history ?? [];
+      let prevCorrect = false;
+      let xp = 0;
+      for (const e of h) {
+        if (e.result === 'correct') {
+          xp += prevCorrect ? 12 : 10;
+          prevCorrect = true;
+        } else if (e.result === 'self_pass') {
+          xp += 8;
+          prevCorrect = false;
+        } else {
+          prevCorrect = false;
+        }
+      }
+      if (xp > 0) {
+        xpByDisc.set(d, (xpByDisc.get(d) ?? 0) + xp);
+      }
+    }
+    const discNomes = new Map<string, string>();
+    for (const d of allDisciplinas) {
+      discNomes.set(d.id.toLowerCase(), d.nome);
+      discNomes.set(d.nome.toLowerCase(), d.nome);
+    }
+    const rows = Array.from(xpByDisc.entries())
+      .map(([disc, xp]) => {
+        const lvl = Math.floor(Math.sqrt(xp / 25)) + 1;
+        const xpAtLvl = (lvl - 1) ** 2 * 25;
+        const xpNextLvl = lvl ** 2 * 25;
+        const intoLvl = xp - xpAtLvl;
+        const lvlSpan = xpNextLvl - xpAtLvl;
+        const pct = Math.min(100, Math.round((100 * intoLvl) / lvlSpan));
+        const nome = discNomes.get(disc.toLowerCase()) ?? disc;
+        return { disc, nome, xp, lvl, intoLvl, lvlSpan, pct };
+      })
+      .sort((a, b) => b.lvl - a.lvl || b.xp - a.xp);
+    return rows;
+  }, [questions, allDisciplinas]);
+
+  if (data.length === 0) return null;
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>⚡ Níveis por disciplina</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 14px', fontSize: '0.85rem' }}
+      >
+        Acerto = +10 XP · sequência = +12 · self-pass = +8. Sobe nível com
+        prática consistente.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {data.slice(0, 12).map((r) => (
+          <div
+            key={r.disc}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}
+          >
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: levelColor(r.lvl),
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: r.lvl >= 100 ? '0.85rem' : '1.05rem',
+                fontWeight: 700,
+                flexShrink: 0,
+                lineHeight: 1,
+              }}
+              title={`Nível ${r.lvl}`}
+            >
+              {r.lvl}
+            </div>
+            <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+              <div
+                className="row between"
+                style={{ alignItems: 'baseline', gap: 8, marginBottom: 4 }}
+              >
+                <strong
+                  style={{
+                    fontSize: '0.95rem',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={r.nome}
+                >
+                  {r.nome}
+                </strong>
+                <span className="muted" style={{ fontSize: '0.78rem' }}>
+                  {r.intoLvl}/{r.lvlSpan} XP · total {r.xp}
+                </span>
+              </div>
+              <div
+                style={{
+                  height: 6,
+                  background: 'var(--bg-elev-2)',
+                  borderRadius: 999,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${r.pct}%`,
+                    background: levelColor(r.lvl),
+                    transition: 'width 0.3s',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+        {data.length > 12 && (
+          <p className="muted" style={{ fontSize: '0.82rem', margin: '4px 0 0' }}>
+            Mostrando top 12 de {data.length} disciplinas com XP.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function levelColor(lvl: number): string {
+  if (lvl >= 20) return '#a855f7'; // roxo
+  if (lvl >= 10) return '#f59e0b'; // âmbar
+  if (lvl >= 5) return '#22c55e';  // verde
+  if (lvl >= 3) return '#3b82f6';  // azul
+  return '#64748b';                 // cinza azulado
 }
 
 /**

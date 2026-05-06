@@ -62,28 +62,14 @@ export function ActiveConcursoSelector() {
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         type="button"
-        className="ghost"
+        className="ghost concurso-selector-btn"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        title="Trocar concurso ativo"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          maxWidth: 240,
-        }}
+        title={`Concurso ativo: ${label}`}
       >
         <span aria-hidden style={{ fontSize: '0.85em' }}>📚</span>
-        <span
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {label}
-        </span>
+        <span className="concurso-selector-label">{label}</span>
         <span aria-hidden style={{ fontSize: '0.7em', opacity: 0.6 }}>▾</span>
       </button>
 

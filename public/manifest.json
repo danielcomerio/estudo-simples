@@ -16,5 +16,35 @@
     }
   ],
   "categories": ["education", "productivity"],
-  "lang": "pt-BR"
+  "lang": "pt-BR",
+  "shortcuts": [
+    {
+      "name": "Estudar agora",
+      "short_name": "Estudar",
+      "description": "Sessão SRS automática com 10 questões",
+      "url": "/estudar?modo=srs&qtd=10&auto=1",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Cards (Cloze + Flashcard)",
+      "short_name": "Cards",
+      "description": "Sessão de cards de memorização",
+      "url": "/cards",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Banco de questões",
+      "short_name": "Banco",
+      "description": "Lista, filtros e import",
+      "url": "/banco",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Estatísticas",
+      "short_name": "Stats",
+      "description": "Desempenho e métricas",
+      "url": "/stats",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
 }

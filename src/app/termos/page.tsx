@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { ManualView } from '@/components/ManualView';
+import { PublicHeader } from '@/components/PublicHeader';
+import { PublicFooter } from '@/components/PublicFooter';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -18,5 +20,11 @@ export default function TermsPage() {
   } catch {
     content = '# Termos de Uso\n\nDocumento indisponível.';
   }
-  return <ManualView markdown={content} />;
+  return (
+    <>
+      <PublicHeader />
+      <ManualView markdown={content} />
+      <PublicFooter />
+    </>
+  );
 }

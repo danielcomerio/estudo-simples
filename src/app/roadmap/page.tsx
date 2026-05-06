@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -59,6 +60,7 @@ const NOT_PLANNED = [
 export default function Roadmap() {
   return (
     <>
+      <PublicHeader />
       <main
         style={{
           maxWidth: 760,

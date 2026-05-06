@@ -46,10 +46,16 @@ const STEPS = [
  * Tour guiado de 3 passos no primeiro acesso. Aparece quando IDB tá
  * vazio E o flag de "visto" ainda não foi setado. Skipável a qualquer
  * momento via Esc ou botão pular.
+ *
+ * Não aparece pra visitante: a /inicio já explica tudo e o Dashboard
+ * em estado vazio já tem onboarding em 3 passos in-place. Mostrar
+ * modal por cima criava sensação de "preso em tela cheia".
  */
 export function OnboardingTour() {
   const hydrated = useStore((s) => s.hydrated);
+  const userId = useStore((s) => s.userId);
   const questions = useStore(selectActiveQuestions);
+  const isGuest = userId === 'guest';
   const [step, setStep] = useState(0);
   const [seen, setSeen] = useState<boolean | null>(null);
   // Delay antes de mostrar o tour. Sem isso, a tela pisca: hydrate
@@ -97,6 +103,7 @@ export function OnboardingTour() {
   // Também aguarda delayPassed (3s) pra dar chance do seed carregar
   // antes — evita o flash de <1s no boot do visitante.
   if (!hydrated) return null;
+  if (isGuest) return null;
   if (seen !== false) return null;
   if (questions.length > 0) {
     // Marca como visto silenciosamente — usuário já tem dados, não

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -12,6 +13,7 @@ const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'contato@estudosim
 export default function Contato() {
   return (
     <>
+      <PublicHeader />
       <main
         style={{
           maxWidth: 720,

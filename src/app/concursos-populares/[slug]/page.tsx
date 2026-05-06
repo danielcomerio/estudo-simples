@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { BANCAS, getBancaBySlug } from '@/lib/concursos-data';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 
 export const dynamic = 'force-static';
 
@@ -35,6 +36,7 @@ export default async function BancaDetail({ params }: Params) {
 
   return (
     <>
+      <PublicHeader />
       <main
         style={{
           maxWidth: 760,

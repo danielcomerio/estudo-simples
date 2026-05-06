@@ -10,6 +10,7 @@ import { startOfDay } from '@/lib/utils';
 import { useDailyGoal } from '@/lib/settings';
 import { useActiveConcursoFilter } from '@/lib/hierarchy';
 import type { Question } from '@/lib/types';
+import { DailyQuests } from './DailyQuests';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -235,6 +236,18 @@ export function Dashboard() {
 
   // Revisões feitas hoje (último elemento de days)
   const reviewsToday = days[days.length - 1]?.count ?? 0;
+
+  // Recordes pessoais (PRs) — top performance em janela de 90 dias.
+  //  - bestDayBefore: maior dia EXCLUINDO hoje (pra comparar com hoje)
+  //  - bestDayEver: maior dia incluindo hoje (mostrado como chip)
+  //  - prTodayCount: hoje quebrou o PR de revisões/dia?
+  let bestDayBefore = 0;
+  for (let i = 0; i < days.length - 1; i++) {
+    if (days[i].count > bestDayBefore) bestDayBefore = days[i].count;
+  }
+  const bestDayEver = Math.max(bestDayBefore, reviewsToday);
+  const prTodayCount =
+    reviewsToday > 0 && reviewsToday > bestDayBefore && bestDayBefore >= 5;
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
@@ -362,6 +375,10 @@ export function Dashboard() {
     else if (pct >= 0.8) achievements.push({ emoji: '🎖', label: '80% acerto' });
     else if (pct >= 0.7) achievements.push({ emoji: '🥇', label: '70% acerto' });
   }
+  // Recorde do melhor dia (PR)
+  if (bestDayEver >= 10) {
+    achievements.push({ emoji: '⚡', label: `PR: ${bestDayEver} num dia` });
+  }
   // Banco (organização)
   const bankTiers = [100, 500, 1000, 2500, 5000];
   for (let i = bankTiers.length - 1; i >= 0; i--) {
@@ -399,6 +416,30 @@ export function Dashboard() {
               Criar conta
             </button>
           </Link>
+        </div>
+      )}
+
+      {prTodayCount && (
+        <div
+          className="card"
+          style={{
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))',
+            border: '1px solid var(--primary)',
+            padding: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+          role="status"
+        >
+          <span style={{ fontSize: '1.5rem' }} aria-hidden>⚡</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ fontSize: '1rem' }}>Novo recorde pessoal!</strong>
+            <div style={{ fontSize: '0.88rem', color: 'var(--muted)' }}>
+              {reviewsToday} revisões hoje · antes era {bestDayBefore}. Continue assim!
+            </div>
+          </div>
         </div>
       )}
 
@@ -552,6 +593,9 @@ export function Dashboard() {
           </p>
         )}
       </div>
+
+      {/* Missões diárias — derivadas do histórico do dia, sem state */}
+      <DailyQuests questions={questions} dailyGoal={dailyGoal} />
 
       {achievements.length > 0 && (
         <div className="card" style={{ padding: '12px 16px' }}>

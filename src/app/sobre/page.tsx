@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -18,6 +19,7 @@ export const metadata = {
 export default function Sobre() {
   return (
     <>
+      <PublicHeader />
       <main
         style={{
           maxWidth: 720,

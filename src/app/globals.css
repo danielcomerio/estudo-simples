@@ -213,6 +213,17 @@ body {
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Defesa contra overflow horizontal: nada deve vazar pra fora.
+     Se algum filho tem `width: ...px` largo, fica scroll-clipped em
+     vez de criar barra horizontal. */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Desabilita double-tap zoom (mantém pinch-zoom de acessibilidade).
+   Smooth-tap: o sistema não espera 300ms pra detectar duplo-tap. */
+html {
+  touch-action: manipulation;
 }
 
 ::selection {
@@ -404,6 +415,55 @@ h4 {
   }
   .topbar .user-mail {
     display: none;
+  }
+}
+
+/* Mobile: simplificar topbar — esconde elementos secundários,
+   mantém só hamburger + logo (sem texto) + concurso + tema + sair.
+   Usuário reclamou que topbar verbose tinha coisas saindo pra fora. */
+.concurso-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+}
+.concurso-selector-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 759px) {
+  .topbar-brand-text {
+    display: none !important;
+  }
+  .topbar-desktop-only {
+    display: none !important;
+  }
+  .topbar .sync-pill {
+    display: none !important;
+  }
+  .topbar {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+  .topbar .right {
+    gap: 4px;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .topbar .right > button.ghost,
+  .topbar .right form button {
+    padding: 6px 10px !important;
+    font-size: 0.85rem;
+  }
+  /* Concurso selector em mobile: só ícone + seta (esconde nome) */
+  .concurso-selector-label {
+    display: none;
+  }
+  .concurso-selector-btn {
+    max-width: none;
+    padding: 6px 8px;
   }
 }
 .sync-pill.idle .dot {
@@ -1151,6 +1211,60 @@ label.check-row input {
   cursor: default;
 }
 
+/* Mobile: alternativas mais polegar-friendly — área de toque maior,
+   letra mais visível, espaçamento generoso. Pra fazer 50+ questões
+   sem fadiga. */
+@media (max-width: 759px) {
+  .alternativas {
+    gap: 10px;
+  }
+  .alt {
+    grid-template-columns: 38px 1fr;
+    padding: 14px 14px;
+    font-size: 1rem;
+    line-height: 1.45;
+    min-height: 56px;
+    align-items: center;
+  }
+  .alt .letra {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+  .alt .texto {
+    word-break: break-word;
+  }
+  .session-bar {
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    gap: 6px;
+  }
+  .session-progress {
+    font-size: 0.92rem;
+  }
+  .session-progress .small {
+    font-size: 0.78rem;
+    margin-left: 6px;
+  }
+  .question-area .enunciado {
+    font-size: 1.02rem;
+    line-height: 1.55;
+  }
+  .question-area .meta-line {
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 0.74rem;
+  }
+  .question-area .meta-line span {
+    padding: 2px 8px;
+  }
+  /* Em modo foco mobile, esconde meta pra dar mais real estate ao
+     enunciado/alternativas. */
+  body.focus-mode .question-area .meta-line {
+    display: none;
+  }
+}
+
 .feedback-area {
   margin-top: 18px;
   padding: 16px;
@@ -1186,6 +1300,23 @@ label.check-row input {
 }
 .feedback-area li {
   margin: 5px 0;
+}
+
+/* Mobile: feedback compactado pra economizar espaço vertical */
+@media (max-width: 759px) {
+  .feedback-area {
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .feedback-area h3 {
+    font-size: 1.05rem;
+    margin: 0 0 6px;
+  }
+  .feedback-area .feedback-block {
+    margin-top: 10px;
+    padding-top: 10px;
+    font-size: 0.94rem;
+  }
 }
 
 .srs-rate {
@@ -1262,6 +1393,83 @@ label.check-row input {
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px dashed var(--border);
+}
+/* Mobile não tem teclado físico — esconde dicas de atalho. Os small
+   nos botões rate (1/2/3/4) também ficam desnecessários, mas mostram
+   o intervalo SRS preview que ainda é útil. */
+@media (max-width: 759px) {
+  .kbd-hints {
+    display: none;
+  }
+}
+
+/* Quick start grid no /estudar — 4 botões grandes pra fluxo polegar */
+.quick-start-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 759px) {
+  .quick-start-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.quick-start-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 80ms;
+  text-align: center;
+  min-height: 88px;
+}
+.quick-start-btn:hover {
+  border-color: var(--primary);
+  background: var(--bg-elev-3);
+}
+.quick-start-btn:active {
+  transform: scale(0.97);
+}
+.quick-start-btn .qs-emoji {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.quick-start-btn .qs-label {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.quick-start-btn .qs-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+/* Confidence rating buttons — tap-target generoso */
+.confidence-btn {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text);
+  transition: background 0.15s, border-color 0.15s;
+}
+.confidence-btn.active {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+@media (max-width: 759px) {
+  .confidence-btn {
+    flex: 1 1 calc(33.333% - 6px);
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    min-height: 44px;
+  }
 }
 .kbd {
   display: inline-block;
@@ -1487,6 +1695,11 @@ label.check-row input {
   /* Mais espaço entre items pra fácil tap */
   .banco-list {
     gap: 6px !important;
+    /* Em mobile, lista NÃO tem scroll próprio: a página rola.
+       Scroll aninhado é confuso (qual rola, lista ou página?). */
+    max-height: none !important;
+    overflow-y: visible !important;
+    padding-right: 0 !important;
   }
   /* Bulk action row sem scroll horizontal — flex-wrap é o caminho */
   .row.gap.wrap {
@@ -1646,7 +1859,30 @@ select:focus-visible,
   outline-offset: 2px;
 }
 
+.public-header-link {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.public-header-link:hover {
+  color: var(--text);
+}
+@media (max-width: 759px) {
+  /* Mobile: esconde links secundários, mantém só Entrar + Começar */
+  .public-header-nav .public-header-link {
+    display: none;
+  }
+}
+
 /* Manual view: tipografia agradável pra leitura longa. */
+.manual-view h1,
+.manual-view h2,
+.manual-view h3,
+.manual-view h4 {
+  /* Sticky header tem ~60px — sem scroll-margin, anchor de TOC fica
+   * escondido atrás dele ao clicar. */
+  scroll-margin-top: 70px;
+}
 .manual-view h1 {
   font-size: 1.6rem;
   margin: 0 0 14px;
@@ -1760,6 +1996,23 @@ select:focus-visible,
   .mbn-item.active {
     color: var(--primary);
     background: var(--primary-soft);
+    /* Indicador visual extra: pontinho embaixo do item ativo */
+    position: relative;
+  }
+  .mbn-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+  .mbn-item:active {
+    background: var(--bg-elev-3);
+    transform: scale(0.96);
   }
   .mbn-icon {
     font-size: 1.15rem;
@@ -1796,6 +2049,70 @@ select:focus-visible,
 }
 body.focus-mode .mobile-bottom-nav {
   display: none !important;
+}
+
+/* Mobile FAB (floating action button) — só mobile, polegar-friendly */
+.mobile-fab {
+  display: none;
+}
+@media (max-width: 759px) {
+  .mobile-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+    text-decoration: none;
+    z-index: 90;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+  }
+  .mobile-fab:active {
+    transform: scale(0.94);
+  }
+  .mobile-fab-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg);
+    line-height: 1;
+  }
+}
+body.focus-mode .mobile-fab {
+  display: none !important;
+}
+
+/* Pull-to-refresh spinner — usado em listas mobile */
+.ptr-spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--bg-elev-3);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: ptr-spin 0.8s linear infinite;
+}
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .toast-stack {

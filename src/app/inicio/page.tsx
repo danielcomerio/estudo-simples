@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
+import { PublicHeader } from '@/components/PublicHeader';
 import { NewsletterForm } from '@/components/NewsletterForm';
 
 export const dynamic = 'force-static';
@@ -80,6 +81,7 @@ export default function Home() {
       // eslint-disable-next-line react/no-danger -- payload server-side controlado, sem PII
       dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
     />
+    <PublicHeader />
     <main
       style={{
         maxWidth: 1100,
@@ -345,28 +347,60 @@ export default function Home() {
       {/* Pricing teaser */}
       <section
         style={{
-          textAlign: 'center',
           background: 'var(--bg-elev-2)',
           borderRadius: 'var(--radius-lg)',
           padding: 32,
           margin: '40px 0',
         }}
       >
-        <h2 style={{ margin: '0 0 10px' }}>Planos simples</h2>
-        <p
-          className="muted"
-          style={{ margin: '0 0 18px', maxWidth: 540, marginLeft: 'auto', marginRight: 'auto' }}
+        <div style={{ textAlign: 'center', marginBottom: 22 }}>
+          <h2 style={{ margin: '0 0 10px' }}>3 planos, sem amarras</h2>
+          <p
+            className="muted"
+            style={{
+              margin: '0 auto',
+              maxWidth: 540,
+            }}
+          >
+            Comece grátis. Sobe pra Estudante (R$ 9,90) ou Pro (R$ 19,90)
+            quando precisar de mais. <strong>14 dias de trial</strong> nos
+            planos pagos sem cartão.
+          </p>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+            marginBottom: 20,
+          }}
         >
-          Grátis pra começar. Pro a R$ 19,90/mês com 14 dias de trial sem cartão.
-          Cancela quando quiser, sem amarras.
-        </p>
+          <PriceMini
+            label="Grátis"
+            price="R$ 0"
+            sub="200 questões, 1 concurso"
+          />
+          <PriceMini
+            label="🎓 Estudante"
+            price="R$ 9,90"
+            sub="2.000 questões, 3 concursos"
+            unit="/mês"
+          />
+          <PriceMini
+            label="✨ Pro"
+            price="R$ 19,90"
+            sub="Tudo ilimitado"
+            unit="/mês"
+            accent
+          />
+        </div>
         <div
           className="row gap"
           style={{ justifyContent: 'center', flexWrap: 'wrap' }}
         >
           <Link href="/planos">
             <button type="button" className="primary">
-              Ver planos →
+              Ver detalhes dos planos →
             </button>
           </Link>
           <Link href="/signup">
@@ -541,6 +575,64 @@ function FeatureCard({
       <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.9rem', lineHeight: 1.5 }}>
         {desc}
       </p>
+    </div>
+  );
+}
+
+function PriceMini({
+  label,
+  price,
+  unit,
+  sub,
+  accent,
+}: {
+  label: string;
+  price: string;
+  unit?: string;
+  sub: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        background: accent ? 'var(--primary-soft)' : 'var(--bg-elev)',
+        border: `1px solid ${accent ? 'var(--primary)' : 'var(--border)'}`,
+        borderRadius: 'var(--radius)',
+        padding: '14px 16px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: 4,
+        minHeight: 110,
+        justifyContent: 'center',
+      }}
+    >
+      <strong style={{ fontSize: '0.92rem' }}>{label}</strong>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 2,
+          fontWeight: 600,
+        }}
+      >
+        <span style={{ fontSize: '1.25rem' }}>{price}</span>
+        {unit && (
+          <span style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
+            {unit}
+          </span>
+        )}
+      </div>
+      <span
+        style={{
+          fontSize: '0.78rem',
+          color: 'var(--muted)',
+          lineHeight: 1.35,
+        }}
+      >
+        {sub}
+      </span>
     </div>
   );
 }
