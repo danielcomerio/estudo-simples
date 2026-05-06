@@ -14,6 +14,7 @@ import { setTheme, useTheme } from '@/lib/settings';
 import { ActiveConcursoSelector } from './ActiveConcursoSelector';
 import { InstallPWAButton } from './InstallPWAButton';
 import { ShortcutsHelp } from './ShortcutsHelp';
+import { StreakBadge } from './StreakBadge';
 
 const TABS = [
   { href: '/', label: 'Painel' },
@@ -296,6 +297,8 @@ export function Topbar({
         <span className="topbar-desktop-only">
           <ShortcutsHelp />
         </span>
+
+        <StreakBadge />
 
         <ThemeToggleQuick />
 
