@@ -8,6 +8,44 @@ import { isNotificationsEnabled } from '@/lib/notifications';
 
 const STORAGE_KEY = 'estudo-simples:pomodoro:v2';
 const SETTINGS_KEY = 'estudo-simples:pomodoro:settings:v1';
+const STATS_KEY = 'estudo-simples:pomodoro:stats:v1';
+
+/** Registra timestamp de pomodoro completo. Mantém últimos 200 (~50 dias). */
+function recordCompleted(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    const arr: number[] = raw ? JSON.parse(raw) : [];
+    arr.push(Date.now());
+    const trimmed = arr.slice(-200);
+    localStorage.setItem(STATS_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+
+function loadStats(): { today: number; week: number; total: number } {
+  if (typeof window === 'undefined') return { today: 0, week: 0, total: 0 };
+  try {
+    const raw = localStorage.getItem(STATS_KEY);
+    if (!raw) return { today: 0, week: 0, total: 0 };
+    const arr: number[] = JSON.parse(raw);
+    if (!Array.isArray(arr)) return { today: 0, week: 0, total: 0 };
+    const now = Date.now();
+    const today0 = new Date(now);
+    today0.setHours(0, 0, 0, 0);
+    const todayMs = today0.getTime();
+    const week0Ms = todayMs - 6 * 86400000;
+    let today = 0;
+    let week = 0;
+    for (const t of arr) {
+      if (typeof t !== 'number') continue;
+      if (t >= todayMs) today++;
+      if (t >= week0Ms) week++;
+    }
+    return { today, week, total: arr.length };
+  } catch {
+    return { today: 0, week: 0, total: 0 };
+  }
+}
 
 type Phase = 'focus' | 'short_break' | 'long_break';
 
@@ -195,6 +233,8 @@ export function PomodoroTimer() {
   const transition = () => {
     if (!persisted) return;
     if (persisted.phase === 'focus') {
+      // Registra pomodoro completo nas estatísticas
+      recordCompleted();
       const newCycle = persisted.cycleCount + 1;
       const nextPhase: Phase =
         newCycle >= settings.longBreakEvery ? 'long_break' : 'short_break';
@@ -342,6 +382,19 @@ export function PomodoroTimer() {
           <span className="muted" style={{ fontSize: '0.78rem' }}>
             {settings.focusMin}/{settings.shortBreakMin}/{settings.longBreakMin}min
           </span>
+          {(() => {
+            const stats = loadStats();
+            if (stats.total === 0) return null;
+            return (
+              <span
+                className="muted"
+                style={{ fontSize: '0.74rem' }}
+                title={`Hoje: ${stats.today} · Esta semana: ${stats.week} · Total: ${stats.total}`}
+              >
+                · {stats.today}🔥
+              </span>
+            );
+          })()}
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
             <button
               type="button"
