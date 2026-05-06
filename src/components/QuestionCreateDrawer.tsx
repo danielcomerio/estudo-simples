@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { TextareaWithPreview } from './TextareaWithPreview';
-import { addQuestionLocal, useStore } from '@/lib/store';
+import { addQuestionLocal, updateQuestionLocal, useStore } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { newSRS, newStats } from '@/lib/srs';
 import type { ClozePayload, FlashcardPayload, ObjetivaPayload } from '@/lib/types';
 import { toast } from './Toast';
+import { uploadQuestionImage, IMAGE_LIMITS } from '@/lib/storage';
 
 /**
  * Drawer pra criar questão (objetiva, cloze ou flashcard)
@@ -53,6 +54,11 @@ export function QuestionCreateDrawer({
   const [verso, setVerso] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  // Imagens pendentes — coletadas antes de salvar, uploaded após
+  // questão receber id via addQuestionLocal
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-save draft a cada 1.5s. Restaura ao montar se houver. Apaga
   // após save bem-sucedido. Útil pra users mobile (toque acidental no
@@ -147,6 +153,36 @@ export function QuestionCreateDrawer({
     }
   };
 
+  // Helpers de imagens (drag-drop / file input)
+  const addImages = (files: FileList | File[]) => {
+    const arr = Array.from(files).filter((f) => f.type.startsWith('image/'));
+    if (arr.length === 0) {
+      toast('Apenas arquivos de imagem (PNG/JPEG/WEBP/GIF)', 'error');
+      return;
+    }
+    // Cap maxPerQuestion imagens
+    const remaining = IMAGE_LIMITS.maxPerQuestion - pendingImages.length;
+    if (arr.length > remaining) {
+      toast(`Máximo ${IMAGE_LIMITS.maxPerQuestion} imagens — sobraram ${remaining} slots`, 'warn');
+    }
+    const accepted = arr.slice(0, remaining).filter((f) => {
+      if (f.size > IMAGE_LIMITS.maxSizeBytes) {
+        toast(
+          `${f.name}: maior que ${Math.round(IMAGE_LIMITS.maxSizeBytes / 1024 / 1024)}MB`,
+          'error'
+        );
+        return false;
+      }
+      return true;
+    });
+    if (accepted.length > 0) {
+      setPendingImages((prev) => [...prev, ...accepted]);
+    }
+  };
+  const removeImage = (i: number) => {
+    setPendingImages((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
   const close = () => {
     if (dlgRef.current?.open) dlgRef.current.close();
     onClose();
@@ -225,7 +261,7 @@ export function QuestionCreateDrawer({
         type = 'objetiva';
       }
 
-      addQuestionLocal(
+      const created = addQuestionLocal(
         {
           type,
           disciplina_id: discId.trim() || null,
@@ -242,6 +278,39 @@ export function QuestionCreateDrawer({
         },
         userId
       );
+
+      // Upload imagens pendentes (se houver) e atualiza payload.imagens.
+      // Storage path usa o id real da questão criada (composite FK respeitado).
+      if (pendingImages.length > 0) {
+        toast(
+          `📤 Enviando ${pendingImages.length} imagem(ns)…`,
+          '',
+          3000
+        );
+        const uploadedUrls: string[] = [];
+        for (const file of pendingImages) {
+          try {
+            const url = await uploadQuestionImage(file, created.id, userId);
+            uploadedUrls.push(url);
+          } catch (e) {
+            toast(
+              `Falha em ${file.name}: ${
+                e instanceof Error ? e.message : 'erro'
+              }`,
+              'error'
+            );
+          }
+        }
+        if (uploadedUrls.length > 0) {
+          updateQuestionLocal(created.id, (cur) => ({
+            payload: {
+              ...(cur.payload as Record<string, unknown>),
+              imagens: uploadedUrls,
+            },
+          }));
+        }
+      }
+
       scheduleSync(500);
       clearDraft();
       toast('Questão criada.', 'success');
@@ -526,12 +595,135 @@ export function QuestionCreateDrawer({
           />
         </label>
 
+        {/* Imagens (drag-drop ou click) — opcional. Upload acontece
+            após save, com path baseado no id da questão criada. */}
+        <div style={{ marginTop: 14 }}>
+          <span style={{ fontSize: '0.85rem', display: 'block', marginBottom: 6 }}>
+            Imagens (opcional, máx {IMAGE_LIMITS.maxPerQuestion})
+          </span>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files.length > 0) {
+                addImages(e.dataTransfer.files);
+              }
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
+            style={{
+              border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
+              background: dragOver ? 'var(--primary-soft)' : 'var(--bg-elev-2)',
+              borderRadius: 'var(--radius)',
+              padding: '14px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              color: 'var(--muted)',
+              transition: 'border-color 0.15s, background 0.15s',
+            }}
+          >
+            🖼 Arraste imagens aqui ou clique pra selecionar
+            <br />
+            <span style={{ fontSize: '0.78rem', opacity: 0.7 }}>
+              PNG, JPEG, WEBP, GIF — máx {Math.round(IMAGE_LIMITS.maxSizeBytes / 1024 / 1024)}MB cada
+            </span>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            onChange={(e) => {
+              if (e.target.files) addImages(e.target.files);
+              e.target.value = ''; // reset pra permitir re-upload do mesmo arquivo
+            }}
+            style={{ display: 'none' }}
+          />
+          {pendingImages.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              {pendingImages.map((file, i) => {
+                const url = URL.createObjectURL(file);
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      position: 'relative',
+                      aspectRatio: '1',
+                      borderRadius: 'var(--radius-sm)',
+                      overflow: 'hidden',
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg-elev)',
+                    }}
+                  >
+                    <img
+                      src={url}
+                      alt={`pré-visualização ${i + 1}`}
+                      onLoad={() => URL.revokeObjectURL(url)}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      aria-label="Remover imagem"
+                      title="Remover"
+                      style={{
+                        position: 'absolute',
+                        top: 2,
+                        right: 2,
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: 'rgba(0,0,0,0.7)',
+                        color: '#fff',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.7rem',
+                        padding: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div className="row gap right" style={{ marginTop: 18 }}>
           <button type="button" className="ghost" onClick={close}>
             Cancelar
           </button>
           <button type="submit" className="primary" disabled={submitting}>
-            {submitting ? 'Salvando…' : 'Criar'}
+            {submitting
+              ? 'Salvando…'
+              : pendingImages.length > 0
+                ? `Criar + ${pendingImages.length} img`
+                : 'Criar'}
           </button>
         </div>
       </form>
