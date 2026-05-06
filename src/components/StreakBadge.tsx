@@ -46,6 +46,17 @@ export function StreakBadge() {
 
   if (streak.streak === 0) return null;
 
+  // Emoji escala com streak: marcadores cumulativos motivam continuar
+  // (Duolingo/streak gamification psychology)
+  const milestoneEmoji = (() => {
+    if (streak.atRisk) return '⚠️';
+    if (streak.streak >= 365) return '👑';
+    if (streak.streak >= 90) return '💎';
+    if (streak.streak >= 30) return '🏆';
+    if (streak.streak >= 7) return '🔥';
+    return '🔥';
+  })();
+
   return (
     <Link
       href="/conquistas"
@@ -72,7 +83,7 @@ export function StreakBadge() {
         whiteSpace: 'nowrap',
       }}
     >
-      <span aria-hidden>{streak.atRisk ? '⚠️' : '🔥'}</span>
+      <span aria-hidden>{milestoneEmoji}</span>
       {streak.streak}
     </Link>
   );
