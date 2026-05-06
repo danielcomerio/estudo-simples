@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { TextareaWithPreview } from './TextareaWithPreview';
 import { addQuestionLocal, useStore } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { newSRS, newStats } from '@/lib/srs';
@@ -399,9 +400,9 @@ export function QuestionCreateDrawer({
               }}
             >
               <span style={{ fontSize: '0.85rem' }}>Enunciado *</span>
-              <textarea
+              <TextareaWithPreview
                 value={enun}
-                onChange={(e) => setEnun(e.target.value)}
+                onChange={setEnun}
                 rows={5}
                 maxLength={50_000}
               />
@@ -517,9 +518,9 @@ export function QuestionCreateDrawer({
           <span style={{ fontSize: '0.85rem' }}>
             Explicação geral (opcional)
           </span>
-          <textarea
+          <TextareaWithPreview
             value={explicacao}
-            onChange={(e) => setExplicacao(e.target.value)}
+            onChange={setExplicacao}
             rows={3}
             placeholder="Por que a correta é correta, contexto..."
           />
