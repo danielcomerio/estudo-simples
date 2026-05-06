@@ -1073,6 +1073,25 @@ function RunningView({
     };
   }, [focusMode]);
 
+  // Smart break detector: avisa se user fica >10min na mesma questão
+  // sem responder. 1 toast por questão (evita spam). Reseta ao trocar.
+  useEffect(() => {
+    if (answered) return; // já respondeu, não precisa lembrar
+    let warned = false;
+    const t = setTimeout(() => {
+      if (warned) return;
+      warned = true;
+      toast(
+        '☕ Está parado há 10min nessa questão. Pausa rápida pode ajudar.',
+        'warn',
+        5000
+      );
+    }, 10 * 60 * 1000);
+    return () => clearTimeout(t);
+    // Reseta ao trocar de questão (q.id muda) ou após responder
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q.id, answered]);
+
   // Embaralha alternativas uma vez por questão. Re-rotula em A/B/C/D/E
   // baseado na nova ordem — visual fica sempre alfabético, mesmo após
   // embaralhar. correta=true preserva quem é a certa.
