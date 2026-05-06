@@ -51,6 +51,75 @@ export function QuestionCreateDrawer({
   const [frente, setFrente] = useState('');
   const [verso, setVerso] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Auto-save draft a cada 1.5s. Restaura ao montar se houver. Apaga
+  // após save bem-sucedido. Útil pra users mobile (toque acidental no
+  // backdrop fecha o drawer e perderia tudo).
+  const DRAFT_KEY = 'estudo-simples:question-draft:v1';
+
+  useEffect(() => {
+    // Tenta restaurar draft ao abrir
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d && typeof d === 'object') {
+        if (typeof d.kind === 'string') setKind(d.kind);
+        if (typeof d.discId === 'string') setDiscId(d.discId);
+        if (typeof d.tema === 'string') setTema(d.tema);
+        if (typeof d.banca === 'string') setBanca(d.banca);
+        if (typeof d.dif === 'string') setDif(d.dif);
+        if (typeof d.enun === 'string') setEnun(d.enun);
+        if (typeof d.explicacao === 'string') setExplicacao(d.explicacao);
+        if (Array.isArray(d.alts) && d.alts.length === 5) setAlts(d.alts);
+        if (typeof d.clozeTexto === 'string') setClozeTexto(d.clozeTexto);
+        if (typeof d.frente === 'string') setFrente(d.frente);
+        if (typeof d.verso === 'string') setVerso(d.verso);
+        setDraftRestored(true);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save debounced
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        // Não salva draft vazio
+        const hasContent =
+          enun.trim() || clozeTexto.trim() || frente.trim() || verso.trim();
+        if (!hasContent) {
+          localStorage.removeItem(DRAFT_KEY);
+          return;
+        }
+        localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            kind,
+            discId,
+            tema,
+            banca,
+            dif,
+            enun,
+            explicacao,
+            alts,
+            clozeTexto,
+            frente,
+            verso,
+          })
+        );
+      } catch {}
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [kind, discId, tema, banca, dif, enun, explicacao, alts, clozeTexto, frente, verso]);
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {}
+  };
 
   useEffect(() => {
     if (dlgRef.current && !dlgRef.current.open) {
@@ -173,6 +242,7 @@ export function QuestionCreateDrawer({
         userId
       );
       scheduleSync(500);
+      clearDraft();
       toast('Questão criada.', 'success');
       close();
     } finally {
@@ -212,6 +282,53 @@ export function QuestionCreateDrawer({
             ✕
           </button>
         </div>
+
+        {draftRestored && (
+          <div
+            style={{
+              padding: '8px 12px',
+              marginBottom: 12,
+              background: 'var(--primary-soft)',
+              border: '1px solid var(--primary)',
+              borderRadius: 'var(--radius)',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>📝 Draft restaurado.</span>
+            <button
+              type="button"
+              className="ghost"
+              style={{ padding: '2px 10px', fontSize: '0.82rem' }}
+              onClick={() => {
+                clearDraft();
+                setKind(initialKind);
+                setDiscId('');
+                setTema('');
+                setBanca('');
+                setDif('');
+                setEnun('');
+                setExplicacao('');
+                setAlts([
+                  { letra: 'A', texto: '', correta: false },
+                  { letra: 'B', texto: '', correta: false },
+                  { letra: 'C', texto: '', correta: false },
+                  { letra: 'D', texto: '', correta: false },
+                  { letra: 'E', texto: '', correta: false },
+                ]);
+                setClozeTexto('');
+                setFrente('');
+                setVerso('');
+                setDraftRestored(false);
+              }}
+            >
+              Descartar
+            </button>
+          </div>
+        )}
 
         <div className="row gap" style={{ marginBottom: 14 }}>
           <label>
