@@ -27,6 +27,12 @@ import {
   safeParseJSON,
   validateQuestion,
 } from './validation';
+import {
+  findSimilar,
+  normalizeDisplayName,
+  normalizeTagList,
+  slugify,
+} from './normalize';
 
 // =====================================================================
 // Detecção de formato
@@ -141,7 +147,9 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
     typeof o.id === 'number' || typeof o.id === 'string' ? o.id : null;
   const numero = typeof o.numero === 'number' ? o.numero : null;
   const disciplinaNome =
-    typeof o.materia === 'string' && o.materia.trim() ? o.materia.trim() : null;
+    typeof o.materia === 'string' && o.materia.trim()
+      ? normalizeDisplayName(o.materia)
+      : null;
 
   // Tipo só aceita objetiva (MULTIPLA_ESCOLHA)
   const tipo = typeof o.tipo === 'string' ? o.tipo.toUpperCase() : null;
@@ -283,7 +291,14 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
 
   // Tema vem de assunto
   const tema =
-    typeof o.assunto === 'string' && o.assunto.trim() ? o.assunto.trim() : null;
+    typeof o.assunto === 'string' && o.assunto.trim()
+      ? normalizeDisplayName(o.assunto)
+      : null;
+
+  // Tags: alguns dumps reais trazem `tags` ou `palavrasChave`. Normaliza
+  // pra slug kebab-case (mesmo formato do autoral).
+  const rawTags = (o.tags ?? o.palavrasChave ?? o.palavras_chave) as unknown;
+  const tags = normalizeTagList(rawTags);
 
   const payload: ObjetivaPayload = {
     enunciado,
@@ -307,7 +322,8 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
       type: 'objetiva',
       disciplina_id: disciplinaNome,
       tema,
-      banca_estilo: typeof o.banca === 'string' ? o.banca : null,
+      banca_estilo:
+        typeof o.banca === 'string' ? normalizeDisplayName(o.banca) : null,
       dificuldade: null,
       payload,
       srs: newSRS(),
@@ -316,6 +332,7 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
       origem: 'real',
       fonte,
       verificacao,
+      ...(tags.length > 0 ? { tags } : {}),
     },
     externalId,
     numero,
@@ -425,6 +442,10 @@ export type BatchParseResult = {
   /** Avisos de potencial duplicata cross-disciplina (mesmo enunciado,
    *  disciplina diferente). User decide mapear ou ignorar. */
   crossDiscWarnings: CrossDiscWarning[];
+  /** Tags novas no batch que se parecem com tags existentes (Levenshtein
+   *  ≤ 2 no slug). Usuário pode estar criando "art-5" novamente quando
+   *  já tinha "art-05" — wizard sugere a similar pra dedup mental. */
+  tagSuggestions: Array<{ newTag: string; similar: string[] }>;
 };
 
 /**
@@ -446,28 +467,56 @@ function enunciadoOnlyKey(q: { type: string; payload: unknown }): string {
 }
 
 /** Index pré-computado das questões existentes, usado pra dedup direto
- *  (byDedupKey) e pra detecção cross-disciplina (byEnunciadoOnly). */
+ *  (byDedupKey), detecção cross-disciplina (byEnunciadoOnly) e
+ *  harmonização de display por slug (slugToCanonicalDisplay). */
 export type ExistingIndex = {
   byDedupKey: Set<string>;
   /** enunciado → conjunto de disciplinas (não-vazias) onde aparece */
   byEnunciadoOnly: Map<string, Set<string>>;
+  /** slug(disciplina_id) → display canônico (do registro existente).
+   *  Permite harmonizar "Matemática"/"matematica"/"MAT" pra um único
+   *  display name na hora do import. */
+  slugToCanonicalDisplay: Map<string, string>;
+  /** Conjunto de tags (já em formato slug) presentes em qualquer questão.
+   *  Usado pra sugerir "talvez você quis dizer X" quando uma tag nova
+   *  é parecida com uma existente. */
+  knownTags: Set<string>;
 };
 
 export function buildExistingIndex(questions: Question[]): ExistingIndex {
   const byDedupKey = new Set<string>();
   const byEnunciadoOnly = new Map<string, Set<string>>();
+  const slugToCanonicalDisplay = new Map<string, string>();
+  const knownTags = new Set<string>();
   for (const q of questions) {
     byDedupKey.add(dedupeKey(q));
     const enun = enunciadoOnlyKey(q);
-    if (!enun) continue;
-    let discs = byEnunciadoOnly.get(enun);
-    if (!discs) {
-      discs = new Set();
-      byEnunciadoOnly.set(enun, discs);
+    if (enun) {
+      let discs = byEnunciadoOnly.get(enun);
+      if (!discs) {
+        discs = new Set();
+        byEnunciadoOnly.set(enun, discs);
+      }
+      discs.add(q.disciplina_id ?? '');
     }
-    discs.add(q.disciplina_id ?? '');
+    if (q.disciplina_id) {
+      const slug = slugify(q.disciplina_id);
+      if (slug && !slugToCanonicalDisplay.has(slug)) {
+        slugToCanonicalDisplay.set(slug, q.disciplina_id);
+      }
+    }
+    if (Array.isArray(q.tags)) {
+      for (const t of q.tags) {
+        if (typeof t === 'string' && t) knownTags.add(t);
+      }
+    }
   }
-  return { byDedupKey, byEnunciadoOnly };
+  return {
+    byDedupKey,
+    byEnunciadoOnly,
+    slugToCanonicalDisplay,
+    knownTags,
+  };
 }
 
 /**
@@ -577,7 +626,45 @@ function emptyBatchResult(): BatchParseResult {
     realCount: 0,
     autoralCount: 0,
     crossDiscWarnings: [],
+    tagSuggestions: [],
   };
+}
+
+/**
+ * Pra cada tag nova no batch, procura tags existentes (knownTags +
+ * tags do próprio batch) que estão a ≤ 2 edições de distância. Reporta
+ * só o que tem match — usuário ignora ou ajusta antes de importar.
+ */
+function computeTagSuggestions(
+  items: NormalizedItem[],
+  index: ExistingIndex
+): Array<{ newTag: string; similar: string[] }> {
+  const knownInBatch = new Set<string>();
+  for (const item of items) {
+    if (Array.isArray(item.tags)) {
+      for (const t of item.tags) knownInBatch.add(t);
+    }
+  }
+  const allKnown = Array.from(
+    new Set([...index.knownTags, ...knownInBatch])
+  );
+  const seen = new Set<string>();
+  const out: Array<{ newTag: string; similar: string[] }> = [];
+  for (const item of items) {
+    if (!Array.isArray(item.tags)) continue;
+    for (const tag of item.tags) {
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+      if (index.knownTags.has(tag)) continue; // tag já existe, não é "nova"
+      const similar = findSimilar(tag, allKnown).filter(
+        (s) => !index.knownTags.has(tag) && s !== tag
+      );
+      if (similar.length > 0) {
+        out.push({ newTag: tag, similar });
+      }
+    }
+  }
+  return out;
 }
 
 /**
@@ -589,12 +676,49 @@ function indexFrom(
   arg: Question[] | Set<string> | ExistingIndex
 ): ExistingIndex {
   if (arg instanceof Set) {
-    return { byDedupKey: arg, byEnunciadoOnly: new Map() };
+    return {
+      byDedupKey: arg,
+      byEnunciadoOnly: new Map(),
+      slugToCanonicalDisplay: new Map(),
+      knownTags: new Set(),
+    };
   }
   if (Array.isArray(arg)) {
     return buildExistingIndex(arg);
   }
   return arg;
+}
+
+/**
+ * Harmoniza disciplina_id de cada item do batch usando 2 fontes de
+ * "display canônico":
+ *  1. Disciplinas já existentes no banco (slugToCanonicalDisplay) — se
+ *     uma questão nova vem com "matematica" e existe questão com
+ *     "Matemática", usa "Matemática".
+ *  2. Primeiro display visto NO BATCH pra cada slug — se o JSON tem
+ *     "Direito Penal" e "direito penal" misturados, padroniza pelo
+ *     primeiro (geralmente o melhor formatado).
+ *
+ * Mutação in-place do array `items`. Retorna mapa de novas disciplinas
+ * detectadas (slug → display canônico) pra o caller reportar.
+ */
+function harmonizeDisciplinas(
+  items: NormalizedItem[],
+  index: ExistingIndex
+): Map<string, string> {
+  const slugToDisplay = new Map<string, string>(index.slugToCanonicalDisplay);
+  for (const item of items) {
+    if (!item.disciplina_id) continue;
+    const slug = slugify(item.disciplina_id);
+    if (!slug) continue;
+    const canonical = slugToDisplay.get(slug);
+    if (canonical) {
+      item.disciplina_id = canonical;
+    } else {
+      slugToDisplay.set(slug, item.disciplina_id);
+    }
+  }
+  return slugToDisplay;
 }
 
 export function parseImportBatch(
@@ -611,8 +735,33 @@ export function parseImportBatch(
   const novasDisciplinasSet = new Set<string>();
   const index = indexFrom(existing);
   processItems(items, result, seenInBatch, novasDisciplinasSet, index);
-  result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
+  harmonizeDisciplinas(result.toImport, index);
+  result.novasDisciplinaNomes = uniqueDisplays(result.toImport, index);
+  result.tagSuggestions = computeTagSuggestions(result.toImport, index);
   return { ok: result };
+}
+
+/**
+ * Lista nomes de disciplina únicos nos itens a importar que NÃO existem
+ * ainda (caller usa pra `ensureDisciplinasExist`). Filtra por slug:
+ * mesmo display que diverge só em case/acento conta como existente.
+ */
+function uniqueDisplays(
+  items: NormalizedItem[],
+  index: ExistingIndex
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items) {
+    const display = item.disciplina_id;
+    if (!display) continue;
+    const slug = slugify(display);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    if (index.slugToCanonicalDisplay.has(slug)) continue; // já existe
+    out.push(display);
+  }
+  return out;
 }
 
 /**
@@ -664,7 +813,9 @@ export function parseImportBatchMulti(
     return { error: 'Nenhum arquivo válido encontrado' };
   }
 
-  result.novasDisciplinaNomes = Array.from(novasDisciplinasSet);
+  harmonizeDisciplinas(result.toImport, index);
+  result.novasDisciplinaNomes = uniqueDisplays(result.toImport, index);
+  result.tagSuggestions = computeTagSuggestions(result.toImport, index);
   return { ok: result };
 }
 

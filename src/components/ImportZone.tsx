@@ -715,6 +715,55 @@ function PreviewPanel({
         </details>
       )}
 
+      {/* Tags novas com similar existente — sugestão soft pra dedup */}
+      {preview.tagSuggestions.length > 0 && (
+        <details
+          style={{
+            marginBottom: 12,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '8px 12px',
+            background: 'var(--bg-elev)',
+          }}
+        >
+          <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            💡 {preview.tagSuggestions.length} tag(s) nova(s) parecidas com existentes
+          </summary>
+          <p className="muted" style={{ marginTop: 8, fontSize: '0.85rem' }}>
+            Estas tags são novas mas se parecem com tags já em uso. Se
+            forem a mesma coisa, edite o JSON pra reaproveitar a existente
+            antes de importar (ou deixa passar — não bloqueia).
+          </p>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: '8px 0 0',
+              fontSize: '0.82rem',
+              maxHeight: 200,
+              overflowY: 'auto',
+            }}
+          >
+            {preview.tagSuggestions.slice(0, 30).map((s, i) => (
+              <li key={i} style={{ padding: '3px 0' }}>
+                <code>{s.newTag}</code> ≈{' '}
+                {s.similar.map((sim, j) => (
+                  <span key={sim}>
+                    <code>{sim}</code>
+                    {j < s.similar.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+              </li>
+            ))}
+            {preview.tagSuggestions.length > 30 && (
+              <li className="muted">
+                … e {preview.tagSuggestions.length - 30} a mais
+              </li>
+            )}
+          </ul>
+        </details>
+      )}
+
       {/* Mapping de disciplinas novas */}
       {novasNaoExistentes.length > 0 && (
         <div style={{ marginBottom: 14 }}>

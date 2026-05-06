@@ -457,3 +457,99 @@ describe('suggestDisciplinaMapping', () => {
     expect(mapping).toHaveLength(1);
   });
 });
+
+describe('harmonização de disciplina por slug', () => {
+  it('reusa display canônico do banco quando slug bate', () => {
+    const existing = [
+      {
+        id: '1',
+        user_id: 'u',
+        type: 'objetiva' as const,
+        disciplina_id: 'Matemática',
+        tema: null,
+        banca_estilo: null,
+        dificuldade: null,
+        payload: { enunciado: 'velha', alternativas: [], gabarito: 'A' },
+        srs: {
+          repetitions: 0,
+          easeFactor: 2.5,
+          interval: 0,
+          dueDate: 0,
+          lastReviewed: 0,
+        },
+        stats: {
+          attempts: 0,
+          correct: 0,
+          wrong: 0,
+          lastResult: null,
+          history: [],
+        },
+        deleted_at: null,
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+    const json = JSON.stringify([
+      {
+        disciplina_id: 'matematica',
+        enunciado: 'q1',
+        alternativas: [
+          { letra: 'A', texto: 'a', correta: true },
+          { letra: 'B', texto: 'b' },
+        ],
+      },
+      {
+        disciplina_id: 'MATEMÁTICA',
+        enunciado: 'q2',
+        alternativas: [
+          { letra: 'A', texto: 'a', correta: true },
+          { letra: 'B', texto: 'b' },
+        ],
+      },
+    ]);
+    const r = parseImportBatch(json, existing);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.ok.toImport).toHaveLength(2);
+    expect(r.ok.toImport[0].disciplina_id).toBe('Matemática');
+    expect(r.ok.toImport[1].disciplina_id).toBe('Matemática');
+    // Não cria nova: o slug já existia no banco
+    expect(r.ok.novasDisciplinaNomes).toEqual([]);
+  });
+
+  it('padroniza pelo primeiro display visto no batch quando slug é novo', () => {
+    const json = JSON.stringify([
+      {
+        disciplina_id: 'Direito Penal',
+        enunciado: 'q1',
+        alternativas: [
+          { letra: 'A', texto: 'a', correta: true },
+          { letra: 'B', texto: 'b' },
+        ],
+      },
+      {
+        disciplina_id: 'direito penal',
+        enunciado: 'q2',
+        alternativas: [
+          { letra: 'A', texto: 'a', correta: true },
+          { letra: 'B', texto: 'b' },
+        ],
+      },
+      {
+        disciplina_id: 'DIREITO PENAL',
+        enunciado: 'q3',
+        alternativas: [
+          { letra: 'A', texto: 'a', correta: true },
+          { letra: 'B', texto: 'b' },
+        ],
+      },
+    ]);
+    const r = parseImportBatch(json, []);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.ok.toImport).toHaveLength(3);
+    for (const item of r.ok.toImport) {
+      expect(item.disciplina_id).toBe('Direito Penal');
+    }
+    // Só uma disciplina nova
+    expect(r.ok.novasDisciplinaNomes).toEqual(['Direito Penal']);
+  });
+});

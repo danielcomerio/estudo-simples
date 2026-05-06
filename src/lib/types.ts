@@ -236,6 +236,10 @@ export type Disciplina = {
   id: string;
   user_id: string;
   nome: string;
+  /** Slug canônico (lowercase ASCII kebab-case derivado de `nome`).
+   *  Adicionado pela migration 0008. Nullable durante transição —
+   *  app preenche via slugify() ao carregar e faz update lazy. */
+  slug?: string | null;
   /** Peso default da disciplina (sobrescrito por concurso_disciplinas.peso). */
   peso_default: number | null;
   /** Cor hex `#rrggbb` ou null. Validado no DB. */

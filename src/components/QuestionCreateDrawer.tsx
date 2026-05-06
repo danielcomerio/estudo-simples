@@ -2,12 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { TextareaWithPreview } from './TextareaWithPreview';
-import { addQuestionLocal, updateQuestionLocal, useStore } from '@/lib/store';
+import {
+  addQuestionLocal,
+  updateQuestionLocal,
+  useStore,
+  selectActiveQuestions,
+} from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { newSRS, newStats } from '@/lib/srs';
 import type { ClozePayload, FlashcardPayload, ObjetivaPayload } from '@/lib/types';
 import { toast } from './Toast';
 import { uploadQuestionImage, IMAGE_LIMITS } from '@/lib/storage';
+import { useDisciplinas } from '@/lib/hierarchy';
+import { normalizeDisplayName, normalizeTagList } from '@/lib/normalize';
 
 /**
  * Drawer pra criar questão (objetiva, cloze ou flashcard)
@@ -28,6 +35,9 @@ export function QuestionCreateDrawer({
   initialKind?: CreateKind;
 }) {
   const userId = useStore((s) => s.userId);
+  const questions = useStore(selectActiveQuestions);
+  const disciplinasCache = useDisciplinas();
+  const disciplinas = disciplinasCache.data ?? [];
   const dlgRef = useRef<HTMLDialogElement>(null);
 
   const [kind, setKind] = useState<CreateKind>(initialKind);
@@ -35,6 +45,7 @@ export function QuestionCreateDrawer({
   const [tema, setTema] = useState('');
   const [banca, setBanca] = useState('');
   const [dif, setDif] = useState('');
+  const [tagsInput, setTagsInput] = useState('');
   // Objetiva
   const [enun, setEnun] = useState('');
   const [explicacao, setExplicacao] = useState('');
@@ -84,6 +95,7 @@ export function QuestionCreateDrawer({
         if (typeof d.clozeTexto === 'string') setClozeTexto(d.clozeTexto);
         if (typeof d.frente === 'string') setFrente(d.frente);
         if (typeof d.verso === 'string') setVerso(d.verso);
+        if (typeof d.tagsInput === 'string') setTagsInput(d.tagsInput);
         setDraftRestored(true);
       }
     } catch {}
@@ -115,12 +127,13 @@ export function QuestionCreateDrawer({
             clozeTexto,
             frente,
             verso,
+            tagsInput,
           })
         );
       } catch {}
     }, 1500);
     return () => clearTimeout(t);
-  }, [kind, discId, tema, banca, dif, enun, explicacao, alts, clozeTexto, frente, verso]);
+  }, [kind, discId, tema, banca, dif, enun, explicacao, alts, clozeTexto, frente, verso, tagsInput]);
 
   const clearDraft = () => {
     try {
@@ -261,12 +274,13 @@ export function QuestionCreateDrawer({
         type = 'objetiva';
       }
 
+      const tagsList = normalizeTagList(tagsInput);
       const created = addQuestionLocal(
         {
           type,
-          disciplina_id: discId.trim() || null,
-          tema: tema.trim() || null,
-          banca_estilo: banca.trim() || null,
+          disciplina_id: normalizeDisplayName(discId) || null,
+          tema: normalizeDisplayName(tema) || null,
+          banca_estilo: normalizeDisplayName(banca) || null,
           dificuldade,
           payload,
           srs: newSRS(),
@@ -275,6 +289,7 @@ export function QuestionCreateDrawer({
           origem: 'autoral',
           fonte: {},
           verificacao: 'verificada',
+          ...(tagsList.length > 0 ? { tags: tagsList } : {}),
         },
         userId
       );
@@ -392,6 +407,7 @@ export function QuestionCreateDrawer({
                 setClozeTexto('');
                 setFrente('');
                 setVerso('');
+                setTagsInput('');
                 setDraftRestored(false);
               }}
             >
@@ -422,9 +438,15 @@ export function QuestionCreateDrawer({
               value={discId}
               onChange={(e) => setDiscId(e.target.value)}
               maxLength={200}
-              placeholder="ex: portugues"
+              placeholder="ex: Português"
+              list="create-disc-list"
               autoFocus
             />
+            <datalist id="create-disc-list">
+              {disciplinas.map((d) => (
+                <option key={d.id} value={d.nome} />
+              ))}
+            </datalist>
           </label>
           <label>
             <span>Tema</span>
@@ -455,6 +477,30 @@ export function QuestionCreateDrawer({
               value={dif}
               onChange={(e) => setDif(e.target.value)}
             />
+          </label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            <span>
+              Tags{' '}
+              <span className="muted" style={{ fontWeight: 400 }}>
+                (separadas por vírgula — viram kebab-case automaticamente)
+              </span>
+            </span>
+            <input
+              type="text"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="ex: art-5, banca-fgv, ano-2024"
+              list="create-tags-list"
+            />
+            <datalist id="create-tags-list">
+              {Array.from(
+                new Set(questions.flatMap((q) => q.tags ?? []))
+              )
+                .sort()
+                .map((t) => (
+                  <option key={t} value={t} />
+                ))}
+            </datalist>
           </label>
         </div>
 

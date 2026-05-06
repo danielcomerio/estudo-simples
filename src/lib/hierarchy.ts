@@ -28,6 +28,7 @@ function isGuestMode(): boolean {
 const GUEST_DISABLED_MSG =
   'Cadastro de concursos/disciplinas indisponível no modo visitante. Crie uma conta pra ativar.';
 import { useActiveConcursoId } from './settings';
+import { slugify } from './normalize';
 import type {
   Concurso,
   ConcursoDisciplina,
@@ -433,11 +434,33 @@ export async function createDisciplina(
   } = await sb.auth.getUser();
   if (authErr || !user) throw new Error('Não autenticado');
 
-  const { data, error } = await sb
-    .from('disciplinas')
-    .insert({ ...norm, user_id: user.id })
-    .select('*')
-    .single();
+  // Tenta inserir com `slug` (migration 0008). Se a migration ainda não
+  // foi aplicada nesse user/projeto, retry sem o slug — back-compat.
+  const slug = slugify(norm.nome);
+  let inserted: { data: unknown; error: { code?: string; message: string } | null } = {
+    data: null,
+    error: null,
+  };
+  {
+    const r = await sb
+      .from('disciplinas')
+      .insert({ ...norm, user_id: user.id, slug })
+      .select('*')
+      .single();
+    inserted = { data: r.data, error: r.error };
+  }
+  if (
+    inserted.error &&
+    /column .*slug.* does not exist/i.test(inserted.error.message)
+  ) {
+    const r = await sb
+      .from('disciplinas')
+      .insert({ ...norm, user_id: user.id })
+      .select('*')
+      .single();
+    inserted = { data: r.data, error: r.error };
+  }
+  const { data, error } = inserted;
 
   if (error) {
     // 23505 = unique violation no índice (user_id, lower(nome))
@@ -549,18 +572,26 @@ export async function ensureDisciplinasExist(nomes: string[]): Promise<void> {
     });
   }
 
-  const existentesLower = new Set(
-    (disciplinasCache.data ?? []).map((d) => d.nome.toLowerCase())
+  // Dedup por SLUG (lowercase ASCII sem acento) — captura "Matemática"
+  // e "matematica" como mesma disciplina, coisa que `lower(nome)` não
+  // detectava. Usa slug do registro existente quando disponível
+  // (migration 0008), senão deriva do nome no client (back-compat com
+  // registros antigos que ainda não têm slug populado).
+  const existentesSlugs = new Set(
+    (disciplinasCache.data ?? []).map(
+      (d) => d.slug || slugify(d.nome)
+    )
   );
 
-  // Dedup do input case-insensitive — mantém a primeira capitalização vista
+  // Dedup do input por slug — mantém a primeira capitalização vista
   const unicos = new Map<string, string>();
   for (const raw of nomes) {
     const trimmed = raw.trim();
     if (!trimmed) continue;
-    const lower = trimmed.toLowerCase();
-    if (existentesLower.has(lower)) continue;
-    if (!unicos.has(lower)) unicos.set(lower, trimmed);
+    const slug = slugify(trimmed);
+    if (!slug) continue;
+    if (existentesSlugs.has(slug)) continue;
+    if (!unicos.has(slug)) unicos.set(slug, trimmed);
   }
 
   for (const nome of unicos.values()) {

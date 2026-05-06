@@ -5,6 +5,7 @@ import type {
   DiscursivaPayload,
 } from './types';
 import { newSRS, newStats } from './srs';
+import { normalizeDisplayName, normalizeTagList } from './normalize';
 
 type AnyRecord = Record<string, unknown>;
 
@@ -149,12 +150,14 @@ export function normalizeQuestion(
     created_at: _created_at,
     updated_at: _updated_at,
     deleted_at: _deleted_at,
-    // Campos da hierarquia (migration 0002): ignoramos no import. UI da
-    // etapa 0.4 será responsável por round-trip. Sem isso, eles cairiam
-    // no `payload` via ...rest, criando duplicação confusa.
+    // Campos da hierarquia (migration 0002): topico_id/concurso_id são
+    // ignorados no import (UI cuida disso). Strip via destructure pra não
+    // cair no payload via ...rest. tags TAMBÉM era stripped antes — bug
+    // descoberto na auditoria de consistência: usuário enviava JSON com
+    // tags e elas sumiam silenciosamente. Agora preserva e normaliza.
     topico_id: _topico_id,
     concurso_id: _concurso_id,
-    tags: _tags,
+    tags,
     // Campos da migration 0003: idem — o normalizer de questões reais
     // (normalizeRealQuestion) seta esses campos explicitamente. Strip
     // aqui evita lixo cair no payload via spread.
@@ -188,16 +191,26 @@ export function normalizeQuestion(
       ? Math.max(1, Math.min(5, Math.round(dificuldade)))
       : null;
 
+  const normalizedTags = normalizeTagList(tags);
+
   return {
     type,
-    disciplina_id: typeof disciplina_id === 'string' ? disciplina_id : null,
-    tema: typeof tema === 'string' ? tema : null,
-    banca_estilo: typeof banca_estilo === 'string' ? banca_estilo : null,
+    disciplina_id:
+      typeof disciplina_id === 'string'
+        ? normalizeDisplayName(disciplina_id) || null
+        : null,
+    tema:
+      typeof tema === 'string' ? normalizeDisplayName(tema) || null : null,
+    banca_estilo:
+      typeof banca_estilo === 'string'
+        ? normalizeDisplayName(banca_estilo) || null
+        : null,
     dificuldade: dif,
     payload,
     srs: newSRS(),
     stats: newStats(),
     deleted_at: null,
+    tags: normalizedTags.length > 0 ? normalizedTags : undefined,
   };
 }
 

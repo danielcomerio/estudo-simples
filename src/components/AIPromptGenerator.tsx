@@ -25,7 +25,7 @@ const TYPE_LABEL: Record<QuestionType, string> = {
 
 const SCHEMA_OBJETIVA = `{
   "type": "objetiva",
-  "disciplina_id": "<nome da disciplina>",
+  "disciplina_id": "<nome de exibição — ex: \"Direito Constitucional\">",
   "tema": "<tema específico, opcional>",
   "dificuldade": 1-5,
   "tags": ["tag1", "tag2"],
@@ -46,7 +46,7 @@ const SCHEMA_OBJETIVA = `{
 
 const SCHEMA_DISCURSIVA = `{
   "type": "discursiva",
-  "disciplina_id": "<nome da disciplina>",
+  "disciplina_id": "<nome de exibição — ex: \"Direito Constitucional\">",
   "tema": "<tema>",
   "dificuldade": 1-5,
   "payload": {
@@ -64,7 +64,7 @@ const SCHEMA_DISCURSIVA = `{
 
 const SCHEMA_CLOZE = `{
   "type": "cloze",
-  "disciplina_id": "<nome da disciplina>",
+  "disciplina_id": "<nome de exibição — ex: \"Direito Constitucional\">",
   "tema": "<tema>",
   "dificuldade": 1-5,
   "payload": {
@@ -75,7 +75,7 @@ const SCHEMA_CLOZE = `{
 
 const SCHEMA_FLASHCARD = `{
   "type": "flashcard",
-  "disciplina_id": "<nome da disciplina>",
+  "disciplina_id": "<nome de exibição — ex: \"Direito Constitucional\">",
   "tema": "<tema>",
   "dificuldade": 1-5,
   "payload": {
@@ -131,6 +131,10 @@ ${schema}
 8. NUNCA inventar dados (leis fictícias, súmulas inexistentes). Se não souber, ESCOLHA OUTRO TEMA dentro da disciplina.
 9. Português brasileiro formal, sem erros de ortografia ou concordância.
 10. Dificuldade ${dificuldade}/5: ${dificultyHint(dificuldade)}
+11. NORMALIZAÇÃO obrigatória dos campos de catalogação:
+   - "disciplina_id": EXATAMENTE "${disciplina}" (mesma capitalização e acentos — não inventar variantes).
+   - "tags": SEMPRE kebab-case ASCII (lowercase, sem acento, hífens entre palavras). Ex: ["art-5-cf", "controle-difuso", "banca-fgv"]. NUNCA "Art_5_CF" ou "Controle Difuso".
+   - "tema": frase curta com capitalização e acentos normais (display).
 
 RETORNE APENAS O JSON. NADA MAIS.`;
 }

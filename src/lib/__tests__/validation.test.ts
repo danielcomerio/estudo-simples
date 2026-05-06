@@ -278,14 +278,14 @@ describe('normalizeQuestion — segurança', () => {
     expect(p.gabarito).toBe('B');
   });
 
-  it('strippa campos da hierarquia 0002 do payload (topico_id, concurso_id, tags)', () => {
+  it('strippa topico_id/concurso_id; preserva e normaliza tags', () => {
     const r = normalizeQuestion(
       {
         disciplina_id: 'd',
         enunciado: 'q',
         topico_id: 'forjado',
         concurso_id: 'forjado',
-        tags: ['x', 'y'],
+        tags: ['Art. 5', 'art_5', 'Banca FGV'],
         alternativas: [
           { letra: 'A', texto: 'a' },
           { letra: 'B', texto: 'b', correta: true },
@@ -296,11 +296,13 @@ describe('normalizeQuestion — segurança', () => {
     const p = r.payload as Record<string, unknown>;
     expect(p.topico_id).toBeUndefined();
     expect(p.concurso_id).toBeUndefined();
-    expect(p.tags).toBeUndefined();
-    // E também não viraram top-level — round-trip de hierarquia é via UI.
+    expect(p.tags).toBeUndefined(); // tags vão pra top-level, não payload
+    // Hierarquia (topico/concurso) é setada via UI, não importável.
     expect((r as Record<string, unknown>).topico_id).toBeUndefined();
     expect((r as Record<string, unknown>).concurso_id).toBeUndefined();
-    expect((r as Record<string, unknown>).tags).toBeUndefined();
+    // Tags são preservadas e normalizadas pra slug kebab; duplicatas
+    // de slug ('Art. 5' e 'art_5' viram ambas 'art-5') são deduplicadas.
+    expect(r.tags).toEqual(['art-5', 'banca-fgv']);
   });
 
   it('aplica correta:true a partir de gabarito se faltava', () => {
