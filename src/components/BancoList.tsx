@@ -2081,6 +2081,43 @@ export function BancoList() {
                         🏷 {q.tags.length}
                       </span>
                     )}
+                    {q.stats?.history && q.stats.history.length > 0 && (() => {
+                      // Progress dots: últimas 5 tentativas como pontinhos
+                      const last5 = (q.stats?.history ?? []).slice(-5);
+                      return (
+                        <span
+                          title={`Últimas ${last5.length} tentativas — verde=acerto, vermelho=erro`}
+                          style={{
+                            display: 'inline-flex',
+                            gap: 2,
+                            alignItems: 'center',
+                            padding: '0 4px',
+                          }}
+                        >
+                          {last5.map((h, i) => {
+                            const ok = h.result === 'correct' || h.result === 'self_pass';
+                            const tout = h.result === 'timeout';
+                            return (
+                              <span
+                                key={i}
+                                aria-hidden
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: '50%',
+                                  background: ok
+                                    ? 'var(--primary)'
+                                    : tout
+                                      ? 'var(--warn, #d97706)'
+                                      : 'var(--danger)',
+                                  display: 'inline-block',
+                                }}
+                              />
+                            );
+                          })}
+                        </span>
+                      );
+                    })()}
                     {q.stats?.history && q.stats.history.length >= 2 && (() => {
                       // Tempo médio das tentativas que registraram timeMs
                       const times = q.stats.history
