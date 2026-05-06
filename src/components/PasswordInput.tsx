@@ -32,14 +32,22 @@ export function PasswordInput({
         autoComplete={autoComplete}
         minLength={minLength}
         required
+        className="password-input-field"
         style={{
           paddingRight: 44,
           width: '100%',
           boxSizing: 'border-box',
+          // Cor explícita pra evitar tonalidade pálida quando autofill
+          // do navegador aplica seu próprio estilo
+          color: 'var(--text)',
         }}
       />
       <button
         type="button"
+        // CRÍTICO: preventDefault no mousedown impede que o input perca
+        // foco ao clicar no botão. Sem isso, o autofill do browser
+        // re-aplica e a senha fica numa tonalidade pálida visualmente.
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => setShow((v) => !v)}
         title={show ? 'Esconder senha' : 'Mostrar senha'}
         aria-label={show ? 'Esconder senha' : 'Mostrar senha'}
