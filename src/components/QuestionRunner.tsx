@@ -1585,7 +1585,12 @@ function RunningView({
       </article>
 
       {answered && (
-        <div className={'feedback-area ' + (isCorrect ? 'correct' : 'wrong')}>
+        <div
+          className={'feedback-area ' + (isCorrect ? 'correct' : 'wrong')}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           <h3>{isCorrect ? '✓ Correto' : chosen == null ? '⏱ Tempo esgotado' : '✗ Incorreto'}</h3>
 
           {correctAlt && (
