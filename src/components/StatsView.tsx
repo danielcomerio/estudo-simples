@@ -211,6 +211,10 @@ export function StatsView() {
       </LazyMount>
 
       <LazyMount>
+        <HourWeekdayHeatmapSection questions={questions} />
+      </LazyMount>
+
+      <LazyMount>
         <ProgressaoSection questions={questions} />
       </LazyMount>
 
@@ -3111,6 +3115,128 @@ function CargaProximaSection({
  * Menu de export CSV. Mostra dropdown com 3 opções: questões agregadas,
  * disciplinas agregadas, e histórico cru de revisões.
  */
+/**
+ * Heatmap 7 (dias da semana) × 24 (horas). Identifica padrão pessoal
+ * — "estudo melhor à noite", "fins de semana são mais produtivos", etc.
+ * Intensidade da cor proporcional à média do slot (max=verde forte).
+ */
+function HourWeekdayHeatmapSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const matrix = useMemo(() => {
+    // 7 dias × 24 horas = 168 slots
+    const m: number[][] = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => 0)
+    );
+    let total = 0;
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const d = new Date(h.date);
+        const dow = d.getDay(); // 0 = domingo
+        const hr = d.getHours();
+        m[dow][hr]++;
+        total++;
+      }
+    }
+    if (total === 0) return null;
+    let max = 0;
+    for (const row of m) for (const v of row) if (v > max) max = v;
+    return { m, max, total };
+  }, [questions]);
+
+  if (!matrix) return null;
+
+  const dotw = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>🗓 Padrão por hora × dia</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 14px', fontSize: '0.85rem' }}
+      >
+        Intensidade do verde proporcional ao volume de revisões em cada
+        slot. Identifica seu horário mais produtivo.
+      </p>
+      <div style={{ overflowX: 'auto' }}>
+        <table
+          style={{
+            borderCollapse: 'separate',
+            borderSpacing: 2,
+            fontSize: '0.7rem',
+          }}
+        >
+          <thead>
+            <tr>
+              <th style={{ padding: '0 4px' }}></th>
+              {Array.from({ length: 24 }, (_, h) => (
+                <th
+                  key={h}
+                  style={{
+                    color: 'var(--muted)',
+                    fontWeight: 400,
+                    padding: 0,
+                    minWidth: 14,
+                    textAlign: 'center',
+                  }}
+                >
+                  {h % 3 === 0 ? h : ''}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.m.map((row, dow) => (
+              <tr key={dow}>
+                <th
+                  style={{
+                    color: 'var(--muted)',
+                    fontWeight: 500,
+                    paddingRight: 6,
+                    fontSize: '0.74rem',
+                    textAlign: 'right',
+                  }}
+                >
+                  {dotw[dow]}
+                </th>
+                {row.map((v, h) => {
+                  const intensity = v / matrix.max;
+                  const bg =
+                    v === 0
+                      ? 'var(--bg-elev-2)'
+                      : `rgba(34, 197, 94, ${0.15 + intensity * 0.7})`;
+                  return (
+                    <td
+                      key={h}
+                      title={
+                        v === 0
+                          ? `${dotw[dow]} ${h}h: sem revisões`
+                          : `${dotw[dow]} ${h}h-${h + 1}h: ${v} revisão(ões)`
+                      }
+                      style={{
+                        width: 14,
+                        height: 14,
+                        background: bg,
+                        borderRadius: 2,
+                        padding: 0,
+                      }}
+                    />
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted" style={{ margin: '10px 0 0', fontSize: '0.78rem' }}>
+        Total: {matrix.total} revisão(ões) analisada(s).
+      </p>
+    </div>
+  );
+}
+
 function ExportICSButton({
   questions,
 }: {
