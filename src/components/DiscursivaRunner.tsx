@@ -25,6 +25,7 @@ import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
 import { VoiceSearchButton } from './VoiceSearchButton';
+import { AudioRecorder } from './AudioRecorder';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -609,7 +610,8 @@ function DiscRunningView({
               onChange={(e) => setResposta(e.target.value)}
               placeholder="Escreva sua resposta aqui antes de revelar o espelho. Ou use 🎤 pra ditar. O ato de tentar lembrar — mesmo errando — fortalece a memorização (active recall)."
             />
-            <div className="row gap">
+            <AudioRecorder />
+            <div className="row gap" style={{ marginTop: 12 }}>
               <button type="button" className="primary" onClick={() => setRevealed(true)}>
                 Revelar espelho e rubrica
               </button>
