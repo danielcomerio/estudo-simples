@@ -135,7 +135,31 @@ export function SmartSuggestions({ questions }: { questions: Question[] }) {
       });
     }
 
-    // 5. Vencendo amanhã (proativo, antes de virar atrasada)
+    // 5. Estagnação: muitas revisões mas zero novas aprendidas em N dias.
+    //    Sinal de que o user só revisita — falta variar / aprender novo.
+    let novasUltimaSemana = 0;
+    let revisoesUltimaSemana = 0;
+    const week0Stag = today0 - 6 * DAY_MS;
+    for (const q of questions) {
+      const h = q.stats?.history ?? [];
+      // Primeira revisão (criou conhecimento novo)
+      const firstReview = h[0];
+      if (firstReview && firstReview.date >= week0Stag) novasUltimaSemana++;
+      for (const e of h) {
+        if (e.date >= week0Stag) revisoesUltimaSemana++;
+      }
+    }
+    if (revisoesUltimaSemana >= 50 && novasUltimaSemana === 0) {
+      out.push({
+        id: 'estagnacao',
+        emoji: '🌱',
+        text: `${revisoesUltimaSemana} revisões na semana, mas <strong>0 questões novas</strong>. Só revisitar trava progresso — adicione conteúdo ou estude tópicos novos.`,
+        href: `/estudar?modo=novas&qtd=10&auto=1`,
+        cta: 'Ver novas',
+      });
+    }
+
+    // 6. Vencendo amanhã (proativo, antes de virar atrasada)
     const amanha = today0 + 2 * DAY_MS;
     let vencerAmanha = 0;
     for (const q of questions) {
