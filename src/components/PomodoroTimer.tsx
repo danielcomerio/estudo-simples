@@ -3,6 +3,8 @@
 import { useEffect, useReducer, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { toast } from './Toast';
+import { playSound } from '@/lib/sounds';
+import { isNotificationsEnabled } from '@/lib/notifications';
 
 const STORAGE_KEY = 'estudo-simples:pomodoro:v2';
 const SETTINGS_KEY = 'estudo-simples:pomodoro:settings:v1';
@@ -169,6 +171,27 @@ export function PomodoroTimer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persisted, settings]);
 
+  const notifyEnd = (title: string, body: string) => {
+    // Som curto se sounds habilitado
+    playSound('success');
+    // Notification system se habilitado e aba não-visível
+    if (
+      isNotificationsEnabled() &&
+      typeof document !== 'undefined' &&
+      document.visibilityState !== 'visible'
+    ) {
+      try {
+        new Notification(title, {
+          body,
+          icon: '/icon.svg',
+          tag: 'pomodoro',
+          // @ts-expect-error vibrate funciona em Android
+          vibrate: [60, 40, 60],
+        });
+      } catch {}
+    }
+  };
+
   const transition = () => {
     if (!persisted) return;
     if (persisted.phase === 'focus') {
@@ -187,12 +210,12 @@ export function PomodoroTimer() {
       };
       setPersisted(next);
       saveState(next);
-      toast(
+      const msg =
         nextPhase === 'long_break'
           ? `🌴 Pausa longa de ${settings.longBreakMin}min — você completou ${settings.longBreakEvery} focos!`
-          : `☕ Pausa de ${settings.shortBreakMin}min começou`,
-        'success'
-      );
+          : `☕ Pausa de ${settings.shortBreakMin}min começou`;
+      toast(msg, 'success');
+      notifyEnd('Pomodoro: foco completo', msg);
     } else {
       // Pausa terminou — começa próximo foco automaticamente
       const next: Persisted = {
@@ -203,7 +226,9 @@ export function PomodoroTimer() {
       };
       setPersisted(next);
       saveState(next);
-      toast(`🍅 Foco de ${settings.focusMin}min iniciado`, 'success');
+      const msg = `🍅 Foco de ${settings.focusMin}min iniciado`;
+      toast(msg, 'success');
+      notifyEnd('Pomodoro: pausa terminou', msg);
     }
   };
 
