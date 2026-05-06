@@ -23,6 +23,7 @@ import { haptic } from '@/lib/haptic';
 import { playSound } from '@/lib/sounds';
 import { acquireWakeLock, type WakeLockHandle } from '@/lib/wake-lock';
 import { triggerConfetti } from './ConfettiHost';
+import { DidYouKnowTip } from './DidYouKnowTip';
 import {
   clearSession as clearStoredSession,
   readSession,
@@ -608,6 +609,10 @@ export function QuestionRunner() {
 
   return (
     <div className="card">
+      <DidYouKnowTip
+        id="estudar-quick-start"
+        text="Use o ⚡ Início rápido pra começar uma sessão sem configurar nada. Em mobile, o botão flutuante 🎯 também leva direto pra SRS."
+      />
       {activeConcurso && (
         <div
           role="status"
