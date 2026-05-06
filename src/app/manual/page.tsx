@@ -9,7 +9,7 @@ import { PublicFooter } from '@/components/PublicFooter';
  * Markdown é processado server-side em build pra não trazer parser
  * pesado pro client. Fallback: se arquivo ausente, mostra mensagem.
  */
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 export default function ManualPage() {
   let content = '';

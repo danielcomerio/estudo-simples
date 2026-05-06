@@ -555,33 +555,111 @@ h4 {
     flex: 0 0 auto;
   }
 
-  /* Drawer mobile: ao abrir hamburger, mostra extras dentro do menu */
+  /* Drawer mobile: ao abrir hamburger, mostra extras agrupados em
+     sections com hierarquia visual clara. */
   .topbar .tabs-open .topbar-mobile-drawer-extras {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-top: 8px;
+    gap: 16px;
+    padding-top: 14px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
   }
-  .topbar-mobile-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 4px 0 2px;
-  }
-  .topbar-mobile-row {
+  .drawer-section {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
     gap: 8px;
-    padding: 4px 0;
   }
-  .topbar-mobile-row .concurso-selector-label {
-    display: inline; /* dentro do drawer, mostra nome do concurso */
+  .drawer-section-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+    padding-left: 2px;
+    margin-bottom: 2px;
   }
-  .topbar-mobile-row .concurso-selector-btn {
+  /* Concurso selector dentro do drawer ocupa largura total */
+  .drawer-section .concurso-selector-label {
+    display: inline;
+  }
+  .drawer-section .concurso-selector-btn {
     max-width: none;
     width: 100%;
     justify-content: flex-start;
     padding: 10px 12px;
+  }
+  /* Grid de links secundários (conquistas, manual, etc) */
+  .drawer-links {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-elev-2);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.88rem;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .drawer-link:hover {
+    background: var(--bg-elev-3);
+    border-color: var(--primary);
+  }
+  /* Bloco de conta (user info + sair) */
+  .drawer-account {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .drawer-user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.88rem;
+  }
+  .drawer-user-email {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+  }
+  .drawer-account-cta {
+    display: block;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .drawer-logout-btn {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .drawer-logout-btn:hover {
+    color: var(--danger);
+    border-color: var(--danger);
   }
 }
 /* Em desktop, esconde o drawer mobile fictício */

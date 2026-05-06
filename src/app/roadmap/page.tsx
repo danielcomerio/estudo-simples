@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Roadmap — Estudo Simples',
   description: 'O que estamos construindo. Transparente, vivo, baseado em feedback real.',

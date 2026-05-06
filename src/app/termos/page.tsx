@@ -4,7 +4,7 @@ import { ManualView } from '@/components/ManualView';
 import { PublicHeader } from '@/components/PublicHeader';
 import { PublicFooter } from '@/components/PublicFooter';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Termos de Uso — Estudo Simples',
   description: 'Regras para uso do Estudo Simples.',

@@ -4,8 +4,11 @@ import { BANCAS, getBancaBySlug } from '@/lib/concursos-data';
 import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
+// Mantém generateStaticParams pra Next conhecer rotas válidas, mas
+// força-dynamic faz cada request server-renderizar (Topbar funcional
+// pra user logado).
 export function generateStaticParams() {
   return BANCAS.map((b) => ({ slug: b.slug }));
 }

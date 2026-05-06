@@ -3,7 +3,13 @@ import { PlanosCheckout } from '@/components/PlanosCheckout';
 import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 
-export const dynamic = 'force-static';
+// 'force-dynamic' garante que o RootLayout (que depende de cookies pra
+// renderizar Topbar/MobileBottomNav corretamente pra user logado) seja
+// re-executado em cada request. Antes era 'force-static' — bug: user
+// logado navegava pra cá via Link, RSC payload do build (sem cookies)
+// suprimia Topbar, e ao voltar o cache do App Router preservava esse
+// estado quebrado até refresh.
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Planos — Estudo Simples',
   description: 'Plano grátis ou Pro com tudo liberado. Cancele a qualquer momento.',

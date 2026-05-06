@@ -3,7 +3,7 @@ import { BANCAS } from '@/lib/concursos-data';
 import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Concursos populares — Estudo Simples',
   description:

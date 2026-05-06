@@ -4,7 +4,7 @@ import { ManualView } from '@/components/ManualView';
 import { PublicHeader } from '@/components/PublicHeader';
 import { PublicFooter } from '@/components/PublicFooter';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Política de Privacidade — Estudo Simples',
   description: 'Como coletamos, usamos e protegemos seus dados. Conformidade LGPD.',

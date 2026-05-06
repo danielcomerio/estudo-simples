@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Contato — Estudo Simples',
   description: 'Canais de suporte do Estudo Simples.',

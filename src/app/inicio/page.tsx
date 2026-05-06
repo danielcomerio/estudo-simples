@@ -3,7 +3,9 @@ import { PublicFooter } from '@/components/PublicFooter';
 import { PublicHeader } from '@/components/PublicHeader';
 import { NewsletterForm } from '@/components/NewsletterForm';
 
-export const dynamic = 'force-static';
+// dynamic: RootLayout depende de cookies (Topbar) — força-static
+// fazia o build prerenderizar sem cookies, quebrando shell autenticado.
+export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Estudo Simples — repetição espaçada para concursos',
   description:

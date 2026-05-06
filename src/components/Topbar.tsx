@@ -171,121 +171,116 @@ export function Topbar({
           );
         })}
 
-        {/* Drawer mobile: extras que ficam fora da topbar visível em
-            mobile (concurso, sair, criar conta) — só aparecem aqui
-            dentro do hamburger menu. Em desktop ficam escondidos. */}
+        {/* Drawer mobile: extras agrupados por seção com hierarquia
+            visual clara. Cada section tem label discreto + items
+            uniformes. Escondido em desktop. */}
         <div className="topbar-mobile-drawer-extras">
-          <div className="topbar-mobile-divider" aria-hidden />
-          <div className="topbar-mobile-row">
+          <div className="drawer-section">
+            <div className="drawer-section-label">Concurso ativo</div>
             <ActiveConcursoSelector />
           </div>
-          <div
-            className="topbar-mobile-row"
-            style={{ flexWrap: 'wrap', gap: 8 }}
-          >
-            <Link
-              href="/conquistas"
-              onClick={() => setMobileOpen(false)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
-                textDecoration: 'none',
-                fontSize: '0.88rem',
-              }}
-            >
-              🏆 Conquistas
-            </Link>
-            <Link
-              href="/configuracoes"
-              onClick={() => setMobileOpen(false)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
-                textDecoration: 'none',
-                fontSize: '0.88rem',
-              }}
-            >
-              ⚙ Configurações
-            </Link>
-            <Link
-              href="/manual"
-              onClick={() => setMobileOpen(false)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                color: 'var(--text)',
-                textDecoration: 'none',
-                fontSize: '0.88rem',
-              }}
-            >
-              📖 Manual
-            </Link>
-          </div>
-          {isGuest ? (
-            <div className="topbar-mobile-row">
-              <span style={{ color: 'var(--warn, #d97706)', fontWeight: 500 }}>
-                👤 Modo visitante
-              </span>
+
+          <div className="drawer-section">
+            <div className="drawer-section-label">Outras páginas</div>
+            <div className="drawer-links">
               <Link
-                href="/signup"
+                href="/conquistas"
                 onClick={() => setMobileOpen(false)}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--primary)',
-                  color: 'var(--primary)',
-                  textDecoration: 'none',
-                  fontWeight: 500,
-                }}
+                className="drawer-link"
               >
-                Criar conta
+                <span aria-hidden>🏆</span>
+                <span>Conquistas</span>
               </Link>
-              <form
-                action={async () => {
-                  logoutAndReset();
-                  await exitGuest();
-                }}
+              <Link
+                href="/configuracoes"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
               >
-                <button
-                  type="submit"
-                  className="ghost"
-                  style={{ padding: '8px 14px' }}
-                >
-                  ↪ Sair do modo visitante
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="topbar-mobile-row">
-              {email && (
-                <span
-                  style={{ color: 'var(--muted)', fontSize: '0.9rem' }}
-                  title={email}
-                >
-                  👤 {email}
-                </span>
-              )}
-              <form
-                action={async () => {
-                  logoutAndReset();
-                  await logout();
-                }}
+                <span aria-hidden>⚙</span>
+                <span>Configurações</span>
+              </Link>
+              <Link
+                href="/manual"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
               >
-                <button
-                  type="submit"
-                  className="ghost"
-                  style={{ padding: '8px 14px' }}
-                >
-                  ↪ Sair
-                </button>
-              </form>
+                <span aria-hidden>📖</span>
+                <span>Manual</span>
+              </Link>
+              <Link
+                href="/sobre"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
+              >
+                <span aria-hidden>ℹ️</span>
+                <span>Sobre</span>
+              </Link>
+              <Link
+                href="/contato"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
+              >
+                <span aria-hidden>✉️</span>
+                <span>Contato</span>
+              </Link>
             </div>
-          )}
+          </div>
+
+          <div className="drawer-section">
+            <div className="drawer-section-label">Conta</div>
+            {isGuest ? (
+              <div className="drawer-account">
+                <div className="drawer-user-info">
+                  <span aria-hidden>👤</span>
+                  <span style={{ color: 'var(--warn, #d97706)' }}>
+                    Modo visitante
+                  </span>
+                </div>
+                <Link
+                  href="/signup"
+                  onClick={() => setMobileOpen(false)}
+                  className="drawer-account-cta"
+                >
+                  Criar conta
+                </Link>
+                <form
+                  action={async () => {
+                    logoutAndReset();
+                    await exitGuest();
+                  }}
+                >
+                  <button
+                    type="submit"
+                    className="drawer-logout-btn"
+                  >
+                    ↪ Sair do modo visitante
+                  </button>
+                </form>
+              </div>
+            ) : (
+              <div className="drawer-account">
+                {email && (
+                  <div className="drawer-user-info" title={email}>
+                    <span aria-hidden>👤</span>
+                    <span className="drawer-user-email">{email}</span>
+                  </div>
+                )}
+                <form
+                  action={async () => {
+                    logoutAndReset();
+                    await logout();
+                  }}
+                >
+                  <button
+                    type="submit"
+                    className="drawer-logout-btn"
+                  >
+                    ↪ Desconectar
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
         </div>
       </nav>
 
