@@ -20,7 +20,9 @@ import {
 import { interleaveByGroup, mixDifficulty, renderRichText, shuffle, startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
 import { haptic } from '@/lib/haptic';
+import { playSound } from '@/lib/sounds';
 import { acquireWakeLock, type WakeLockHandle } from '@/lib/wake-lock';
+import { triggerConfetti } from './ConfettiHost';
 import {
   clearSession as clearStoredSession,
   readSession,
@@ -1078,8 +1080,10 @@ function RunningView({
       streak: isCorrect ? (s.streak ?? 0) + 1 : 0,
     }));
 
-    // Feedback háptico (mobile-only, no-op em desktop e iOS).
+    // Feedback háptico (mobile-only, no-op em desktop e iOS) + som
+    // (opt-in). Ambos no-op se desabilitados/sem suporte.
     haptic(isCorrect ? 'success' : 'error');
+    playSound(isCorrect ? 'success' : 'error');
   };
 
   const rate = (quality: number) => {
@@ -1656,6 +1660,15 @@ function Summary({
   const elapsed = Math.round((Date.now() - session.startedAt) / 1000);
   const tempoMedio = total > 0 ? Math.round(elapsed / total) : 0;
 
+  // Confetti se 100% acerto e ≥5 questões (pra evitar trigger em sessões
+  // triviais de 1-2 questões).
+  useEffect(() => {
+    if (pct === 100 && total >= 5) {
+      triggerConfetti();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Comparativo: % média histórica do user (excluindo a sessão atual)
   const mediaHistorica = useMemo(() => {
     let acerto = 0;
@@ -1756,6 +1769,76 @@ function Summary({
           </div>
         )}
       </div>
+
+      {/* Insights pós-sessão: 1-3 observações úteis baseadas em
+          performance comparativa, velocidade e marcos. */}
+      {(() => {
+        const insights: { emoji: string; text: string }[] = [];
+        if (total >= 5 && mediaHistorica > 0) {
+          if (delta >= 15) {
+            insights.push({
+              emoji: '🚀',
+              text: `Você foi ${Math.abs(delta)}pp acima da sua média (${mediaHistorica}%). Foi um bom dia ou as questões tavam fáceis? Tente subir a dificuldade na próxima.`,
+            });
+          } else if (delta <= -15) {
+            insights.push({
+              emoji: '🤔',
+              text: `Performance ${Math.abs(delta)}pp abaixo da média. Tema novo? Considere uma sessão de revisão das erradas antes de avançar.`,
+            });
+          }
+        }
+        if (total >= 8 && pct >= 95) {
+          insights.push({
+            emoji: '🎯',
+            text: `${pct}% num pool de ${total}+ questões é dominância. Hora de aumentar a dificuldade ou intercalar disciplinas pra forçar generalização.`,
+          });
+        }
+        if (total > 0 && tempoMedio > 90) {
+          insights.push({
+            emoji: '⏱',
+            text: `Tempo médio ${tempoMedio}s/questão é alto. Cansaço, ou enunciados longos? Pausa de 5min pode ajudar.`,
+          });
+        }
+        if (elapsed >= 45 * 60) {
+          insights.push({
+            emoji: '☕',
+            text: `Sessão de ${Math.round(elapsed / 60)}min — sua atenção começa a cair depois de 45min. Quebra com um pomodoro?`,
+          });
+        }
+        if (insights.length === 0) return null;
+        return (
+          <div
+            style={{
+              background: 'var(--primary-soft)',
+              border: '1px solid var(--primary)',
+              borderRadius: 'var(--radius)',
+              padding: 12,
+              marginBottom: 14,
+            }}
+          >
+            <strong style={{ fontSize: '0.92rem' }}>💡 Insights</strong>
+            <ul
+              style={{
+                margin: '8px 0 0',
+                paddingLeft: 4,
+                listStyle: 'none',
+                fontSize: '0.88rem',
+                lineHeight: 1.55,
+              }}
+            >
+              {insights.slice(0, 3).map((ins, i) => (
+                <li
+                  key={i}
+                  style={{ marginBottom: i < insights.length - 1 ? 6 : 0 }}
+                >
+                  <span style={{ marginRight: 6 }}>{ins.emoji}</span>
+                  {ins.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {(() => {
         // Lista de questões erradas nesta sessão (com link rápido pra

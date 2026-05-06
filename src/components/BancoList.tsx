@@ -26,6 +26,9 @@ import { saveQueue } from '@/lib/study-queue';
 import { PlanLimitBanner } from './PlanLimitBanner';
 import { confirmDialog } from './ConfirmDialog';
 import { QuestionCreateDrawer } from './QuestionCreateDrawer';
+import { VoiceSearchButton } from './VoiceSearchButton';
+import { QuestionQuickActions } from './QuestionQuickActions';
+import { useLongPress } from '@/lib/use-long-press';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
@@ -277,6 +280,14 @@ export function BancoList() {
   // Atalhos de teclado: índice da questão "focada" na lista filtrada.
   // -1 = sem foco. j/k navega, Enter edita, espaço seleciona, x exclui.
   const [focusedIdx, setFocusedIdx] = useState(-1);
+  // Long-press no /banco mobile abre menu rápido de ações
+  const [quickActionsQ, setQuickActionsQ] = useState<Question | null>(null);
+  const longPress = useLongPress((target) => {
+    const id = target.getAttribute('data-banco-qid');
+    if (!id) return;
+    const q = questions.find((x) => x.id === id);
+    if (q) setQuickActionsQ(q);
+  });
   const searchRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Paginação visual: render só os primeiros N pra evitar travar com
@@ -1252,15 +1263,26 @@ export function BancoList() {
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <input
-          ref={searchRef}
-          type="search"
-          placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d id:xx"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 320 }}
-          title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
-        />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            flex: '1 1 auto',
+            maxWidth: 360,
+          }}
+        >
+          <input
+            ref={searchRef}
+            type="search"
+            placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+            title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
+          />
+          <VoiceSearchButton onTranscript={(t) => setSearch(t)} />
+        </div>
         <select value={disc} onChange={(e) => setDisc(e.target.value)}>
           <option value="">Todas as disciplinas</option>
           {disciplinas.map((d) => (
@@ -1565,6 +1587,12 @@ export function BancoList() {
         />
       )}
 
+      <QuestionQuickActions
+        question={quickActionsQ}
+        onClose={() => setQuickActionsQ(null)}
+        onEdit={(q) => setEditingId(q.id)}
+      />
+
       {creating && (
         <QuestionCreateDrawer onClose={() => setCreating(false)} />
       )}
@@ -1602,6 +1630,11 @@ export function BancoList() {
                 key={q.id}
                 className={'banco-item' + (compact ? ' compact' : '')}
                 data-banco-idx={i}
+                data-banco-qid={q.id}
+                onTouchStart={longPress.onTouchStart}
+                onTouchMove={longPress.onTouchMove}
+                onTouchEnd={longPress.onTouchEnd}
+                onTouchCancel={longPress.onTouchCancel}
                 style={{
                   ...(isFocused
                     ? {

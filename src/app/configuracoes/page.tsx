@@ -3,6 +3,9 @@ import { AlgorithmSection } from '@/components/AlgorithmSection';
 import { BackupSection } from '@/components/BackupSection';
 import { ThemeSection } from '@/components/ThemeSection';
 import { DailyGoalSection } from '@/components/DailyGoalSection';
+import { NotificationsSection } from '@/components/NotificationsSection';
+import { AccessibilitySection } from '@/components/AccessibilitySection';
+import { SoundsSection } from '@/components/SoundsSection';
 import { PlatformSeedSection } from '@/components/PlatformSeedSection';
 import { StorageInfo } from '@/components/StorageInfo';
 import { BillingSection } from '@/components/BillingSection';
@@ -32,6 +35,12 @@ export default async function ConfiguracoesPage() {
       <DailyGoalSection />
 
       <ThemeSection />
+
+      <NotificationsSection />
+
+      <SoundsSection />
+
+      <AccessibilitySection />
 
       <PlatformSeedSection />
 

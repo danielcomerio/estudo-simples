@@ -197,6 +197,25 @@ body.focus-mode {
   --shadow-lg: 0 10px 40px rgba(15, 23, 42, 0.12);
 }
 
+/* AMOLED dark: pixel preto = pixel desligado em telas OLED — economia
+   real de bateria no celular. Usa --bg #000 puro mas mantém elevações
+   acima de 0 pra hierarquia visual (cinza muito escuro). */
+:root[data-theme='amoled'] {
+  --bg: #000000;
+  --bg-elev: #0a0a0a;
+  --bg-elev-2: #141414;
+  --bg-elev-3: #1c1c1c;
+  --border: #262626;
+  --border-strong: #3a3a3a;
+  --text: #ededed;
+  --text-strong: #ffffff;
+  --muted: #888888;
+  --muted-2: #666666;
+  --shadow-sm: none;
+  --shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.8);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -331,11 +350,34 @@ h4 {
   }
   .topbar .tabs.tabs-open {
     display: flex;
+    animation: drawer-slide-in 220ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  @keyframes drawer-slide-in {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .topbar .tabs.tabs-open {
+      animation: none;
+    }
   }
   .topbar .tab {
-    padding: 10px 14px;
-    font-size: 0.95rem;
+    padding: 12px 14px;
+    font-size: 0.96rem;
     border-radius: var(--radius);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  .topbar .tab.active {
+    background: var(--primary-soft);
+    border-color: var(--primary);
   }
 }
 .topbar .tabs::-webkit-scrollbar {
@@ -2189,6 +2231,165 @@ body.focus-mode .mobile-bottom-nav {
 }
 body.focus-mode .mobile-fab {
   display: none !important;
+}
+
+/* ============ Print stylesheet ============
+ * Quando o user imprime, esconde elementos de navegação/UI e otimiza
+ * formatação. Útil pra material de estudo offline e relatórios. */
+@media print {
+  .topbar,
+  .mobile-bottom-nav,
+  .mobile-fab,
+  [aria-label="Abrir Pomodoro"],
+  [aria-label^="Pomodoro:"],
+  .toaster,
+  .toast-stack,
+  .skip-link,
+  .public-header-nav,
+  button:not(.print-keep),
+  form[action*="logout"],
+  form[action*="exitGuest"] {
+    display: none !important;
+  }
+  body,
+  html {
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
+  }
+  main.page,
+  .page {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .card {
+    background: #fff !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    margin-bottom: 12pt !important;
+  }
+  .alt {
+    border: 1px solid #888 !important;
+    background: #fafafa !important;
+    color: #000 !important;
+    page-break-inside: avoid;
+  }
+  .alt.correct {
+    background: #e6f4ea !important;
+    border-color: #4caf50 !important;
+  }
+  .alt.wrong {
+    background: #fdecea !important;
+    border-color: #d32f2f !important;
+  }
+  .feedback-area {
+    background: #f5f5f5 !important;
+    color: #000 !important;
+    border: 1px solid #aaa !important;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: underline !important;
+  }
+  /* Mostra URL após links externos */
+  a[href^="http"]:after {
+    content: ' (' attr(href) ')';
+    font-size: 0.85em;
+    color: #555;
+  }
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+}
+
+/* Voice search animation */
+@keyframes voice-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Navigation progress bar (NProgress-like) */
+.nav-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--primary) 30%,
+    var(--primary) 70%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  animation: nav-progress-slide 1s ease-in-out infinite;
+}
+@keyframes nav-progress-slide {
+  0% { background-position: 100% 0; }
+  100% { background-position: -150% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-progress-bar {
+    background: var(--primary);
+    animation: none;
+  }
+}
+
+/* ============ Color Vision Deficiency (CVD) overrides ============
+ * Acessibilidade: substitui verde/vermelho (~9% dos homens são CVD) por
+ * azul/laranja (Wong palette + complementos) sem mudar valores
+ * visualmente. Wong & Tol-friendly: distinguible em qualquer CVD comum. */
+body.cvd-deutan,
+body.cvd-protan {
+  --primary: #2563eb;        /* azul forte (era verde) */
+  --primary-700: #1d4ed8;
+  --primary-soft: rgba(37, 99, 235, 0.15);
+  --success: #2563eb;
+  --correct-bg: rgba(37, 99, 235, 0.12);
+  --correct-border: #1d4ed8;
+  --danger: #ea580c;         /* laranja queimado (era vermelho) */
+  --danger-soft: rgba(234, 88, 12, 0.15);
+  --wrong-bg: rgba(234, 88, 12, 0.12);
+  --wrong-border: #c2410c;
+}
+body.cvd-tritan {
+  /* Tritan tem dificuldade com azul/amarelo. Trocamos pra magenta/verde */
+  --primary: #16a34a;
+  --primary-700: #15803d;
+  --primary-soft: rgba(22, 163, 74, 0.15);
+  --success: #16a34a;
+  --correct-bg: rgba(22, 163, 74, 0.12);
+  --correct-border: #15803d;
+  --danger: #db2777;         /* rosa magenta */
+  --danger-soft: rgba(219, 39, 119, 0.15);
+  --wrong-bg: rgba(219, 39, 119, 0.12);
+  --wrong-border: #be185d;
+}
+
+/* Confetti partículas (celebração de marcos) */
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift, 0), 110vh, 0) rotate(var(--rotate, 720deg));
+    opacity: 0.2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti-piece {
+    display: none;
+  }
 }
 
 /* Pull-to-refresh spinner — usado em listas mobile */

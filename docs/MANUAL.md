@@ -55,6 +55,29 @@ App é mobile-first. Diferenças notáveis em telas até 760px:
 - **Haptic feedback**: vibração curta ao acertar, dois pulsos ao errar (Android — silencioso em iOS). Respeita `prefers-reduced-motion`.
 - **Sem double-tap zoom**: `touch-action: manipulation` mata o atraso de 300ms; pinch-zoom segue funcionando pra acessibilidade.
 - **Sem overflow horizontal**: `body { overflow-x: hidden }` impede que qualquer card largo crie scroll horizontal.
+- **Service Worker** pra cache offline real (PWA): em produção, o app abre instantâneo da segunda vez e funciona sem internet pra rotas já visitadas. Atualizações puxadas automaticamente.
+- **Web Share Target**: o Estudo Simples aparece como destino em "Compartilhar" do sistema. Se o user share um JSON de questões (ex: resposta de IA salva), o app abre `/share-target`, captura, e popula o paste do `/banco` direto.
+- **Confetti** ao bater meta diária, recorde pessoal de revisões/dia, ou completar sessão de 5+ questões com 100% acerto. CSS-only, respeita `prefers-reduced-motion`.
+
+### Acessibilidade
+
+Em `/configuracoes` há seção dedicada:
+
+- **Modo daltônico (CVD)**: 4 opções (Padrão · Deuteranopia · Protanopia · Tritanopia). Substitui paleta verde/vermelho por azul/laranja (deutan/protan) ou verde/magenta (tritan). Aplicado real-time em todo o app — feedback de acerto/erro fica discriminável.
+- **Notificações** (opt-in): pede permissão e avisa quando há revisões vencendo. Cooldown 6h. Funciona apenas com a aba aberta (sem servidor externo). Botão "🔔 Ativar".
+- **Reduced motion**: respeitado automaticamente — confetti, animações de cards, drawer slide-in e celebrações ficam off pra users com `prefers-reduced-motion: reduce`.
+- **Voice search** no `/banco`: botão 🎤 ao lado do campo de busca usa Web Speech API (pt-BR). Funciona em Chrome/Edge/Safari. Útil pra busca hands-free.
+- **Voice input** em `/discursivas`: botão 🎤 ao lado da textarea. Dita resposta em vez de digitar — útil pra treinar oralmente respostas longas.
+- **Sons** (opt-in): som curto via Web Audio API ao acertar (dois tons ascendentes) e errar (tom baixo). Sem assets externos. Off por default.
+
+### Tema
+
+- **Auto** (segue OS), **Claro**, **Escuro**, **AMOLED** (preto puro — economia real de bateria em telas OLED de celulares).
+- Toggle rápido no Topbar cicla entre os 4. Setting persiste em localStorage.
+
+### Print
+
+`@media print`: ao imprimir, esconde topbar, FAB, bottom nav, toasts e botões. Cards, alternativas (verde correta / vermelho errada) e feedback ficam estilizados pra papel. Útil pra material de estudo offline.
 
 ### Geração de questões com IA (`/banco`)
 
@@ -66,6 +89,24 @@ Botão **🤖 Gerar com IA** na aba Banco abre formulário com:
 - Resposta da IA cola na área normal de import logo abaixo — wizard valida e dedupa antes de gravar.
 
 Sem chave de API, sem custo: usa as IAs gratuitas que o user já tem.
+
+### Insights pós-sessão
+
+A tela de Summary depois de cada sessão (em `/estudar`) mostra:
+
+- % acerto comparado à sua média histórica (delta em pp).
+- Tempo médio por questão.
+- Top 3 disciplinas estudadas + acerto por cada.
+- Próximas vencendo até amanhã.
+- Lista das questões erradas (link rápido pra revisar cada).
+- **💡 Insights** — 1-3 observações automáticas baseadas na performance:
+  - "Acima da média" / "Abaixo da média" com sugestão de ação
+  - "Dominância" quando 95%+ em 8+ questões → sugere subir dificuldade
+  - Tempo médio alto → sugere pausa
+  - Sessão > 45min → sugere pomodoro
+- Botões de ação: nova sessão · 🔁 repetir essas mesmas · ✗ repetir só erradas · continuar com vencendo.
+
+Confetti automático se 100% acerto em pool de 5+ questões.
 
 ### Pomodoro (configurável)
 
@@ -257,6 +298,19 @@ Simulação de prova com cronômetro setável e relatório completo.
 Histórico de simulados visível em /stats com link "Ver relatório".
 
 ---
+
+### Conquistas (`/conquistas`)
+
+Página dedicada com **todas as conquistas** agrupadas por categoria:
+- 🔥 Streak (3 / 7 / 14 / 30 / 60 / 90 / 180 / 365 dias)
+- 🎯 Esforço (50 → 10.000 respondidas)
+- 🏆 Dominadas (10 → 1.000 questões com 5+ acertos seguidos)
+- 💎 Qualidade (60 / 70 / 80 / 90% acerto, mín 100 tentativas)
+- 📚 Banco (50 → 5.000 questões cadastradas)
+- ⚡ Recordes (10 / 25 / 50 / 100 / 200 num único dia)
+- 📅 Consistência (7 → 365 dias estudados total)
+
+Cada tier mostra emoji desbloqueado ou 🔒 com "faltam X". Barra de progresso geral no topo. Confetti automático quando bate streak novo (3/7/14/30...).
 
 ## 8. Estatísticas (`/stats`)
 

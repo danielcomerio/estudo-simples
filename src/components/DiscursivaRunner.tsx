@@ -24,6 +24,7 @@ import { QuestionImages } from './QuestionImages';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
+import { VoiceSearchButton } from './VoiceSearchButton';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -591,12 +592,22 @@ function DiscRunningView({
 
         {!revealed && (
           <>
-            <h3 style={{ marginTop: 16 }}>Sua resposta</h3>
+            <div
+              className="row between"
+              style={{ marginTop: 16, alignItems: 'center', flexWrap: 'wrap', gap: 6 }}
+            >
+              <h3 style={{ margin: 0 }}>Sua resposta</h3>
+              <VoiceSearchButton
+                onTranscript={(t) =>
+                  setResposta((prev) => (prev ? `${prev} ${t}` : t))
+                }
+              />
+            </div>
             <textarea
               className="disc-textarea"
               value={resposta}
               onChange={(e) => setResposta(e.target.value)}
-              placeholder="Escreva sua resposta aqui antes de revelar o espelho. O ato de tentar lembrar — mesmo errando — fortalece a memorização (active recall)."
+              placeholder="Escreva sua resposta aqui antes de revelar o espelho. Ou use 🎤 pra ditar. O ato de tentar lembrar — mesmo errando — fortalece a memorização (active recall)."
             />
             <div className="row gap">
               <button type="button" className="primary" onClick={() => setRevealed(true)}>

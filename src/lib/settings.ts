@@ -21,6 +21,7 @@ const STORAGE_KEY_ALGORITHM = 'estudo-simples:settings:algorithm';
 const STORAGE_KEY_ACTIVE_CONCURSO = 'estudo-simples:settings:activeConcurso';
 const STORAGE_KEY_THEME = 'estudo-simples:settings:theme';
 const STORAGE_KEY_DAILY_GOAL = 'estudo-simples:settings:dailyGoal';
+const STORAGE_KEY_CVD = 'estudo-simples:settings:cvd';
 
 const DAILY_GOAL_DEFAULT = 30;
 const DAILY_GOAL_MIN = 1;
@@ -129,8 +130,8 @@ export function useActiveConcursoId(): string | null {
  * Aplica via atributo data-theme em <html>. Quando 'auto', remove o
  * atributo e cai no @media (prefers-color-scheme) do CSS.
  */
-export type Theme = 'auto' | 'light' | 'dark';
-const VALID_THEMES: Theme[] = ['auto', 'light', 'dark'];
+export type Theme = 'auto' | 'light' | 'dark' | 'amoled';
+const VALID_THEMES: Theme[] = ['auto', 'light', 'dark', 'amoled'];
 
 export function getTheme(): Theme {
   if (typeof window === 'undefined') return 'auto';
@@ -217,6 +218,68 @@ export function setDailyGoal(n: number): void {
     // ignora
   }
   notify();
+}
+
+/**
+ * Color Vision Deficiency (daltonismo). Substitui a paleta verde/vermelho
+ * por azul/laranja em modos deutan/protan/tritan.
+ *
+ *  - 'off': paleta padrão
+ *  - 'deutan': deuteranopia (mais comum, ~6% homens) — verde indistinguível
+ *  - 'protan': protanopia (~1% homens) — vermelho indistinguível
+ *  - 'tritan': tritanopia (raro) — azul/amarelo
+ */
+export type CvdMode = 'off' | 'deutan' | 'protan' | 'tritan';
+const VALID_CVD: CvdMode[] = ['off', 'deutan', 'protan', 'tritan'];
+
+export function getCvdMode(): CvdMode {
+  if (typeof window === 'undefined') return 'off';
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CVD);
+    if (raw && (VALID_CVD as string[]).includes(raw)) return raw as CvdMode;
+  } catch {}
+  return 'off';
+}
+
+export function setCvdMode(mode: CvdMode): void {
+  if (!(VALID_CVD as string[]).includes(mode)) return;
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_CVD, mode);
+  } catch {}
+  applyCvdMode(mode);
+  notify();
+}
+
+export function applyCvdMode(mode: CvdMode): void {
+  if (typeof document === 'undefined') return;
+  const body = document.body;
+  body.classList.remove('cvd-deutan', 'cvd-protan', 'cvd-tritan');
+  if (mode !== 'off') {
+    body.classList.add(`cvd-${mode}`);
+  }
+}
+
+export function useCvdMode(): CvdMode {
+  const [mode, setM] = useState<CvdMode>('off');
+  useEffect(() => {
+    const sync = () => {
+      const m = getCvdMode();
+      setM(m);
+      applyCvdMode(m);
+    };
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_CVD) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return mode;
 }
 
 export function useDailyGoal(): number {

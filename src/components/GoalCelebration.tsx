@@ -5,6 +5,7 @@ import { useStore, selectActiveQuestions } from '@/lib/store';
 import { useDailyGoal } from '@/lib/settings';
 import { startOfDay } from '@/lib/utils';
 import { toast } from './Toast';
+import { triggerConfetti } from './ConfettiHost';
 
 const CELEBRATED_KEY_PREFIX = 'estudo-simples:goal-celebrated:';
 
@@ -41,6 +42,7 @@ export function GoalCelebration() {
       return;
     }
     setShow(true);
+    triggerConfetti();
     toast(
       `🎉 Meta diária batida! ${reviewsToday} revisões hoje.`,
       'success',

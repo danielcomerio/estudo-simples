@@ -162,6 +162,53 @@ export function Topbar({
           <div className="topbar-mobile-row">
             <ActiveConcursoSelector />
           </div>
+          <div
+            className="topbar-mobile-row"
+            style={{ flexWrap: 'wrap', gap: 8 }}
+          >
+            <Link
+              href="/conquistas"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                textDecoration: 'none',
+                fontSize: '0.88rem',
+              }}
+            >
+              🏆 Conquistas
+            </Link>
+            <Link
+              href="/configuracoes"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                textDecoration: 'none',
+                fontSize: '0.88rem',
+              }}
+            >
+              ⚙ Configurações
+            </Link>
+            <Link
+              href="/manual"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                textDecoration: 'none',
+                fontSize: '0.88rem',
+              }}
+            >
+              📖 Manual
+            </Link>
+          </div>
           {isGuest ? (
             <div className="topbar-mobile-row">
               <span style={{ color: 'var(--warn, #d97706)', fontWeight: 500 }}>
@@ -329,8 +376,11 @@ export function Topbar({
 
 function ThemeToggleQuick() {
   const t = useTheme();
-  const next = t === 'auto' ? 'light' : t === 'light' ? 'dark' : 'auto';
-  const icon = t === 'auto' ? '🖥' : t === 'light' ? '☀️' : '🌙';
+  // Cycle: auto → light → dark → amoled → auto
+  const next =
+    t === 'auto' ? 'light' : t === 'light' ? 'dark' : t === 'dark' ? 'amoled' : 'auto';
+  const icon =
+    t === 'auto' ? '🖥' : t === 'light' ? '☀️' : t === 'dark' ? '🌙' : '⚫';
   return (
     <button
       type="button"

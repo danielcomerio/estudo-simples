@@ -18,6 +18,7 @@ import {
   type NormalizedItem,
 } from '@/lib/real-import';
 import { toast } from './Toast';
+import { consumeSharedContent } from './ShareTargetReceiver';
 
 /**
  * Importação de JSON com suporte a 2 formatos:
@@ -45,6 +46,15 @@ export function ImportZone() {
   const [dragOver, setDragOver] = useState(false);
   const [paste, setPaste] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Web Share Target: se o user veio de /share-target, popula o paste
+  useEffect(() => {
+    const shared = consumeSharedContent();
+    if (shared) {
+      setPaste(shared);
+      toast('Conteúdo compartilhado recebido. Confira e clique em "Importar".', 'success');
+    }
+  }, []);
 
   // Atribuição em lote
   const [assignConcursoId, setAssignConcursoId] = useState('');

@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { hydrate, migrateGuestToUser, resetStore, useStore } from '@/lib/store';
+import { getState, hydrate, migrateGuestToUser, resetStore, useStore } from '@/lib/store';
 import { scheduleSync, startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
-import { applyTheme, getTheme, setActiveConcursoId } from '@/lib/settings';
+import { applyCvdMode, applyTheme, getCvdMode, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
 import { clearSeedFlag, loadPlatformSeed } from '@/lib/platform-seed';
 import { toast } from './Toast';
@@ -14,6 +14,10 @@ import { GlobalSearch } from './GlobalSearch';
 import { GoalCelebration } from './GoalCelebration';
 import { VimNav } from './VimNav';
 import { BarsGuard } from './BarsGuard';
+import { selectActiveQuestions } from '@/lib/store';
+import { maybeNotifyDue } from '@/lib/notifications';
+import { startOfDay } from '@/lib/utils';
+import { DAY_MS } from '@/lib/srs';
 
 export function StoreProvider({
   userId,
@@ -27,10 +31,11 @@ export function StoreProvider({
   children: React.ReactNode;
 }) {
   useEffect(() => {
-    // Aplica tema o mais cedo possível pra reduzir flash. (Idealmente
-    // seria via <script> inline pré-React, mas useEffect roda quase
-    // imediatamente após hydrate.)
+    // Aplica tema e CVD o mais cedo possível pra reduzir flash.
+    // (Idealmente seria via <script> inline pré-React, mas useEffect
+    // roda quase imediatamente após hydrate.)
     applyTheme(getTheme());
+    applyCvdMode(getCvdMode());
 
     // hydrate é async desde a migração pra IndexedDB. Espera carregar
     // o estado persistido ANTES de iniciar background sync — sem isso,
@@ -130,6 +135,33 @@ export function StoreProvider({
       // Não reseta no unmount comum; reset só ao logout (ver Topbar).
     };
   }, []);
+
+  // Notification de revisões vencidas: quando user volta pro app
+  // (focus/visibility) e há > 0 vencidas, notifica (cooldown 6h).
+  // maybeNotifyDue faz no-op se permissão não foi concedida ou setting off.
+  useEffect(() => {
+    if (!hydrated) return;
+    const checkDue = () => {
+      const qs = selectActiveQuestions(getState());
+      const tomorrow = startOfDay(Date.now()) + DAY_MS;
+      let due = 0;
+      for (const q of qs) {
+        if (q.type === 'objetiva' && (q.srs?.dueDate ?? 0) < tomorrow) due++;
+      }
+      maybeNotifyDue(due);
+    };
+    // Check inicial após hidratar
+    const t = setTimeout(checkDue, 2000);
+    // Re-check ao voltar pra aba
+    const onFocus = () => checkDue();
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [hydrated]);
 
   return (
     <>

@@ -18,6 +18,11 @@ const OPTIONS: Array<{ value: Theme; label: string; desc: string }> = [
     label: '☀️ Claro',
     desc: 'Forçar tema claro independente do sistema.',
   },
+  {
+    value: 'amoled',
+    label: '⚫ AMOLED',
+    desc: 'Preto puro — economiza bateria em telas OLED (celular).',
+  },
 ];
 
 export function ThemeSection() {

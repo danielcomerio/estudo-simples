@@ -11,6 +11,8 @@ import { useDailyGoal } from '@/lib/settings';
 import { useActiveConcursoFilter } from '@/lib/hierarchy';
 import type { Question } from '@/lib/types';
 import { DailyQuests } from './DailyQuests';
+import { triggerConfetti } from './ConfettiHost';
+import { ShareStreakButton } from './ShareStreakButton';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -248,6 +250,35 @@ export function Dashboard() {
   const bestDayEver = Math.max(bestDayBefore, reviewsToday);
   const prTodayCount =
     reviewsToday > 0 && reviewsToday > bestDayBefore && bestDayBefore >= 5;
+
+  // Dispara confetti uma vez por dia quando bate PR (idempotente via LS)
+  useEffect(() => {
+    if (!hydrated || !prTodayCount) return;
+    const key =
+      'estudo-simples:pr-celebrated:' +
+      new Date(startOfDay(Date.now())).toISOString().slice(0, 10);
+    try {
+      if (localStorage.getItem(key) === '1') return;
+      localStorage.setItem(key, '1');
+      triggerConfetti();
+    } catch {}
+  }, [hydrated, prTodayCount]);
+
+  // Confetti em milestones de streak (3, 7, 14, 30, 60, 90, 180, 365).
+  // Só dispara uma vez por milestone — usa LS pra idempotência.
+  useEffect(() => {
+    if (!hydrated || streak < 3) return;
+    const milestones = [3, 7, 14, 30, 60, 90, 180, 365];
+    const reached = milestones.filter((m) => streak >= m);
+    if (reached.length === 0) return;
+    const top = reached[reached.length - 1];
+    const key = `estudo-simples:streak-celebrated:${top}`;
+    try {
+      if (localStorage.getItem(key) === '1') return;
+      localStorage.setItem(key, '1');
+      triggerConfetti();
+    } catch {}
+  }, [hydrated, streak]);
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
@@ -419,6 +450,42 @@ export function Dashboard() {
         </div>
       )}
 
+      {streakAtRisk && streak >= 3 && (
+        <div
+          className="card"
+          style={{
+            background: 'var(--warn-bg, rgba(217, 119, 6, 0.08))',
+            border: '1px solid var(--warn, #d97706)',
+            padding: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+          role="alert"
+        >
+          <span style={{ fontSize: '1.6rem' }} aria-hidden>🔥</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ fontSize: '1rem', color: 'var(--warn, #d97706)' }}>
+              Sua streak de {streak} dia(s) está em risco!
+            </strong>
+            <div style={{ fontSize: '0.88rem', color: 'var(--muted)', marginTop: 2 }}>
+              Você ainda não estudou hoje. Faça 1 questão pra manter — 30 segundos
+              salvam {streak} dias.
+            </div>
+          </div>
+          <Link href="/estudar?modo=srs&qtd=5&auto=1">
+            <button
+              type="button"
+              className="primary"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              ▶ Salvar streak
+            </button>
+          </Link>
+        </div>
+      )}
+
       {prTodayCount && (
         <div
           className="card"
@@ -471,7 +538,10 @@ export function Dashboard() {
               : undefined
           }
         >
-          <div className="stat-label">Streak{streakAtRisk ? ' ⚠️' : ''}{freezeUsed ? ' 🧊' : ''}</div>
+          <div className="stat-label">
+            Streak{streakAtRisk ? ' ⚠️' : ''}{freezeUsed ? ' 🧊' : ''}
+            {streak >= 3 && !streakAtRisk && <ShareStreakButton streak={streak} />}
+          </div>
           <div className="stat-value">{streak}</div>
           <div className="stat-sub">
             dia{streak === 1 ? '' : 's'} consecutivo{streak === 1 ? '' : 's'}
@@ -623,6 +693,17 @@ export function Dashboard() {
                 {a.emoji} {a.label}
               </span>
             ))}
+            <Link
+              href="/conquistas"
+              style={{
+                marginLeft: 'auto',
+                color: 'var(--primary)',
+                fontSize: '0.85rem',
+                textDecoration: 'none',
+              }}
+            >
+              ver todas →
+            </Link>
           </div>
         </div>
       )}
