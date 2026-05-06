@@ -6,6 +6,7 @@ import { DailyGoalSection } from '@/components/DailyGoalSection';
 import { NotificationsSection } from '@/components/NotificationsSection';
 import { AccessibilitySection } from '@/components/AccessibilitySection';
 import { SoundsSection } from '@/components/SoundsSection';
+import { SettingsBackupSection } from '@/components/SettingsBackupSection';
 import { PlatformSeedSection } from '@/components/PlatformSeedSection';
 import { StorageInfo } from '@/components/StorageInfo';
 import { BillingSection } from '@/components/BillingSection';
@@ -47,6 +48,8 @@ export default async function ConfiguracoesPage() {
       <StorageInfo />
 
       <BackupSection />
+
+      <SettingsBackupSection />
 
       <div className="card">
         <h2 style={{ margin: '0 0 8px' }}>Cadastros</h2>
