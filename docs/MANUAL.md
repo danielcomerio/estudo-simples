@@ -63,6 +63,7 @@ App é mobile-first. Diferenças notáveis em telas até 760px:
 
 Em `/configuracoes` há seção dedicada:
 
+- **Alto contraste** (opt-in): bordas mais fortes, texto puro, sem opacities suaves. Útil pra baixa visão ou luz forte.
 - **Tamanho de fonte**: Normal (16px) / Grande (18px) / Extra grande (20px). Aplica em todo o app.
 
 - **Modo daltônico (CVD)**: 4 opções (Padrão · Deuteranopia · Protanopia · Tritanopia). Substitui paleta verde/vermelho por azul/laranja (deutan/protan) ou verde/magenta (tritan). Aplicado real-time em todo o app — feedback de acerto/erro fica discriminável.
@@ -111,6 +112,70 @@ A tela de Summary depois de cada sessão (em `/estudar`) mostra:
 
 Confetti automático se 100% acerto em pool de 5+ questões.
 
+### Auto-save de drafts
+
+A criação de questão (`/banco` → "+ Nova") salva draft automaticamente
+em LS a cada 1.5s. Se você fechar o drawer (toque acidental no
+backdrop) ou refresh, ao reabrir tudo volta com banner "📝 Draft
+restaurado" + botão Descartar.
+
+Apaga ao salvar com sucesso. Cobre todos os campos (kind, disciplina,
+tema, banca, dificuldade, enunciado, alternativas, cloze, frente, verso).
+
+### Textarea com preview
+
+Em campos longos (enunciado, explicação) há toggle "✏ Editar / 👁 Preview"
+que mostra como o texto vai aparecer durante a sessão (com KaTeX,
+code blocks, etc) antes de salvar.
+
+### CSV import
+
+Além de JSON, o `/banco` aceita CSV simples. Header obrigatório:
+
+```
+enunciado,alt_a,alt_b,alt_c,alt_d,alt_e,gabarito,disciplina,tema,dificuldade
+"Quem foi o primeiro presidente?",João,Pedro,...,A,Historia,Republica,2
+```
+
+Variações em português aceitas (pergunta, materia, resposta, etc).
+Auto-detecção: se o primeiro caractere parece CSV (≥4 vírgulas + palavra-chave),
+converte automaticamente pra JSON e segue pelo wizard normal.
+
+### Áudio recording em /discursivas
+
+Botão **🎙 Gravar resposta falada** abaixo da textarea. Útil pra
+provas orais ou pra estruturar pensamento falando antes de escrever.
+Áudio fica só localmente, não persiste após sessão.
+
+### Metas semanal e mensal (opcionais)
+
+Além da meta diária, em /configuracoes você pode definir:
+- Meta semanal (0 = off, default)
+- Meta mensal (0 = off, default)
+
+Quando >0, Dashboard mostra barras de progresso adicionais. Útil pra
+quem prefere flexibilidade ("posso pegar firme uns dias e descansar
+em outros").
+
+### Primeiros passos
+
+Checklist persistente no Dashboard pra users novos. 5 passos detectados
+dinamicamente do estado real:
+
+- Adicionar primeiras questões
+- Criar concurso (opcional)
+- Responder 10 questões
+- Bater meta diária
+- Favoritar uma questão
+
+Auto-some quando todos completados ou via dispense manual.
+
+### Welcome back
+
+Quando user volta após ≥3 dias sem login, banner gentil "Bem-vindo de
+volta. Você sumiu por X dias. Tem N vencendo. Bora começar suave?"
+com CTA pra sessão de 10 SRS.
+
 ### Pomodoro (configurável)
 
 Timer flutuante (canto inferior esquerdo). v2 com:
@@ -119,6 +184,8 @@ Timer flutuante (canto inferior esquerdo). v2 com:
 - **Long break a cada N focos** (default 4). Ciclo automático: foco → pausa → foco → ... → após N, pausa longa → reset.
 - **Skip** (⏭) pula pra próxima fase.
 - **Barra de progresso** em baixo do timer.
+- **Notification + som** ao terminar fase (se sounds e/ou notifications habilitados em /configuracoes).
+- **Contador 🔥** mostra pomodoros completos (hoje · semana · total). Tooltip com detalhes.
 - Persiste em localStorage — sobrevive a refresh.
 
 ---
