@@ -25,6 +25,7 @@ import type {
   QuestionVerificacao,
 } from '@/lib/types';
 import { toast } from './Toast';
+import { QuestionTimeline } from './QuestionTimeline';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -906,7 +907,14 @@ export function QuestionEditDrawer({
           </div>
         </details>
 
-        {/* Histórico de revisão — só aparece quando há registros */}
+        {/* Timeline visual compacta sempre visível */}
+        {(question.stats?.history?.length ?? 0) > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <QuestionTimeline question={question} />
+          </div>
+        )}
+
+        {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (
           <details
             style={{
@@ -918,7 +926,7 @@ export function QuestionEditDrawer({
             }}
           >
             <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
-              Histórico de revisão
+              Histórico detalhado
               <span className="muted" style={{ marginLeft: 8, fontSize: '0.85rem' }}>
                 — {question.stats?.attempts ?? 0} tentativa(s),{' '}
                 {question.stats?.correct ?? 0} acerto(s)
