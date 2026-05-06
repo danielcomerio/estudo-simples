@@ -1168,6 +1168,30 @@ function RunningView({
       },
     }));
 
+    // Detecção de "dominou": acabou de bater 5 acertos consecutivos
+    // no fim do histórico. Só dispara na transição (4→5), não em
+    // toda revisão de questão dominada.
+    if (isCorrect) {
+      const last5 = newHistory.slice(-5);
+      const allCorrect =
+        last5.length === 5 &&
+        last5.every((r) => r.result === 'correct' || r.result === 'self_pass');
+      // Pra ser TRANSIÇÃO, o anterior NÃO podia já estar dominado
+      const prev5 = newHistory.slice(-6, -1);
+      const wasAlreadyDominated =
+        prev5.length === 5 &&
+        prev5.every((r) => r.result === 'correct' || r.result === 'self_pass');
+      if (allCorrect && !wasAlreadyDominated) {
+        triggerConfetti();
+        const tema = q.tema ? `: ${q.tema}` : '';
+        toast(
+          `🏆 Dominou${tema}! 5 acertos seguidos.`,
+          'success',
+          5000
+        );
+      }
+    }
+
     update((s) => ({
       ...s,
       correct: s.correct + (isCorrect ? 1 : 0),
