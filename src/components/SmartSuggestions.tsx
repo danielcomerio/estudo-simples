@@ -113,7 +113,29 @@ export function SmartSuggestions({ questions }: { questions: Question[] }) {
       });
     }
 
-    // 4. Vencendo amanhã (proativo, antes de virar atrasada)
+    // 4. Calibração de dificuldade — questões marcadas dif=5 mas
+    //    acertando sempre (5+ acertos seguidos). Sugerir reduzir.
+    let calibracaoMiscalibrada = 0;
+    for (const q of questions) {
+      if (q.dificuldade !== 5) continue;
+      const h = q.stats?.history ?? [];
+      if (h.length < 5) continue;
+      const last5 = h.slice(-5);
+      if (last5.every((r) => r.result === 'correct')) {
+        calibracaoMiscalibrada++;
+      }
+    }
+    if (calibracaoMiscalibrada >= 3) {
+      out.push({
+        id: 'calibracao',
+        emoji: '🎚',
+        text: `${calibracaoMiscalibrada} questão(ões) marcada(s) como dificuldade <strong>5</strong> mas acertando direto. Talvez ajustar pra 3-4 pra refletir realidade.`,
+        href: `/banco?search=`,
+        cta: 'Ver no banco',
+      });
+    }
+
+    // 5. Vencendo amanhã (proativo, antes de virar atrasada)
     const amanha = today0 + 2 * DAY_MS;
     let vencerAmanha = 0;
     for (const q of questions) {
