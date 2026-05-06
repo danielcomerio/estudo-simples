@@ -126,8 +126,18 @@ export function StatsView() {
   return (
     <>
       <div
-        className="card"
-        style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}
+        className="card stats-scope-card"
+        style={{
+          display: 'flex',
+          gap: 12,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          /* Sticky no topo ao scrollar — usuário não precisa rolar de
+             volta pra trocar escopo. Topbar é 56px + safe area. */
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+        }}
       >
         <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ fontSize: '0.9rem' }}>📊 Estatísticas de:</span>
