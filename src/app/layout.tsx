@@ -24,8 +24,19 @@ export const metadata: Metadata = {
   applicationName: 'Estudo Simples',
   manifest: '/manifest.json',
   icons: {
-    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
-    apple: [{ url: '/icon.svg' }],
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/icon.svg', sizes: '180x180', type: 'image/svg+xml' },
+    ],
+    other: [
+      {
+        rel: 'mask-icon',
+        url: '/icon-maskable.svg',
+        color: '#22c55e',
+      },
+    ],
   },
   appleWebApp: {
     capable: true,
