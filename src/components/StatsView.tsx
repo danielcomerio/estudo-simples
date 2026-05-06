@@ -175,6 +175,7 @@ export function StatsView() {
         <ExportCSVMenu questions={questions} />
         <ExportICSButton questions={questions} />
         <ExportAnkiButton questions={questions} />
+        <ExportWeeklyReportButton questions={questions} />
       </div>
 
       {effectiveConcursoId && (
@@ -3285,6 +3286,29 @@ function ExportAnkiButton({
       title="Exportar como CSV no formato Anki (Front, Back, Tags). Importável no Anki Desktop e Anki Mobile."
     >
       🃏 Exportar pro Anki
+    </button>
+  );
+}
+
+function ExportWeeklyReportButton({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const onClick = async () => {
+    const { generateWeeklyReport, downloadWeeklyReport } = await import(
+      '@/lib/weekly-report'
+    );
+    const md = generateWeeklyReport(questions);
+    downloadWeeklyReport(md);
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      title="Exportar relatório markdown da última semana com top stats e recomendações"
+    >
+      📝 Relatório semanal (.md)
     </button>
   );
 }
