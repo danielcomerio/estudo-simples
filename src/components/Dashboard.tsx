@@ -13,6 +13,7 @@ import type { Question } from '@/lib/types';
 import { DailyQuests } from './DailyQuests';
 import { SmartSuggestions } from './SmartSuggestions';
 import { WelcomeBackBanner } from './WelcomeBackBanner';
+import { PrimeirosPassos } from './PrimeirosPassos';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 
@@ -496,6 +497,8 @@ export function Dashboard() {
       )}
 
       <WelcomeBackBanner dueCount={dueToday} />
+
+      <PrimeirosPassos questions={questions} />
 
       {streakAtRisk && streak >= 3 && (
         <div
