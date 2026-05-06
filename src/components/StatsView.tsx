@@ -174,6 +174,7 @@ export function StatsView() {
         )}
         <ExportCSVMenu questions={questions} />
         <ExportICSButton questions={questions} />
+        <ExportAnkiButton questions={questions} />
       </div>
 
       {effectiveConcursoId && (
@@ -3117,6 +3118,32 @@ function ExportICSButton({
       title="Exportar agenda de revisões dos próximos 30 dias (.ics — Google Calendar, Outlook, Apple)"
     >
       📅 Exportar agenda (.ics)
+    </button>
+  );
+}
+
+function ExportAnkiButton({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const onClick = async () => {
+    const { questionsToAnkiCsv, downloadAnkiCsv } = await import(
+      '@/lib/anki-export'
+    );
+    const csv = questionsToAnkiCsv(questions);
+    downloadAnkiCsv(
+      csv,
+      `estudo-simples-anki-${new Date().toISOString().slice(0, 10)}.csv`
+    );
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      title="Exportar como CSV no formato Anki (Front, Back, Tags). Importável no Anki Desktop e Anki Mobile."
+    >
+      🃏 Exportar pro Anki
     </button>
   );
 }
