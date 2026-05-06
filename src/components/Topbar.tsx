@@ -290,17 +290,21 @@ export function Topbar({
       </nav>
 
       <div className="right">
+        {/* Streak primeiro — informação importante destacada à esquerda
+            do bloco de ícones de utility */}
+        <StreakBadge />
+
         <span className="topbar-desktop-only">
           <InstallPWAButton />
         </span>
 
+        <ThemeToggleQuick />
+
+        {/* Atalhos depois do tema — antes ficava entre Install e Streak,
+            o que separava streak dos outros badges */}
         <span className="topbar-desktop-only">
           <ShortcutsHelp />
         </span>
-
-        <StreakBadge />
-
-        <ThemeToggleQuick />
 
         <span className="topbar-desktop-only">
           <ActiveConcursoSelector />
@@ -398,8 +402,25 @@ function ThemeToggleQuick() {
   // Cycle: auto → light → dark → amoled → auto
   const next =
     t === 'auto' ? 'light' : t === 'light' ? 'dark' : t === 'dark' ? 'amoled' : 'auto';
-  const icon =
-    t === 'auto' ? '🖥' : t === 'light' ? '☀️' : t === 'dark' ? '🌙' : '⚫';
+  // SVG inline pra renderização consistente entre Windows/Mac/Linux/iOS/Android.
+  // Antes 🖥 (desktop computer) era um monitor velho em alguns sistemas.
+  const renderIcon = () => {
+    if (t === 'auto') {
+      // Lua/sol meio-meio (segue OS — visualmente representa "automático")
+      return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+             strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3v18" />
+          <path d="M12 3a9 9 0 0 0 0 18" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    }
+    if (t === 'light') return '☀️';
+    if (t === 'dark') return '🌙';
+    return '⚫'; // amoled
+  };
   return (
     <button
       type="button"
@@ -407,9 +428,14 @@ function ThemeToggleQuick() {
       onClick={() => setTheme(next)}
       title={`Tema: ${t} (clique pra ${next})`}
       aria-label="Alternar tema"
-      style={{ fontSize: '1rem' }}
+      style={{
+        fontSize: '1rem',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
-      {icon}
+      {renderIcon()}
     </button>
   );
 }

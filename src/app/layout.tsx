@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { ConfettiHost } from '@/components/ConfettiHost';
+import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import './globals.css';
 
@@ -121,6 +122,7 @@ export default async function RootLayout({
             <OnboardingTour />
             <main id="main-content" className="page">
               {children}
+              <AppFooter />
             </main>
             <MobileFAB />
             <MobileBottomNav />

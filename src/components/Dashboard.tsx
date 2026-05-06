@@ -818,12 +818,13 @@ export function Dashboard() {
 
       <div className="card">
         <h2>Comece agora</h2>
-        <div className="row gap wrap">
+        <div className="action-grid">
           {dueToday > 0 && (
             <Link
               href={`/estudar?modo=srs&qtd=${Math.min(20, dueToday)}&auto=1`}
+              className="action-card-link"
             >
-              <button className="primary" type="button">
+              <button className="primary action-card" type="button">
                 🎯 Estudar {Math.min(20, dueToday)} vencendo
               </button>
             </Link>
@@ -831,9 +832,10 @@ export function Dashboard() {
           {erradasRecentes > 0 && (
             <Link
               href={`/estudar?modo=erros&qtd=${Math.min(20, erradasRecentes)}&auto=1`}
+              className="action-card-link"
             >
-              <button type="button">
-                🔁 Revisar {Math.min(20, erradasRecentes)} erradas recentes
+              <button type="button" className="action-card">
+                🔁 Revisar {Math.min(20, erradasRecentes)} erradas
               </button>
             </Link>
           )}
@@ -841,9 +843,11 @@ export function Dashboard() {
             <Link
               href={`/estudar?modo=inimigas&qtd=${Math.min(20, inimigas)}&auto=1`}
               title="Questões que você persiste errando (>=3 tentativas, <30% acerto)"
+              className="action-card-link"
             >
               <button
                 type="button"
+                className="action-card"
                 style={{
                   background: 'var(--danger-soft, #4a1d1d)',
                   borderColor: 'var(--danger, #ef4444)',
@@ -854,69 +858,81 @@ export function Dashboard() {
               </button>
             </Link>
           )}
-          {inimigas > 0 && (
-            <Link href="/banco?srs=inimigas" title="Abrir /banco filtrado por inimigas">
-              <button type="button" className="ghost">
-                Ver todas {inimigas}
-              </button>
-            </Link>
-          )}
           {novasNuncaEstudadas > 0 && (
             <Link
               href={`/estudar?modo=novas&qtd=${Math.min(10, novasNuncaEstudadas)}&auto=1`}
+              className="action-card-link"
             >
-              <button type="button">
+              <button type="button" className="action-card">
                 ✨ Estudar {Math.min(10, novasNuncaEstudadas)} novas
               </button>
             </Link>
           )}
           {pendentes > 0 && (
-            <Link href="/revisar">
-              <button type="button">⏳ Revisar {pendentes} pendentes</button>
+            <Link href="/revisar" className="action-card-link">
+              <button type="button" className="action-card">
+                ⏳ Revisar {pendentes} pendentes
+              </button>
             </Link>
           )}
           {totalAttempts >= 30 && (
             <Link
               href="/estudar?modo=final-prova&qtd=30&auto=1"
               title="Mistura SRS vencidas + inimigas + recém-aprendidas + variadas. Atalho R."
+              className="action-card-link"
             >
-              <button type="button">
-                🎓 Revisão pré-prova (R)
+              <button type="button" className="action-card">
+                🎓 Revisão pré-prova
+              </button>
+            </Link>
+          )}
+          {inimigas > 0 && (
+            <Link
+              href="/banco?srs=inimigas"
+              title="Abrir /banco filtrado por inimigas"
+              className="action-card-link"
+            >
+              <button type="button" className="ghost action-card">
+                Ver todas {inimigas} inimigas
               </button>
             </Link>
           )}
         </div>
 
-        <div
-          className="row gap wrap"
-          style={{ marginTop: 12, fontSize: '0.88rem' }}
-        >
-          <span className="muted">Outras:</span>
-          <Link href="/estudar">
-            <button type="button" className="ghost">
-              Configurar sessão
+        <div style={{ marginTop: 14 }}>
+          <div
+            className="muted"
+            style={{ marginBottom: 8, fontSize: '0.88rem' }}
+          >
+            Outras opções:
+          </div>
+          <div className="action-grid">
+          <Link href="/estudar" className="action-card-link">
+            <button type="button" className="ghost action-card">
+              ⚙ Configurar sessão
             </button>
           </Link>
-          <Link href="/discursivas">
-            <button type="button" className="ghost">
-              Discursivas
+          <Link href="/discursivas" className="action-card-link">
+            <button type="button" className="ghost action-card">
+              ✍ Discursivas
             </button>
           </Link>
-          <Link href="/cards">
-            <button type="button" className="ghost">
-              Cards (Cloze + Flashcard)
+          <Link href="/cards" className="action-card-link">
+            <button type="button" className="ghost action-card">
+              🃏 Cards
             </button>
           </Link>
-          <Link href="/simulado">
-            <button type="button" className="ghost">
-              Simulado
+          <Link href="/simulado" className="action-card-link">
+            <button type="button" className="ghost action-card">
+              🎓 Simulado
             </button>
           </Link>
-          <Link href="/banco">
-            <button type="button" className="ghost">
-              Importar
+          <Link href="/banco" className="action-card-link">
+            <button type="button" className="ghost action-card">
+              📥 Importar
             </button>
           </Link>
+          </div>
         </div>
       </div>
 
