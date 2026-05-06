@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { renderRichText } from '@/lib/utils';
 
 /**
@@ -33,7 +33,33 @@ export function TextareaWithPreview({
   'value' | 'onChange'
 >) {
   const [showPreview, setShowPreview] = useState(false);
+  const ref = useRef<HTMLTextAreaElement>(null);
   const empty = value.trim().length === 0;
+
+  // Wrap markdown shortcut: Ctrl+B → **selection**, Ctrl+I → *selection*
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const k = e.key.toLowerCase();
+    if (k !== 'b' && k !== 'i') return;
+    e.preventDefault();
+    const ta = ref.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const before = value.slice(0, start);
+    const sel = value.slice(start, end);
+    const after = value.slice(end);
+    const wrap = k === 'b' ? '**' : '*';
+    const next = `${before}${wrap}${sel || (k === 'b' ? 'negrito' : 'itálico')}${wrap}${after}`;
+    onChange(next);
+    // Re-seleciona texto wrapped no próximo tick
+    requestAnimationFrame(() => {
+      const newStart = start + wrap.length;
+      const newEnd = newStart + (sel.length || (k === 'b' ? 7 : 7));
+      ta.setSelectionRange(newStart, newEnd);
+      ta.focus();
+    });
+  };
 
   return (
     <div style={{ width: '100%' }}>
@@ -91,8 +117,10 @@ export function TextareaWithPreview({
         />
       ) : (
         <textarea
+          ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
           placeholder={placeholder}
           rows={rows}
           required={required}
