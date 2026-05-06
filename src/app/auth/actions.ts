@@ -91,6 +91,36 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
   };
 }
 
+/**
+ * Reenvia email de confirmação. Pra users que digitaram email errado,
+ * email caiu no spam, ou apagaram. Rate limit é do Supabase (60s entre
+ * envios).
+ */
+export async function resendConfirmation(
+  _prev: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  const email = String(formData.get('email') || '').trim();
+  if (!email) return { ...initial, error: 'Informe seu email.' };
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo:
+        (process.env.NEXT_PUBLIC_SITE_URL || '') + '/auth/callback',
+    },
+  });
+  if (error) {
+    return { ...initial, error: traduzirErroAuth(error.message) };
+  }
+  return {
+    ...initial,
+    message:
+      'Reenviamos o email de confirmação. Se não chegar em 5 minutos, confira spam ou tente outro email.',
+  };
+}
+
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();

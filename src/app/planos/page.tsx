@@ -36,10 +36,11 @@ export default function Planos() {
         </h1>
         <p
           className="muted"
-          style={{ maxWidth: 520, margin: '0 auto', fontSize: '1rem' }}
+          style={{ maxWidth: 540, margin: '0 auto', fontSize: '1rem' }}
         >
-          Comece grátis (até 500 questões). Faça upgrade quando o banco crescer
-          ou quiser features avançadas. Cancela a qualquer momento.
+          Comece grátis (até 200 questões). Estudante a R$ 9,90 ou Pro
+          ilimitado a R$ 19,90 — ambos com <strong>14 dias de trial</strong> e
+          sem cartão pra testar.
         </p>
       </header>
 
@@ -58,12 +59,12 @@ export default function Planos() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr auto auto',
+            gridTemplateColumns: '1.4fr auto auto auto',
             gap: 0,
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius)',
             overflow: 'hidden',
-            fontSize: '0.92rem',
+            fontSize: '0.9rem',
           }}
         >
           <Cell strong>Feature</Cell>
@@ -71,25 +72,28 @@ export default function Planos() {
             Grátis
           </Cell>
           <Cell strong style={{ textAlign: 'center' }}>
-            Pro
+            🎓 Estudante
+          </Cell>
+          <Cell strong style={{ textAlign: 'center' }}>
+            ✨ Pro
           </Cell>
 
-          <FeatureRow label="Questões personais" free="500" pro="Ilimitado" />
-          <FeatureRow label="Concursos cadastrados" free="1" pro="Ilimitado" />
-          <FeatureRow label="Repetição espaçada (SM-2)" free="✓" pro="✓" />
-          <FeatureRow label="FSRS-6 (algoritmo moderno)" free="✓" pro="✓" />
-          <FeatureRow label="Active recall" free="✓" pro="✓" />
-          <FeatureRow label="Discursivas + autoavaliação" free="✓" pro="✓" />
-          <FeatureRow label="Cloze + flashcards" free="✓" pro="✓" />
-          <FeatureRow label="Simulado com cronômetro" free="✓" pro="✓" />
-          <FeatureRow label="Estatísticas avançadas" free="Básico" pro="Completo" />
-          <FeatureRow label="Predição de nota por concurso" free="—" pro="✓" />
-          <FeatureRow label="Calibração metacognitiva" free="—" pro="✓" />
-          <FeatureRow label="Export CSV" free="—" pro="✓" />
-          <FeatureRow label="Backup completo" free="✓" pro="✓" />
-          <FeatureRow label="Imagens em questões" free="—" pro="✓" />
-          <FeatureRow label="Mnemônicos" free="—" pro="✓" />
-          <FeatureRow label="Suporte prioritário" free="—" pro="✓" />
+          <Row3 label="Questões pessoais" free="200" est="2.000" pro="Ilimitado" />
+          <Row3 label="Concursos ativos" free="1" est="3" pro="Ilimitado" />
+          <Row3 label="SRS (SM-2 + FSRS-6)" free="✓" est="✓" pro="✓" />
+          <Row3 label="Active recall" free="✓" est="✓" pro="✓" />
+          <Row3 label="Discursivas + autoavaliação" free="✓" est="✓" pro="✓" />
+          <Row3 label="Cloze + flashcards" free="✓" est="✓" pro="✓" />
+          <Row3 label="Simulado com cronômetro" free="✓" est="✓" pro="✓" />
+          <Row3 label="Estatísticas básicas" free="✓" est="✓" pro="✓" />
+          <Row3 label="Predição de nota por concurso" free="—" est="✓" pro="✓" />
+          <Row3 label="Calibração metacognitiva" free="—" est="✓" pro="✓" />
+          <Row3 label="Export CSV" free="—" est="✓" pro="✓" />
+          <Row3 label="Backup completo" free="✓" est="✓" pro="✓" />
+          <Row3 label="Imagens em questões" free="—" est="—" pro="✓" />
+          <Row3 label="Mnemônicos / dicas" free="—" est="—" pro="✓" />
+          <Row3 label="Suporte prioritário" free="—" est="—" pro="✓" />
+          <Row3 label="Acesso antecipado a novidades" free="—" est="—" pro="✓" />
         </div>
       </section>
 
@@ -142,19 +146,38 @@ function Cell({
   );
 }
 
-function FeatureRow({
+function Row3({
   label,
   free,
+  est,
   pro,
 }: {
   label: string;
   free: string;
+  est: string;
   pro: string;
 }) {
   return (
     <>
       <Cell>{label}</Cell>
-      <Cell style={{ textAlign: 'center', minWidth: 80 }}>{free}</Cell>
+      <Cell
+        style={{
+          textAlign: 'center',
+          minWidth: 70,
+          color: free === '—' ? 'var(--muted)' : undefined,
+        }}
+      >
+        {free}
+      </Cell>
+      <Cell
+        style={{
+          textAlign: 'center',
+          minWidth: 80,
+          color: est === '—' ? 'var(--muted)' : undefined,
+        }}
+      >
+        {est}
+      </Cell>
       <Cell
         style={{
           textAlign: 'center',

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMyPlan } from '@/lib/use-plan';
+import { isPaid, planLabel } from '@/lib/billing';
 import { toast } from './Toast';
 
 /**
@@ -11,8 +12,10 @@ import { toast } from './Toast';
  * cartão, ver faturas).
  */
 export function BillingSection() {
-  const { plan, isPro, loading } = useMyPlan();
+  const { plan, loading } = useMyPlan();
   const [opening, setOpening] = useState(false);
+  const paid = isPaid(plan);
+  const planName = plan ? planLabel(plan.plan) : 'Grátis';
 
   if (loading) {
     return (
@@ -55,12 +58,10 @@ export function BillingSection() {
         <div>
           <div style={{ fontSize: '0.92rem' }}>
             Plano atual:{' '}
-            <strong style={{ color: isPro ? 'var(--primary)' : undefined }}>
+            <strong style={{ color: paid ? 'var(--primary)' : undefined }}>
               {plan?.subscription_status === 'trialing'
-                ? '🎁 Pro (trial)'
-                : isPro
-                  ? '✨ Pro'
-                  : 'Grátis'}
+                ? `🎁 ${planName} (trial)`
+                : planName}
             </strong>
           </div>
           {plan?.subscription_status && (
@@ -86,14 +87,14 @@ export function BillingSection() {
           )}
         </div>
         <div className="row gap">
-          {isPro ? (
+          {paid ? (
             <button type="button" onClick={openPortal} disabled={opening}>
               {opening ? 'Carregando…' : '⚙ Gerenciar assinatura'}
             </button>
           ) : (
             <Link href="/planos">
               <button type="button" className="primary">
-                Upgrade pro Pro →
+                Ver planos →
               </button>
             </Link>
           )}

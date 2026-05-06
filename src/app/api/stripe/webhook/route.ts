@@ -25,17 +25,25 @@
 
 import { NextResponse } from 'next/server';
 import type Stripe from 'stripe';
-import { stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe-server';
+import { planFromPriceId, stripe, STRIPE_WEBHOOK_SECRET } from '@/lib/stripe-server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// Map status do Stripe → coluna `plan`. active/trialing/past_due = pro.
-function planFromStatus(status: Stripe.Subscription.Status): 'free' | 'pro' {
-  return status === 'active' || status === 'trialing' || status === 'past_due'
-    ? 'pro'
-    : 'free';
+// Determina o plan efetivo: primeiro pelo status (canceled = free),
+// depois pelo price_id (estudante vs pro).
+function planFor(
+  sub: Stripe.Subscription
+): 'free' | 'estudante' | 'pro' {
+  const active =
+    sub.status === 'active' ||
+    sub.status === 'trialing' ||
+    sub.status === 'past_due';
+  if (!active) return 'free';
+  // Pega o primeiro item da subscription (single-price model)
+  const priceId = sub.items.data[0]?.price.id;
+  return planFromPriceId(priceId);
 }
 
 async function alreadyProcessed(eventId: string, type: string): Promise<boolean> {
@@ -81,7 +89,7 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
 
   const customerId =
     typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
-  const plan = planFromStatus(sub.status);
+  const plan = planFor(sub);
 
   await sb
     .from('profiles')

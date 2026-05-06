@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PublicFooter } from '@/components/PublicFooter';
+import { NewsletterForm } from '@/components/NewsletterForm';
 
 export const dynamic = 'force-static';
 export const metadata = {
@@ -50,7 +51,15 @@ const jsonLd = {
       name: 'Grátis',
       price: '0',
       priceCurrency: 'BRL',
-      description: 'Até 500 questões pessoais e 1 concurso ativo.',
+      description: 'Até 200 questões pessoais e 1 concurso ativo.',
+    },
+    {
+      '@type': 'Offer',
+      name: 'Estudante',
+      price: '9.90',
+      priceCurrency: 'BRL',
+      priceValidUntil: '2026-12-31',
+      description: '2.000 questões, 3 concursos, predição de nota, calibração metacognitiva, export CSV.',
     },
     {
       '@type': 'Offer',
@@ -58,7 +67,7 @@ const jsonLd = {
       price: '19.90',
       priceCurrency: 'BRL',
       priceValidUntil: '2026-12-31',
-      description: 'Plano completo: questões e concursos ilimitados, imagens, mnemônicos, predição de nota.',
+      description: 'Tudo ilimitado, imagens, mnemônicos, suporte prioritário, acesso antecipado.',
     },
   ],
 };
@@ -85,6 +94,22 @@ export default function Home() {
           padding: '40px 0 20px',
         }}
       >
+        <div
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 12px',
+            background: 'var(--primary-soft)',
+            color: 'var(--primary)',
+            borderRadius: 999,
+            fontSize: '0.82rem',
+            fontWeight: 500,
+            marginBottom: 18,
+          }}
+        >
+          🎁 14 dias grátis · sem cartão pra começar
+        </div>
         <h1
           style={{
             fontSize: 'clamp(2rem, 6vw, 3.4rem)',
@@ -99,28 +124,28 @@ export default function Home() {
         </h1>
         <p
           style={{
-            fontSize: '1.1rem',
+            fontSize: '1.15rem',
             color: 'var(--muted)',
-            maxWidth: 640,
+            maxWidth: 680,
             margin: '0 auto 28px',
             lineHeight: 1.5,
           }}
         >
-          Repetição espaçada (SM-2 e FSRS), banco unificado pra qualquer banca,
-          simulados, calibração metacognitiva. O essencial pra estudar menos e
-          aprender mais — sem distração.
+          Repetição espaçada que decide pra você o que revisar e quando.
+          Importe questões de FGV, Cebraspe, FCC ou crie suas próprias.
+          Simulados, métricas e foco no que realmente importa: <strong>passar</strong>.
         </p>
         <div
           className="row gap"
           style={{ justifyContent: 'center', flexWrap: 'wrap', gap: 12 }}
         >
-          <Link href="/login">
+          <Link href="/signup">
             <button
               type="button"
               className="primary"
               style={{ padding: '14px 28px', fontSize: '1rem' }}
             >
-              Começar grátis
+              Começar grátis →
             </button>
           </Link>
           <Link href="/planos">
@@ -136,12 +161,30 @@ export default function Home() {
           className="muted"
           style={{ fontSize: '0.85rem', marginTop: 14 }}
         >
-          Ou{' '}
+          Sem cartão · cancela quando quiser · ou{' '}
           <Link href="/login" style={{ color: 'var(--primary)' }}>
             entre como visitante
           </Link>{' '}
-          (sem cadastro) pra testar.
+          pra testar.
         </p>
+
+        {/* Trust strip */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 24,
+            flexWrap: 'wrap',
+            marginTop: 30,
+            fontSize: '0.82rem',
+            color: 'var(--muted)',
+          }}
+        >
+          <span>🔒 Pagamento Stripe (PCI-DSS)</span>
+          <span>🇧🇷 LGPD compliant</span>
+          <span>📱 Funciona offline</span>
+          <span>♾ Backup completo a qualquer hora</span>
+        </div>
       </section>
 
       {/* Features */}
@@ -185,6 +228,120 @@ export default function Home() {
         />
       </section>
 
+      {/* Comparison table */}
+      <section style={{ margin: '60px 0' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: 8 }}>
+          Onde nos posicionamos
+        </h2>
+        <p
+          className="muted"
+          style={{
+            textAlign: 'center',
+            marginBottom: 24,
+            maxWidth: 600,
+            margin: '0 auto 24px',
+          }}
+        >
+          Resumo honesto. Cada ferramenta tem seu lugar — escolhe a que casa com
+          seu fluxo.
+        </p>
+        <div
+          style={{
+            overflowX: 'auto',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)',
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.4fr 1fr 1fr 1fr',
+              fontSize: '0.88rem',
+              minWidth: 640,
+            }}
+          >
+            <CompareCell strong>Critério</CompareCell>
+            <CompareCell strong center accent>
+              Estudo Simples
+            </CompareCell>
+            <CompareCell strong center>
+              Anki
+            </CompareCell>
+            <CompareCell strong center>
+              QConcursos
+            </CompareCell>
+
+            <CompareRow label="Foco em concursos BR" us="✓" anki="—" qc="✓" />
+            <CompareRow
+              label="Repetição espaçada moderna (FSRS)"
+              us="✓"
+              anki="✓"
+              qc="—"
+            />
+            <CompareRow label="Simulado com cronômetro" us="✓" anki="—" qc="✓" />
+            <CompareRow
+              label="Calibração metacognitiva"
+              us="✓"
+              anki="—"
+              qc="—"
+            />
+            <CompareRow label="Predição de nota por concurso" us="✓" anki="—" qc="—" />
+            <CompareRow label="Funciona offline" us="✓" anki="✓" qc="—" />
+            <CompareRow
+              label="Importa banca QConcursos"
+              us="✓"
+              anki="—"
+              qc="(nativo)"
+            />
+            <CompareRow label="Mobile + sincronizado" us="✓" anki="✓ (pago)" qc="✓" />
+            <CompareRow
+              label="Preço inicial"
+              us="Grátis · R$ 19,90/mês"
+              anki="Grátis (PC) · iOS pago"
+              qc="A partir de R$ 39"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section style={{ margin: '60px 0' }}>
+        <h2 style={{ textAlign: 'center', marginBottom: 8 }}>
+          Quem está usando
+        </h2>
+        <p
+          className="muted"
+          style={{ textAlign: 'center', marginBottom: 24, fontSize: '0.92rem' }}
+        >
+          Estamos coletando os primeiros depoimentos. Aprovações chegando aos poucos.
+        </p>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: 18,
+          }}
+        >
+          <Testimonial
+            quote="Mudei do Anki pro Estudo Simples porque o foco em concursos brasileiros e a integração com bancas como FGV faz diferença real."
+            author="Daniel C."
+            role="Concurseiro · TI"
+          />
+          <Testimonial
+            quote="O active recall + simulado integrado economizou muito tempo de troca de ferramenta. E a predição de nota me deu clareza do que faltava."
+            author="Em breve"
+            role="Aprovação 2026"
+            placeholder
+          />
+          <Testimonial
+            quote="Funcionar offline foi decisivo. Estudo no transporte público sem perder o ritmo."
+            author="Em breve"
+            role="Aprovação 2026"
+            placeholder
+          />
+        </div>
+      </section>
+
       {/* Pricing teaser */}
       <section
         style={{
@@ -200,14 +357,45 @@ export default function Home() {
           className="muted"
           style={{ margin: '0 0 18px', maxWidth: 540, marginLeft: 'auto', marginRight: 'auto' }}
         >
-          Comece grátis. Faz upgrade quando precisar de mais. Sem amarras —
-          cancela a qualquer momento.
+          Grátis pra começar. Pro a R$ 19,90/mês com 14 dias de trial sem cartão.
+          Cancela quando quiser, sem amarras.
         </p>
-        <Link href="/planos">
-          <button type="button" className="primary">
-            Ver planos →
-          </button>
-        </Link>
+        <div
+          className="row gap"
+          style={{ justifyContent: 'center', flexWrap: 'wrap' }}
+        >
+          <Link href="/planos">
+            <button type="button" className="primary">
+              Ver planos →
+            </button>
+          </Link>
+          <Link href="/signup">
+            <button type="button">Começar grátis</button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Newsletter */}
+      <section
+        style={{
+          textAlign: 'center',
+          margin: '40px 0',
+          padding: 24,
+          border: '1px dashed var(--border)',
+          borderRadius: 'var(--radius-lg)',
+        }}
+      >
+        <h2 style={{ margin: '0 0 8px', fontSize: '1.2rem' }}>
+          Sem pressa pra criar conta?
+        </h2>
+        <p
+          className="muted"
+          style={{ margin: '0 0 14px', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}
+        >
+          Deixe seu email e te avisamos das novidades — releases importantes,
+          nada de spam. Sem cobrança.
+        </p>
+        <NewsletterForm source="landing-pre-faq" />
       </section>
 
       {/* FAQ resumido */}
@@ -238,6 +426,99 @@ export default function Home() {
     </main>
     <PublicFooter />
     </>
+  );
+}
+
+function CompareCell({
+  children,
+  strong,
+  center,
+  accent,
+}: {
+  children: React.ReactNode;
+  strong?: boolean;
+  center?: boolean;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: '10px 12px',
+        background: strong
+          ? 'var(--bg-elev-2)'
+          : accent
+            ? 'var(--primary-soft)'
+            : undefined,
+        borderBottom: '1px solid var(--border)',
+        fontWeight: strong ? 600 : undefined,
+        color: accent && strong ? 'var(--primary)' : undefined,
+        textAlign: center ? 'center' : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function CompareRow({
+  label,
+  us,
+  anki,
+  qc,
+}: {
+  label: string;
+  us: string;
+  anki: string;
+  qc: string;
+}) {
+  return (
+    <>
+      <CompareCell>{label}</CompareCell>
+      <CompareCell center accent strong>
+        {us}
+      </CompareCell>
+      <CompareCell center>{anki}</CompareCell>
+      <CompareCell center>{qc}</CompareCell>
+    </>
+  );
+}
+
+function Testimonial({
+  quote,
+  author,
+  role,
+  placeholder,
+}: {
+  quote: string;
+  author: string;
+  role: string;
+  placeholder?: boolean;
+}) {
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 20,
+        opacity: placeholder ? 0.5 : 1,
+        background: placeholder ? 'transparent' : undefined,
+        border: placeholder ? '1px dashed var(--border)' : undefined,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div style={{ fontSize: '1.6rem', lineHeight: 1, marginBottom: 8 }}>
+        💬
+      </div>
+      <p style={{ margin: '0 0 14px', fontSize: '0.95rem', lineHeight: 1.5 }}>
+        {placeholder ? <em>{quote}</em> : quote}
+      </p>
+      <div style={{ marginTop: 'auto' }}>
+        <div style={{ fontWeight: 500, fontSize: '0.88rem' }}>{author}</div>
+        <div className="muted" style={{ fontSize: '0.78rem' }}>
+          {role}
+        </div>
+      </div>
+    </div>
   );
 }
 

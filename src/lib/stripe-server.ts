@@ -34,3 +34,40 @@ export const STRIPE_PRICE_PRO_MONTHLY =
   process.env.STRIPE_PRICE_PRO_MONTHLY ?? '';
 export const STRIPE_PRICE_PRO_YEARLY =
   process.env.STRIPE_PRICE_PRO_YEARLY ?? '';
+export const STRIPE_PRICE_ESTUDANTE_MONTHLY =
+  process.env.STRIPE_PRICE_ESTUDANTE_MONTHLY ?? '';
+export const STRIPE_PRICE_ESTUDANTE_YEARLY =
+  process.env.STRIPE_PRICE_ESTUDANTE_YEARLY ?? '';
+
+/**
+ * Mapa price_id → tier. Usado pelo webhook pra determinar o plan
+ * efetivo após o usuário trocar de price (subscription.updated).
+ *
+ * Mantém server-side — cliente nunca passa price_id, só nome do tier.
+ */
+export function planFromPriceId(priceId: string | null | undefined): 'free' | 'estudante' | 'pro' {
+  if (!priceId) return 'free';
+  if (priceId === STRIPE_PRICE_PRO_MONTHLY || priceId === STRIPE_PRICE_PRO_YEARLY) {
+    return 'pro';
+  }
+  if (
+    priceId === STRIPE_PRICE_ESTUDANTE_MONTHLY ||
+    priceId === STRIPE_PRICE_ESTUDANTE_YEARLY
+  ) {
+    return 'estudante';
+  }
+  // Price não-mapeado: assume pro (defensive — usuário pagando merece acesso)
+  return 'pro';
+}
+
+export function priceIdFor(
+  tier: 'estudante' | 'pro',
+  interval: 'monthly' | 'yearly'
+): string {
+  if (tier === 'pro') {
+    return interval === 'yearly' ? STRIPE_PRICE_PRO_YEARLY : STRIPE_PRICE_PRO_MONTHLY;
+  }
+  return interval === 'yearly'
+    ? STRIPE_PRICE_ESTUDANTE_YEARLY
+    : STRIPE_PRICE_ESTUDANTE_MONTHLY;
+}

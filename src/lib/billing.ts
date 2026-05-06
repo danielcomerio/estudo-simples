@@ -11,7 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type Plan = 'free' | 'pro';
+export type Plan = 'free' | 'estudante' | 'pro';
 export type SubscriptionStatus =
   | 'active'
   | 'trialing'
@@ -29,8 +29,15 @@ export type MyPlan = {
   cancel_at_period_end: boolean;
 };
 
-export const FREE_QUESTION_LIMIT = 500;
-export const FREE_CONCURSO_LIMIT = 1;
+export const PLAN_LIMITS = {
+  free: { questions: 200, concursos: 1 },
+  estudante: { questions: 2000, concursos: 3 },
+  pro: { questions: Infinity, concursos: Infinity },
+} as const;
+
+// Backcompat — código antigo importava esses
+export const FREE_QUESTION_LIMIT = PLAN_LIMITS.free.questions;
+export const FREE_CONCURSO_LIMIT = PLAN_LIMITS.free.concursos;
 
 export async function getMyPlan(supabase: SupabaseClient): Promise<MyPlan> {
   const { data, error } = await supabase
@@ -51,6 +58,16 @@ export async function getMyPlan(supabase: SupabaseClient): Promise<MyPlan> {
 
 export function isPro(plan: MyPlan | null | undefined): boolean {
   return plan?.plan === 'pro';
+}
+
+export function isPaid(plan: MyPlan | null | undefined): boolean {
+  return plan?.plan === 'pro' || plan?.plan === 'estudante';
+}
+
+export function planLabel(plan: Plan): string {
+  if (plan === 'pro') return '✨ Pro';
+  if (plan === 'estudante') return '🎓 Estudante';
+  return 'Grátis';
 }
 
 /**

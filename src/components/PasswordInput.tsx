@@ -17,14 +17,25 @@ export function PasswordInput({
 }) {
   const [show, setShow] = useState(false);
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        width: '100%',
+      }}
+    >
       <input
         type={show ? 'text' : 'password'}
         name={name}
         autoComplete={autoComplete}
         minLength={minLength}
         required
-        style={{ paddingRight: 38, width: '100%' }}
+        style={{
+          paddingRight: 44,
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
       />
       <button
         type="button"
@@ -33,18 +44,26 @@ export function PasswordInput({
         aria-label={show ? 'Esconder senha' : 'Mostrar senha'}
         style={{
           position: 'absolute',
-          right: 4,
+          right: 6,
           top: '50%',
           transform: 'translateY(-50%)',
-          width: 30,
-          height: 30,
+          width: 32,
+          height: 32,
+          minWidth: 32,
+          minHeight: 32,
+          padding: 0,
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
-          fontSize: '1rem',
+          fontSize: '1.05rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--muted)',
         }}
       >
-        {show ? '🙈' : '👁'}
+        {/* Ícone reflete o ESTADO atual: olho = visível, olho-corte = escondido */}
+        {show ? '👁' : '👁‍🗨'}
       </button>
     </div>
   );

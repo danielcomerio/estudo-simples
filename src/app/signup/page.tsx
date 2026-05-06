@@ -2,7 +2,7 @@
 
 import { useFormState, useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { enterAsGuest, signup, type AuthState } from '../auth/actions';
+import { enterAsGuest, resendConfirmation, signup, type AuthState } from '../auth/actions';
 import { useIsGuest } from '@/lib/settings';
 import { PasswordInput } from '@/components/PasswordInput';
 
@@ -14,6 +14,57 @@ function SubmitButton() {
     <button type="submit" className="primary" disabled={pending}>
       {pending ? 'Criando…' : 'Criar conta'}
     </button>
+  );
+}
+
+function ResendBlock() {
+  const [state, action] = useFormState(resendConfirmation, initial);
+  const { pending } = useFormStatus();
+  return (
+    <details
+      style={{
+        marginTop: 12,
+        padding: '10px 12px',
+        background: 'var(--bg-elev-2)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        fontSize: '0.88rem',
+      }}
+    >
+      <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+        Email não chegou? Reenviar confirmação
+      </summary>
+      <form action={action} style={{ marginTop: 10 }}>
+        <input
+          type="email"
+          name="email"
+          placeholder="seu@email.com"
+          required
+          style={{ width: '100%', padding: '8px 10px', marginBottom: 8 }}
+        />
+        {state.error && (
+          <div className="auth-error" style={{ fontSize: '0.82rem' }}>
+            {state.error}
+          </div>
+        )}
+        {state.message && (
+          <div className="auth-success" style={{ fontSize: '0.82rem' }}>
+            {state.message}
+          </div>
+        )}
+        <button
+          type="submit"
+          className="ghost"
+          disabled={pending}
+          style={{ width: '100%' }}
+        >
+          {pending ? 'Reenviando…' : 'Reenviar email de confirmação'}
+        </button>
+        <p className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+          Não chega em 5min? Confira o spam ou tente outro email.
+        </p>
+      </form>
+    </details>
   );
 }
 
@@ -106,6 +157,10 @@ export default function SignupPage() {
         <p className="auth-foot">
           Já tem conta? <Link href="/login">Entrar</Link>
         </p>
+
+        {state.message && (
+          <ResendBlock />
+        )}
 
         {!isGuest && (
           <>

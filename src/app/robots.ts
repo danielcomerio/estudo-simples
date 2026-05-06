@@ -11,7 +11,20 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/inicio', '/planos', '/manual', '/privacidade', '/termos', '/login', '/signup'],
+        allow: [
+          '/inicio',
+          '/planos',
+          '/manual',
+          '/sobre',
+          '/roadmap',
+          '/contato',
+          '/concursos-populares',
+          '/concursos-populares/',
+          '/privacidade',
+          '/termos',
+          '/login',
+          '/signup',
+        ],
         disallow: [
           '/banco',
           '/estudar',

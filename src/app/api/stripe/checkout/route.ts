@@ -12,11 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import {
-  STRIPE_PRICE_PRO_MONTHLY,
-  STRIPE_PRICE_PRO_YEARLY,
-  stripe,
-} from '@/lib/stripe-server';
+import { priceIdFor, stripe } from '@/lib/stripe-server';
 import { assertSameOrigin, rateLimit } from '@/lib/security';
 
 export const runtime = 'nodejs';
@@ -38,17 +34,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
-  // Body: { interval: 'monthly' | 'yearly' }
+  // Body: { tier: 'estudante' | 'pro', interval: 'monthly' | 'yearly' }
   let interval: 'monthly' | 'yearly' = 'monthly';
+  let tier: 'estudante' | 'pro' = 'pro';
   try {
     const body = await req.json();
     if (body?.interval === 'yearly') interval = 'yearly';
+    if (body?.tier === 'estudante') tier = 'estudante';
   } catch {
-    // body opcional — default monthly
+    // body opcional — default pro monthly
   }
 
-  const price =
-    interval === 'yearly' ? STRIPE_PRICE_PRO_YEARLY : STRIPE_PRICE_PRO_MONTHLY;
+  const price = priceIdFor(tier, interval);
   if (!price) {
     return NextResponse.json(
       { error: 'price_not_configured' },

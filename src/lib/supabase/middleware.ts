@@ -13,6 +13,9 @@ const PUBLIC_PATHS = [
   '/privacidade',
   '/termos',
   '/contato',
+  '/sobre',
+  '/roadmap',
+  '/concursos-populares',
   // API routes do Stripe usam própria auth (signature/cookies). Webhook
   // recebe POST direto do Stripe sem nossa sessão.
   '/api/stripe/webhook',

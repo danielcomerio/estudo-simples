@@ -3,29 +3,33 @@
 import Link from 'next/link';
 import { useStore, selectActiveQuestions } from '@/lib/store';
 import { useMyPlan } from '@/lib/use-plan';
-import { FREE_QUESTION_LIMIT } from '@/lib/billing';
+import { PLAN_LIMITS } from '@/lib/billing';
 
 /**
- * Banner exibido no /banco quando user free está perto/no limite.
+ * Banner exibido no /banco quando user está perto/no limite do plano.
  * Visual hint — DB enforça limite de qualquer forma.
  */
 export function PlanLimitBanner() {
   const questions = useStore(selectActiveQuestions);
-  const { isPro, plan } = useMyPlan();
+  const { plan } = useMyPlan();
 
-  // Pro: nada a mostrar
-  if (isPro) return null;
-  // User não autenticado / guest (sem profile via RLS): também esconde
+  // Pro: ilimitado, nada a mostrar
+  if (plan?.plan === 'pro') return null;
+  // User não autenticado / guest (sem profile via RLS): esconde
   if (!plan) return null;
 
+  const planKey = (plan.plan ?? 'free') as 'free' | 'estudante';
+  const limit = PLAN_LIMITS[planKey].questions;
+  if (!Number.isFinite(limit)) return null;
+
   const used = questions.length;
-  const remaining = Math.max(0, FREE_QUESTION_LIMIT - used);
-  const pct = Math.min(100, Math.round((100 * used) / FREE_QUESTION_LIMIT));
+  const remaining = Math.max(0, limit - used);
+  const pct = Math.min(100, Math.round((100 * used) / limit));
 
   // Só mostra quando passou de 70% pra não poluir.
   if (pct < 70) return null;
 
-  const isFull = used >= FREE_QUESTION_LIMIT;
+  const isFull = used >= limit;
   return (
     <div
       className="card"
@@ -42,13 +46,13 @@ export function PlanLimitBanner() {
         <div style={{ flex: 1, minWidth: 220 }}>
           <strong style={{ fontSize: '0.95rem' }}>
             {isFull
-              ? `🚫 Limite de ${FREE_QUESTION_LIMIT} questões atingido`
-              : `⚠️ ${used}/${FREE_QUESTION_LIMIT} questões usadas (${pct}%)`}
+              ? `🚫 Limite de ${limit} questões atingido`
+              : `⚠️ ${used}/${limit} questões usadas (${pct}%)`}
           </strong>
           <div className="muted" style={{ fontSize: '0.85rem', marginTop: 2 }}>
             {isFull
-              ? 'Pra adicionar mais questões, faça upgrade pro plano Pro.'
-              : `Restam ${remaining} questões no plano grátis. Pro libera ilimitado.`}
+              ? 'Pra adicionar mais, faça upgrade.'
+              : `Restam ${remaining} questões no plano ${planKey === 'free' ? 'grátis' : 'Estudante'}.`}
           </div>
           <div
             style={{

@@ -13,6 +13,7 @@ import { ConfirmHost } from './ConfirmDialog';
 import { GlobalSearch } from './GlobalSearch';
 import { GoalCelebration } from './GoalCelebration';
 import { VimNav } from './VimNav';
+import { BarsGuard } from './BarsGuard';
 
 export function StoreProvider({
   userId,
@@ -138,6 +139,7 @@ export function StoreProvider({
       <GlobalSearch />
       <VimNav />
       <GoalCelebration />
+      <BarsGuard />
     </>
   );
 }

@@ -49,4 +49,43 @@ create policy "anyone inserts own event" on public.analytics_events
 
 -- SEM policy de SELECT/UPDATE/DELETE — admin via service role.
 
+-- =====================================================================
+-- Newsletter / lead capture
+-- =====================================================================
+-- Captura de email pra leads que ainda não viraram conta. Útil pra
+-- nurture: mandar conteúdo educacional, aviso de release, etc.
+--
+-- Privacy: email é PII — RLS exige que só admin via service role leia.
+-- Anon pode INSERT (lead capture form na landing). Limit do Supabase
+-- Auth + rate limit no endpoint cobrem abuse.
+
+create table if not exists public.newsletter_signups (
+  id bigserial primary key,
+  email text not null,
+  source text,                       -- "landing-hero", "footer", etc.
+  created_at timestamptz not null default now(),
+  unsubscribed_at timestamptz,       -- não-null = optou sair
+  unsubscribe_token text unique      -- pra link de unsubscribe
+);
+
+create unique index if not exists uq_newsletter_email_active
+  on public.newsletter_signups(lower(email))
+  where unsubscribed_at is null;
+
+comment on table public.newsletter_signups is
+  'Leads não-autenticados. Email duplicado bloqueado por unique index ativo.';
+
+alter table public.newsletter_signups enable row level security;
+
+-- Anon inserts permitidos (form público na landing)
+drop policy if exists "anon inserts newsletter signup" on public.newsletter_signups;
+create policy "anon inserts newsletter signup"
+  on public.newsletter_signups
+  for insert to anon, authenticated
+  with check (true);
+
+-- SEM policy de SELECT — só service role lê.
+-- Unsubscribe é via endpoint /api/newsletter/unsubscribe?token=... usando
+-- service role.
+
 commit;

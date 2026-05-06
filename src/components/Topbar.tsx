@@ -209,11 +209,12 @@ export function Topbar({
             >
               <button
                 type="submit"
-                className="ghost icon"
+                className="ghost"
                 title="Sair do modo visitante (apaga dados locais)"
                 aria-label="Sair"
+                style={{ padding: '6px 14px' }}
               >
-                ↪
+                ↪ Sair
               </button>
             </form>
           </>
@@ -233,11 +234,12 @@ export function Topbar({
             >
               <button
                 type="submit"
-                className="ghost icon"
-                title="Sair"
-                aria-label="Sair"
+                className="ghost"
+                title="Desconectar"
+                aria-label="Desconectar"
+                style={{ padding: '6px 14px' }}
               >
-                ↪
+                ↪ Sair
               </button>
             </form>
           </>

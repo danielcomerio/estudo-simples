@@ -52,6 +52,12 @@ export function PublicFooter() {
           <Link href="/manual" style={{ color: 'inherit' }}>
             Manual
           </Link>
+          <Link href="/sobre" style={{ color: 'inherit' }}>
+            Sobre
+          </Link>
+          <Link href="/roadmap" style={{ color: 'inherit' }}>
+            Roadmap
+          </Link>
           <Link href="/privacidade" style={{ color: 'inherit' }}>
             Privacidade
           </Link>

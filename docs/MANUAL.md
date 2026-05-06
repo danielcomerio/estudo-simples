@@ -24,7 +24,8 @@ Este documento é mantido junto com o código — sempre que algo muda, ele é a
 14. [Planos](#14-planos)
 15. [Páginas públicas e legais](#15-paginas-publicas-e-legais)
 16. [Admin (operacional)](#16-admin-operacional)
-17. [Memorização — princípios usados](#17-memorizacao--principios-usados)
+17. [Notas de comercialização](#17-notas-de-comercializacao-vendas)
+18. [Memorização — princípios usados](#18-memorizacao--principios-usados)
 
 ---
 
@@ -332,18 +333,21 @@ Stripe gerencia: usuário não pode iniciar trial duas vezes (rastreado pelo cus
 
 ## 14. Planos
 
-| Feature | Grátis | Pro |
-|---|---|---|
-| Questões personais | 500 | Ilimitado |
-| Concursos cadastrados | 1 | Ilimitado |
-| SRS (SM-2 + FSRS-6) | ✓ | ✓ |
-| Active recall, simulado, cards | ✓ | ✓ |
-| Imagens em questões | — | ✓ |
-| Mnemônicos | — | ✓ |
-| Predição de nota por concurso | — | ✓ |
-| Calibração metacognitiva | — | ✓ |
-| Export CSV | — | ✓ |
-| Suporte prioritário | — | ✓ |
+| Feature | Grátis | 🎓 Estudante | ✨ Pro |
+|---|---|---|---|
+| Questões pessoais | 200 | 2.000 | Ilimitado |
+| Concursos ativos | 1 | 3 | Ilimitado |
+| SRS (SM-2 + FSRS-6) | ✓ | ✓ | ✓ |
+| Active recall, simulado, cards | ✓ | ✓ | ✓ |
+| Predição de nota por concurso | — | ✓ | ✓ |
+| Calibração metacognitiva | — | ✓ | ✓ |
+| Export CSV | — | ✓ | ✓ |
+| Imagens em questões | — | — | ✓ |
+| Mnemônicos | — | — | ✓ |
+| Suporte prioritário | — | — | ✓ |
+| Acesso antecipado a novidades | — | — | ✓ |
+| Preço mensal | R$ 0 | R$ 9,90 | R$ 19,90 |
+| Preço anual | — | R$ 89 (25% off) | R$ 179 (25% off) |
 
 **Limite enforçado no banco**: trigger PostgreSQL rejeita INSERT acima do limite free. Não há como bypass via devtools, curl direto, ou outras vias.
 
@@ -357,9 +361,13 @@ Detalhes de configuração admin: ver `docs/BILLING_SETUP.md` no repo.
 
 Acessíveis sem login (e indexáveis por busca):
 
-- **`/inicio`** — landing page com hero, features, FAQ.
-- **`/planos`** — comparativo Grátis vs Pro com Checkout (R$ 19,90/mês ou R$ 179/ano).
-- **`/manual`** — esta página (renderizada do `docs/MANUAL.md`).
+- **`/inicio`** — landing page com hero, trust strip, features, comparison vs Anki/QConcursos, social proof (testimonials), newsletter capture, FAQ.
+- **`/planos`** — comparativo Grátis vs Pro com Checkout (R$ 19,90/mês ou R$ 179/ano · 14 dias trial sem cartão).
+- **`/sobre`** — story, princípios, posicionamento. Conexão emocional pra conversão.
+- **`/roadmap`** — pronto / em construção / próximo / considerando / não-planejado. Transparência.
+- **`/concursos-populares`** — índice por banca (FGV, Cebraspe, FCC, IBFC) com SEO long-tail.
+- **`/concursos-populares/[slug]`** — landing dedicada por banca: estilo, concursos típicos, dicas pra usar o app.
+- **`/manual`** — este documento.
 - **`/privacidade`** — Política de Privacidade (LGPD).
 - **`/termos`** — Termos de Uso.
 - **`/contato`** — canais de suporte (LGPD, billing, bug, feedback) com prefixos no assunto pra triagem.
@@ -388,9 +396,63 @@ Queries via service role (bypass RLS) — só agregações, sem dados de usuári
 
 Tabela `analytics_events` recebe eventos privacy-first (sem PII, sem IP, sem fingerprinting). Eventos atualmente trackados: `checkout.started` (com props.interval). Mais eventos podem ser adicionados via `track('event.name', { ...props })` em qualquer client component.
 
+### Newsletter / lead capture
+
+Tabela `newsletter_signups` recebe leads que ainda não viraram conta — útil pra nurture com novidades. RLS bloqueia leitura (só admin via service role). Endpoint público `POST /api/newsletter` com CSRF check, rate limit, validação de email, gera token de unsubscribe (não enviado por email ainda — fase futura).
+
+Form na landing em `/inicio` (seção pré-FAQ).
+
 Visualização atual: contagem total agregada em /admin. Pra dashboards mais ricos, exporte da tabela via service role.
 
-## 17. Memorização — princípios usados
+## 17. Notas de comercialização (vendas)
+
+Estratégia atual baseada em best practices de SaaS B2C educacional:
+
+### Funil
+
+1. **Tráfego** ← SEO (sitemap + robots + páginas estáticas /inicio, /sobre, /roadmap, /concursos-populares/[banca]), Open Graph (compartilhamento social bonito), JSON-LD (rich snippets Google).
+2. **Lead capture** ← newsletter form em `/inicio` (sem login), modo visitante sem cadastro, signup grátis sem cartão.
+3. **Activation** ← seed de plataforma carrega no primeiro acesso, OnboardingTour (com delay anti-flicker), 14 dias de Pro grátis no primeiro checkout.
+4. **Conversion** ← pricing comparativo, trust strip (Stripe + LGPD), comparison vs alternativas, testimonials (placeholder enquanto coleta), CTA único e claro.
+5. **Retention** ← streak gamificado + freeze, achievements, daily goal, predição de nota, pause-suggestion após 30min.
+6. **Recovery** ← rate limit alto na cobrança falha, status `past_due` mantém acesso (grace period Stripe), Customer Portal pra atualizar cartão sem fricção.
+
+### Diferenciais comunicáveis
+
+- **Foco brasileiro**: integração com bancas (FGV, Cebraspe, FCC, IBFC) e predição de nota por concurso. Anki não tem.
+- **Tudo no mesmo lugar**: objetivas, discursivas, cloze, flashcards, simulado. Não precisa juntar 3 ferramentas.
+- **Funciona offline**: IDB + sync. Estudo no transporte, em local sem rede, etc.
+- **Privacy-first + LGPD**: backup completo qualquer hora, deletar conta em 1 clique.
+- **Algoritmos modernos**: SM-2 e FSRS-6 lado a lado, user escolhe.
+
+### Trust signals
+
+- Stripe como processador (PCI-DSS Nível 1) — nunca armazenamos cartão.
+- LGPD compliant + página /privacidade transparente.
+- Cancela quando quiser, sem letras miúdas.
+- 14 dias trial sem cartão (zero risk pra começar).
+- 7 dias money-back garantido pelo CDC + Termos.
+
+### Próximos passos sugeridos
+
+Pra escalar (no backlog):
+- Trial reminders por email (precisa provider Resend/SendGrid)
+- Welcome email + onboarding sequence
+- Email de abandoned checkout
+- Programa de referral (1 mês grátis pra cada amigo que assinar)
+- Conteúdo SEO: blog com posts por banca, dicas de estudo, etc.
+- Reviews collected (Trustpilot/G2 widget)
+- Comparison page comparando direto com QConcursos premium / Anki Pro
+- "Histórias de aprovação" — usuários que passaram contando experiência
+
+Não fazer (decisão de produto):
+- Anúncios in-app
+- Notificações push agressivas
+- Engagement hacks (streak forçada que pune)
+- Vendas de dados pra terceiros
+- Telemetria com fingerprinting
+
+## 18. Memorização — princípios usados
 
 O app é construído sobre evidências da ciência cognitiva:
 

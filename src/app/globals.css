@@ -1484,6 +1484,55 @@ label.check-row input {
   .banco-item .meta {
     font-size: 0.78rem;
   }
+  /* Mais espaço entre items pra fácil tap */
+  .banco-list {
+    gap: 6px !important;
+  }
+  /* Bulk action row sem scroll horizontal — flex-wrap é o caminho */
+  .row.gap.wrap {
+    gap: 8px;
+  }
+}
+
+/* ============ Mobile fluidity touch-ups ============ */
+@media (max-width: 540px) {
+  /* Page padding mais apertado em telas muito pequenas */
+  main.page,
+  main.auth-shell {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  /* Cards com padding menor em mobile */
+  .card {
+    padding: 12px;
+  }
+  /* Headers menos espaço em h1/h2 */
+  h1 {
+    font-size: 1.4rem;
+  }
+  h2 {
+    font-size: 1.1rem;
+  }
+  /* Labels mais compactas */
+  label {
+    font-size: 0.95rem;
+  }
+  /* Form-grid 1 coluna sempre */
+  .form-grid {
+    gap: 10px;
+  }
+  /* Topbar elements space-saving */
+  .topbar .brand h1 {
+    font-size: 0.95rem;
+  }
+  .topbar .right {
+    gap: 6px;
+  }
+  /* Chips mais compactos */
+  .chip {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+  }
 }
 
 /* Mobile: inputs com font-size >= 16px evitam zoom automático do
