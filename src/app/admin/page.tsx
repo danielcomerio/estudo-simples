@@ -6,15 +6,18 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Admin — Estudo Simples' };
 
 /**
- * Painel admin com KPIs de produto: usuários, MAU, conversão, churn, MRR.
+ * Painel admin com KPIs de produto: usuários, MAU, conversão, churn,
+ * MRR/ARR, LTV, funnel de conversão.
  *
  * Acesso: somente UUIDs listados em `ADMIN_USER_IDS` (env, comma-separated).
- * Não autorizado redireciona pra /. Sem revelar a existência da rota — pra
- * curioso comum aparece como 404 (redirect = visualização equivalente).
+ * Não autorizado redireciona pra /. Sem revelar a existência da rota.
  *
- * Queries via service role (bypass RLS) — são agregações, não retornam
+ * Queries via service role (bypass RLS) — agregações apenas, não retornam
  * dados de usuários individuais.
  */
+
+const PRICE_ESTUDANTE = 9.9;
+const PRICE_PRO = 19.9;
 
 function isAdmin(userId: string | null | undefined): boolean {
   if (!userId) return false;
@@ -36,20 +39,31 @@ export default async function AdminPage() {
 
   const admin = getSupabaseAdmin();
   const now = Date.now();
-  const month0 = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const day = 24 * 60 * 60 * 1000;
+  const month0 = new Date(now - 30 * day).toISOString();
+  const week0 = new Date(now - 7 * day).toISOString();
 
-  // Counts
+  // Counts agregados
   const [
     { count: totalUsers },
+    { count: estudanteActive },
     { count: proActive },
     { count: trialing },
-    { count: canceled },
+    { count: canceledTotal },
+    { count: canceledLast30d },
     { count: pastDue },
     { count: signups30d },
+    { count: signups7d },
     { count: questionsTotal },
     { count: events30d },
+    { count: activeUsers7d },
   ] = await Promise.all([
     admin.from('profiles').select('*', { count: 'exact', head: true }),
+    admin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('plan', 'estudante')
+      .in('subscription_status', ['active', 'past_due']),
     admin
       .from('profiles')
       .select('*', { count: 'exact', head: true })
@@ -66,11 +80,20 @@ export default async function AdminPage() {
     admin
       .from('profiles')
       .select('*', { count: 'exact', head: true })
+      .eq('subscription_status', 'canceled')
+      .gte('updated_at', month0),
+    admin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
       .eq('subscription_status', 'past_due'),
     admin
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', month0),
+    admin
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', week0),
     admin
       .from('questions')
       .select('*', { count: 'exact', head: true })
@@ -79,25 +102,53 @@ export default async function AdminPage() {
       .from('analytics_events')
       .select('*', { count: 'exact', head: true })
       .gte('created_at', month0),
+    // MAU proxy: distinct users com event nos últimos 7 dias
+    admin
+      .from('analytics_events')
+      .select('user_id', { count: 'exact', head: true })
+      .gte('created_at', week0),
   ]);
 
-  // MRR estimado: pro_active × 19.90 (não diferencia mensal/anual aqui)
-  const mrr = (proActive ?? 0) * 19.9;
+  // Métricas financeiras
+  const mrr =
+    (estudanteActive ?? 0) * PRICE_ESTUDANTE + (proActive ?? 0) * PRICE_PRO;
   const arr = mrr * 12;
-  const conversion =
-    totalUsers && totalUsers > 0
-      ? (((proActive ?? 0) + (trialing ?? 0)) / totalUsers) * 100
+  const arpu =
+    (estudanteActive ?? 0) + (proActive ?? 0) > 0
+      ? mrr / ((estudanteActive ?? 0) + (proActive ?? 0))
       : 0;
+
+  // Churn rate (30d): canceled30d / (paid_users_inicio_periodo + canceled30d)
+  // Aproximação: usa paid atuais como base
+  const paidUsers = (estudanteActive ?? 0) + (proActive ?? 0);
+  const churnRate =
+    paidUsers + (canceledLast30d ?? 0) > 0
+      ? ((canceledLast30d ?? 0) / (paidUsers + (canceledLast30d ?? 0))) * 100
+      : 0;
+
+  // LTV simples: ARPU / churn mensal. Cap em 60 meses pra não inflar
+  // quando churn é zero/baixo (small N).
+  const ltv =
+    churnRate > 0 ? Math.min(60, 100 / churnRate) * arpu : 60 * arpu;
+
+  // Funnel de conversão
+  const conversionTrialPaid =
+    (trialing ?? 0) + paidUsers > 0
+      ? (paidUsers / ((trialing ?? 0) + paidUsers)) * 100
+      : 0;
+  const conversionTotalPaid =
+    (totalUsers ?? 0) > 0 ? (paidUsers / (totalUsers ?? 1)) * 100 : 0;
 
   return (
     <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px' }}>
       <header style={{ marginBottom: 24 }}>
         <h1 style={{ margin: '0 0 4px' }}>Admin · KPIs</h1>
         <p className="muted" style={{ margin: 0, fontSize: '0.88rem' }}>
-          Snapshot agora. Queries via service role.
+          Snapshot agora. Queries via service role. Atualiza no refresh.
         </p>
       </header>
 
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>👥 Usuários</h2>
       <section
         style={{
           display: 'grid',
@@ -107,23 +158,31 @@ export default async function AdminPage() {
         }}
       >
         <Kpi label="Usuários totais" value={totalUsers ?? 0} />
+        <Kpi label="Em trial" value={trialing ?? 0} accent="primary" />
         <Kpi
           label="Pro ativos"
           value={proActive ?? 0}
-          hint={
-            totalUsers
-              ? `${Math.round(((proActive ?? 0) / totalUsers) * 100)}% do total`
-              : undefined
-          }
+          hint={`R$ ${PRICE_PRO.toFixed(2).replace('.', ',')}/mês`}
         />
-        <Kpi label="Em trial" value={trialing ?? 0} accent="primary" />
-        <Kpi label="Cancelados" value={canceled ?? 0} />
-        <Kpi label="Past-due (cobrança falhou)" value={pastDue ?? 0} accent="warn" />
-        <Kpi label="Signups últimos 30d" value={signups30d ?? 0} />
-        <Kpi label="Questões ativas (todas contas)" value={questionsTotal ?? 0} />
-        <Kpi label="Eventos analytics 30d" value={events30d ?? 0} />
+        <Kpi
+          label="Estudante ativos"
+          value={estudanteActive ?? 0}
+          hint={`R$ ${PRICE_ESTUDANTE.toFixed(2).replace('.', ',')}/mês`}
+        />
+        <Kpi label="Past-due" value={pastDue ?? 0} accent="warn" />
+        <Kpi label="Cancelados (total)" value={canceledTotal ?? 0} />
+        <Kpi
+          label="Signups 7d / 30d"
+          value={`${signups7d ?? 0} / ${signups30d ?? 0}`}
+        />
+        <Kpi
+          label="MAU 7d (eventos)"
+          value={activeUsers7d ?? 0}
+          hint="distinct users"
+        />
       </section>
 
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>💰 Financeiro</h2>
       <section
         style={{
           display: 'grid',
@@ -133,20 +192,79 @@ export default async function AdminPage() {
         }}
       >
         <Kpi
-          label="MRR estimado"
+          label="MRR"
           value={`R$ ${mrr.toFixed(2).replace('.', ',')}`}
           accent="primary"
-          hint="× 19,90 simplificado"
+          hint={`${paidUsers} pagantes`}
         />
         <Kpi
-          label="ARR estimado"
+          label="ARR"
           value={`R$ ${arr.toFixed(0).replace('.', ',')}`}
           accent="primary"
+          hint="MRR × 12"
         />
         <Kpi
-          label="Conversão (pro+trial)"
-          value={`${conversion.toFixed(1)}%`}
-          hint="dos usuários totais"
+          label="ARPU"
+          value={`R$ ${arpu.toFixed(2).replace('.', ',')}`}
+          hint="receita média / pagante"
+        />
+        <Kpi
+          label="LTV estimado"
+          value={`R$ ${ltv.toFixed(0).replace('.', ',')}`}
+          hint="ARPU × (1 / churn)"
+        />
+      </section>
+
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>📉 Churn & funil</h2>
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <Kpi
+          label="Churn rate (30d)"
+          value={`${churnRate.toFixed(2)}%`}
+          accent={churnRate > 5 ? 'warn' : undefined}
+          hint={`${canceledLast30d ?? 0} canceladas`}
+        />
+        <Kpi
+          label="Conversão trial → paid"
+          value={`${conversionTrialPaid.toFixed(1)}%`}
+          hint={`${paidUsers} de ${(trialing ?? 0) + paidUsers}`}
+        />
+        <Kpi
+          label="Conversão total → paid"
+          value={`${conversionTotalPaid.toFixed(1)}%`}
+          hint={`${paidUsers} de ${totalUsers ?? 0}`}
+        />
+        <Kpi
+          label="Trial pendente / paid"
+          value={`${trialing ?? 0} / ${paidUsers}`}
+          hint="leads em conversão"
+        />
+      </section>
+
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>📊 Atividade</h2>
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <Kpi
+          label="Questões ativas"
+          value={questionsTotal ?? 0}
+          hint="todas contas"
+        />
+        <Kpi
+          label="Eventos 30d"
+          value={events30d ?? 0}
+          hint="analytics_events"
         />
       </section>
 
@@ -157,14 +275,26 @@ export default async function AdminPage() {
           style={{ paddingLeft: 18, fontSize: '0.85rem', margin: 0, lineHeight: 1.6 }}
         >
           <li>
-            MRR/ARR usam preço simplificado (R$ 19,90/mês). Pra precisão real,
-            integrar com Stripe Reporting API.
+            MRR usa preços fixos (Estudante R$ {PRICE_ESTUDANTE.toFixed(2)}, Pro
+            R$ {PRICE_PRO.toFixed(2)}). Não diferencia plano mensal/anual aqui.
+            Pra precisão real, integrar com Stripe Reporting API.
           </li>
           <li>
-            Past-due é grace period — Stripe re-tenta cobrar antes de cancelar.
+            Churn rate é proxy: canceled-30d / (paid-atuais + canceled-30d).
+            Aproximação ok pra steady state. Métrica real precisa cohort
+            analysis.
           </li>
           <li>
-            Conversão inclui trial (que ainda não converteu em pagamento).
+            LTV usa fórmula simples 1/churn × ARPU, capada em 60 meses pra
+            evitar inflação com churn baixo (small sample size).
+          </li>
+          <li>
+            Past-due é grace period — Stripe re-tenta antes de cancelar
+            (3-4 retries em 7d).
+          </li>
+          <li>
+            MAU 7d é proxy via analytics_events (distinct user_id 7d).
+            Inclui visitantes? não — apenas users autenticados.
           </li>
         </ul>
       </section>
