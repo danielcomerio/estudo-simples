@@ -19,6 +19,7 @@ import {
 } from '@/lib/real-import';
 import { toast } from './Toast';
 import { consumeSharedContent } from './ShareTargetReceiver';
+import { parseCsvToQuestions, looksLikeCsv } from '@/lib/csv-parse';
 
 /**
  * Importação de JSON com suporte a 2 formatos:
@@ -126,6 +127,22 @@ export function ImportZone() {
   const startPreview = (text: string) => {
     if (!text || !text.trim()) {
       setError('Vazio.');
+      return;
+    }
+    // CSV detection: se parece CSV, converte pra JSON antes de mandar
+    // pro parser do JSON. Header obrigatório (enunciado, alt_a, alt_b...).
+    if (looksLikeCsv(text)) {
+      const r = parseCsvToQuestions(text);
+      if (!r.ok) {
+        setError(r.error ?? 'CSV inválido');
+        return;
+      }
+      const json = JSON.stringify(r.questions, null, 2);
+      toast(
+        `📊 CSV detectado: ${r.questions?.length ?? 0} questão(ões) parseada(s).`,
+        'success'
+      );
+      setupPreview(() => parseImportBatch(json, existing));
       return;
     }
     setupPreview(() => parseImportBatch(text, existing));
