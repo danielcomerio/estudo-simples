@@ -7,7 +7,7 @@ import { useStore, selectActiveQuestions, selectDisciplinas } from '@/lib/store'
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
-import { useDailyGoal } from '@/lib/settings';
+import { useDailyGoal, useWeeklyGoal, useMonthlyGoal } from '@/lib/settings';
 import { useActiveConcursoFilter } from '@/lib/hierarchy';
 import type { Question } from '@/lib/types';
 import { DailyQuests } from './DailyQuests';
@@ -25,6 +25,8 @@ export function Dashboard() {
   const userId = useStore((s) => s.userId);
   const isGuest = userId === 'guest';
   const dailyGoal = useDailyGoal();
+  const weeklyGoal = useWeeklyGoal();
+  const monthlyGoal = useMonthlyGoal();
   const router = useRouter();
   const { concurso: activeConcurso } = useActiveConcursoFilter();
 
@@ -304,6 +306,11 @@ export function Dashboard() {
 
   // Revisões feitas hoje (último elemento de days)
   const reviewsToday = days[days.length - 1]?.count ?? 0;
+
+  // Soma últimos 7 dias (semana corrente: hoje + 6 anteriores)
+  const reviewsLast7 = days.slice(-7).reduce((s, d) => s + d.count, 0);
+  // Soma últimos 30 dias (mês corrente)
+  const reviewsLast30 = days.slice(-30).reduce((s, d) => s + d.count, 0);
 
   // Recordes pessoais (PRs) — top performance em janela de 90 dias.
   //  - bestDayBefore: maior dia EXCLUINDO hoje (pra comparar com hoje)
@@ -701,6 +708,35 @@ export function Dashboard() {
           >
             Meta batida! Continuar adiante segue contando pra streak. 🔥
           </p>
+        )}
+
+        {/* Metas semanal/mensal opcionais (0 = off) */}
+        {(weeklyGoal > 0 || monthlyGoal > 0) && (
+          <div
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTop: '1px dashed var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            {weeklyGoal > 0 && (
+              <PeriodGoalBar
+                label="📅 Semana (7d)"
+                done={reviewsLast7}
+                target={weeklyGoal}
+              />
+            )}
+            {monthlyGoal > 0 && (
+              <PeriodGoalBar
+                label="📆 Mês (30d)"
+                done={reviewsLast30}
+                target={monthlyGoal}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -1829,6 +1865,60 @@ function ProvaCountdownCard({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+function PeriodGoalBar({
+  label,
+  done,
+  target,
+}: {
+  label: string;
+  done: number;
+  target: number;
+}) {
+  const pct = Math.min(100, Math.round((100 * done) / target));
+  const reached = done >= target;
+  return (
+    <div>
+      <div
+        className="row between"
+        style={{
+          alignItems: 'baseline',
+          fontSize: '0.85rem',
+          marginBottom: 4,
+        }}
+      >
+        <span>
+          <strong>{reached ? '🏆' : ''} {label}</strong>{' '}
+          <span className="muted">
+            {done}/{target}
+          </span>
+        </span>
+        <span className="muted" style={{ fontSize: '0.78rem' }}>
+          {pct}%
+        </span>
+      </div>
+      <div
+        aria-label={`${label}: ${pct}%`}
+        style={{
+          height: 6,
+          background: 'var(--bg-elev-2)',
+          borderRadius: 999,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${pct}%`,
+            background: reached ? '#22c55e' : 'var(--primary)',
+            transition: 'width 320ms ease',
+          }}
+        />
+      </div>
     </div>
   );
 }

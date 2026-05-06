@@ -24,6 +24,8 @@ const STORAGE_KEY_DAILY_GOAL = 'estudo-simples:settings:dailyGoal';
 const STORAGE_KEY_CVD = 'estudo-simples:settings:cvd';
 const STORAGE_KEY_FONT = 'estudo-simples:settings:fontSize';
 const STORAGE_KEY_HC = 'estudo-simples:settings:highContrast';
+const STORAGE_KEY_WEEKLY_GOAL = 'estudo-simples:settings:weeklyGoal';
+const STORAGE_KEY_MONTHLY_GOAL = 'estudo-simples:settings:monthlyGoal';
 
 const DAILY_GOAL_DEFAULT = 30;
 const DAILY_GOAL_MIN = 1;
@@ -399,6 +401,93 @@ export function useDailyGoal(): number {
     sync();
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY_DAILY_GOAL) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return goal;
+}
+
+/**
+ * Meta semanal/mensal (revisões cumulativas). 0 = desabilitado.
+ * Se positivo, Dashboard mostra progresso. Useful pra users que
+ * preferem flexibilidade ("posso pegar firme uns dias e descansar
+ * em outros, contanto que bata X/semana").
+ */
+const WEEKLY_GOAL_DEFAULT = 0;
+const MONTHLY_GOAL_DEFAULT = 0;
+
+export function getWeeklyGoal(): number {
+  if (typeof window === 'undefined') return WEEKLY_GOAL_DEFAULT;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_WEEKLY_GOAL);
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isInteger(n) && n >= 0 && n <= 10000) return n;
+    }
+  } catch {}
+  return WEEKLY_GOAL_DEFAULT;
+}
+
+export function setWeeklyGoal(n: number): void {
+  if (typeof window === 'undefined') return;
+  const clamped = Math.max(0, Math.min(10000, Math.floor(n)));
+  try {
+    localStorage.setItem(STORAGE_KEY_WEEKLY_GOAL, String(clamped));
+  } catch {}
+  notify();
+}
+
+export function getMonthlyGoal(): number {
+  if (typeof window === 'undefined') return MONTHLY_GOAL_DEFAULT;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_MONTHLY_GOAL);
+    if (raw) {
+      const n = Number(raw);
+      if (Number.isInteger(n) && n >= 0 && n <= 50000) return n;
+    }
+  } catch {}
+  return MONTHLY_GOAL_DEFAULT;
+}
+
+export function setMonthlyGoal(n: number): void {
+  if (typeof window === 'undefined') return;
+  const clamped = Math.max(0, Math.min(50000, Math.floor(n)));
+  try {
+    localStorage.setItem(STORAGE_KEY_MONTHLY_GOAL, String(clamped));
+  } catch {}
+  notify();
+}
+
+export function useWeeklyGoal(): number {
+  const [goal, setG] = useState<number>(WEEKLY_GOAL_DEFAULT);
+  useEffect(() => {
+    const sync = () => setG(getWeeklyGoal());
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_WEEKLY_GOAL) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return goal;
+}
+
+export function useMonthlyGoal(): number {
+  const [goal, setG] = useState<number>(MONTHLY_GOAL_DEFAULT);
+  useEffect(() => {
+    const sync = () => setG(getMonthlyGoal());
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_MONTHLY_GOAL) sync();
     };
     window.addEventListener('storage', onStorage);
     return () => {
