@@ -22,6 +22,7 @@ const STORAGE_KEY_ACTIVE_CONCURSO = 'estudo-simples:settings:activeConcurso';
 const STORAGE_KEY_THEME = 'estudo-simples:settings:theme';
 const STORAGE_KEY_DAILY_GOAL = 'estudo-simples:settings:dailyGoal';
 const STORAGE_KEY_CVD = 'estudo-simples:settings:cvd';
+const STORAGE_KEY_FONT = 'estudo-simples:settings:fontSize';
 
 const DAILY_GOAL_DEFAULT = 30;
 const DAILY_GOAL_MIN = 1;
@@ -280,6 +281,63 @@ export function useCvdMode(): CvdMode {
     };
   }, []);
   return mode;
+}
+
+/**
+ * Tamanho de fonte global. 'normal' = 16px (default); 'large' = 18px;
+ * 'xlarge' = 20px. Aplicado via class no body que sobrescreve font-size
+ * raiz; rems escalam com isso.
+ */
+export type FontSize = 'normal' | 'large' | 'xlarge';
+const VALID_FONT: FontSize[] = ['normal', 'large', 'xlarge'];
+
+export function getFontSize(): FontSize {
+  if (typeof window === 'undefined') return 'normal';
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_FONT);
+    if (raw && (VALID_FONT as string[]).includes(raw)) return raw as FontSize;
+  } catch {}
+  return 'normal';
+}
+
+export function setFontSize(size: FontSize): void {
+  if (!(VALID_FONT as string[]).includes(size)) return;
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_FONT, size);
+  } catch {}
+  applyFontSize(size);
+  notify();
+}
+
+export function applyFontSize(size: FontSize): void {
+  if (typeof document === 'undefined') return;
+  const body = document.body;
+  body.classList.remove('font-large', 'font-xlarge');
+  if (size === 'large') body.classList.add('font-large');
+  else if (size === 'xlarge') body.classList.add('font-xlarge');
+}
+
+export function useFontSize(): FontSize {
+  const [size, setS] = useState<FontSize>('normal');
+  useEffect(() => {
+    const sync = () => {
+      const s = getFontSize();
+      setS(s);
+      applyFontSize(s);
+    };
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_FONT) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return size;
 }
 
 export function useDailyGoal(): number {

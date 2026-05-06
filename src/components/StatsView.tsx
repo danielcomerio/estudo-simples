@@ -163,6 +163,7 @@ export function StatsView() {
           </span>
         )}
         <ExportCSVMenu questions={questions} />
+        <ExportICSButton questions={questions} />
       </div>
 
       {effectiveConcursoId && (
@@ -3084,6 +3085,32 @@ function CargaProximaSection({
  * Menu de export CSV. Mostra dropdown com 3 opções: questões agregadas,
  * disciplinas agregadas, e histórico cru de revisões.
  */
+function ExportICSButton({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const onClick = async () => {
+    const { generateRevisionICS, downloadICS } = await import(
+      '@/lib/ics-export'
+    );
+    const ics = generateRevisionICS(questions, 30);
+    downloadICS(
+      ics,
+      `estudo-simples-revisoes-${new Date().toISOString().slice(0, 10)}.ics`
+    );
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void onClick()}
+      title="Exportar agenda de revisões dos próximos 30 dias (.ics — Google Calendar, Outlook, Apple)"
+    >
+      📅 Exportar agenda (.ics)
+    </button>
+  );
+}
+
 function ExportCSVMenu({
   questions,
 }: {

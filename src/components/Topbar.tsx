@@ -120,9 +120,25 @@ export function Topbar({
         >
           {mobileOpen ? '✕' : '☰'}
         </button>
-        <span className="logo" aria-hidden />
+        <img
+          src="/icon.svg"
+          alt=""
+          aria-hidden
+          width={26}
+          height={26}
+          className="topbar-logo"
+        />
         <h1 className="topbar-brand-text">Estudo Simples</h1>
       </div>
+
+      {/* Backdrop dim do drawer mobile. Click fecha. */}
+      {mobileOpen && (
+        <div
+          className="topbar-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
 
       <nav
         className={'tabs' + (mobileOpen ? ' tabs-open' : '')}

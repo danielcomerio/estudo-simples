@@ -305,9 +305,33 @@ export function BancoList() {
   const searchRef = useRef<HTMLInputElement>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   // Paginação visual: render só os primeiros N pra evitar travar com
-  // milhares de cards. User pode "carregar mais" pra estender.
-  const PAGE_SIZE = 100;
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  // milhares de cards. Mobile: 25 (telas menores rolam mais);
+  // desktop: 100. User pode "carregar mais" pra estender.
+  const [pageSize, setPageSize] = useState(100);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sync = () => {
+      const isMobile = window.matchMedia('(max-width: 759px)').matches;
+      setPageSize(isMobile ? 25 : 100);
+    };
+    sync();
+    const mq = window.matchMedia('(max-width: 759px)');
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  const [visibleCount, setVisibleCount] = useState(100);
+  // Re-sync visibleCount quando pageSize muda (boot mobile)
+  useEffect(() => {
+    setVisibleCount(pageSize);
+  }, [pageSize]);
+  // Toggle pra colapsar filtros em mobile (default fechado)
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Em desktop, filtros sempre abertos por default
+    const isMobile = window.matchMedia('(max-width: 759px)').matches;
+    setFiltersOpen(!isMobile);
+  }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [browsing, setBrowsing] = useState(false);
@@ -322,7 +346,7 @@ export function BancoList() {
   // Reset paginação + foco quando filtros mudam
   const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}|${tempoFilter}|${favFilter}`;
   useMemo(() => {
-    setVisibleCount(PAGE_SIZE);
+    setVisibleCount(pageSize);
     setFocusedIdx(-1);
   }, [filtersKey]);
 
@@ -448,7 +472,7 @@ export function BancoList() {
           if (c / a >= 0.3) return false;
         }
       }
-      if (favFilter && !q.tags?.includes('★')) return false;
+      if (favFilter && !isFav(q)) return false;
       if (tempoFilter) {
         const lastReviewed = q.srs?.lastReviewed ?? 0;
         const today0 = startOfDay(now);
@@ -681,25 +705,34 @@ export function BancoList() {
     toast(`Tags removidas de ${updated} questão(ões).`, 'success');
   };
 
-  const FAV_TAG = '★';
-  const isFav = (q: { tags?: string[] | null }) =>
-    !!q.tags?.includes(FAV_TAG);
+  // Sistema unificado de favorita usa payload.bookmarked (em vez de
+  // tag '★' legado). Migra '★' do tags pra bookmarked ao tocar.
+  const isFav = (q: {
+    tags?: string[] | null;
+    payload?: Record<string, unknown>;
+  }) =>
+    (q.payload?.bookmarked === true) ||
+    !!q.tags?.includes('★');
+
+  // Leech: questão errada 8+ vezes total. Anki-style — sinal forte
+  // de que precisa abordagem diferente (rever fundamentos, mnemônico
+  // específico, etc.).
+  const isLeech = (q: { stats?: { wrong?: number } }) =>
+    (q.stats?.wrong ?? 0) >= 8;
 
   const toggleFav = (id: string) => {
     const q = questions.find((x) => x.id === id);
     if (!q) return;
-    const cur = q.tags ?? [];
-    if (cur.includes(FAV_TAG)) {
-      updateQuestionLocal(id, {
-        tags: cur.filter((t) => t !== FAV_TAG),
-      });
-    } else {
-      if (cur.length >= 30) {
-        toast('Limite de 30 tags atingido — remova uma antes', 'warn');
-        return;
-      }
-      updateQuestionLocal(id, { tags: [...cur, FAV_TAG] });
-    }
+    const wasFav = isFav(q);
+    const next = !wasFav;
+    const cleanTags = (q.tags ?? []).filter((t) => t !== '★'); // migra
+    updateQuestionLocal(id, (cur) => ({
+      tags: cleanTags,
+      payload: {
+        ...(cur.payload as Record<string, unknown>),
+        bookmarked: next,
+      },
+    }));
     scheduleSync(500);
   };
 
@@ -1229,8 +1262,10 @@ export function BancoList() {
         let cDominadas = 0;
         let cNovas = 0;
         let cFavoritas = 0;
+        let cLeech = 0;
         for (const q of questions) {
           if ((q.payload as Record<string, unknown>).bookmarked === true) cFavoritas++;
+          if ((q.stats?.wrong ?? 0) >= 8) cLeech++;
           const due = q.srs?.dueDate ?? 0;
           if (due < startOfDay(nowMs)) cAtrasadas++;
           else if (due < tomorrow0) cHoje++;
@@ -1325,34 +1360,101 @@ export function BancoList() {
                 ⭐ Favoritas <strong>· {cFavoritas}</strong>
               </button>
             )}
+            {cLeech > 0 && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => {
+                  // Leech filter via search livre não tem prefixo —
+                  // vamos usar inimigas como aproximação (similar)
+                  toast(
+                    `${cLeech} questão(ões) com 8+ erros. Procure por "🐌 leech" nos cards ou use ⚔ Inimigas pra atacar.`,
+                    'warn'
+                  );
+                }}
+                title={`${cLeech} questão(ões) com 8 ou mais erros — leeches`}
+                style={{
+                  cursor: 'pointer',
+                  color: 'var(--danger)',
+                }}
+              >
+                🐌 Leech <strong>· {cLeech}</strong>
+              </button>
+            )}
           </div>
         );
       })()}
 
       <PlanLimitBanner />
 
-      <h2 style={{ margin: '0 0 10px' }}>
-        Banco atual
-        {selected.size > 0 && (
+      <div
+        className="row between"
+        style={{
+          alignItems: 'baseline',
+          marginBottom: 10,
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        <h2 style={{ margin: 0 }}>
+          Banco
           <span
+            className="muted"
             style={{
-              marginLeft: 10,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              color: 'var(--primary)',
-              background: 'var(--primary-soft)',
-              padding: '2px 8px',
-              borderRadius: 999,
-              verticalAlign: 'middle',
+              marginLeft: 8,
+              fontSize: '0.85rem',
+              fontWeight: 400,
             }}
           >
-            {selected.size} selecionada{selected.size === 1 ? '' : 's'}
+            · {filtered.length}
+            {filtered.length !== questions.length &&
+              ` de ${questions.length}`}
           </span>
-        )}
-      </h2>
+          {selected.size > 0 && (
+            <span
+              style={{
+                marginLeft: 10,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                color: 'var(--primary)',
+                background: 'var(--primary-soft)',
+                padding: '2px 8px',
+                borderRadius: 999,
+                verticalAlign: 'middle',
+              }}
+            >
+              {selected.size} selecionada{selected.size === 1 ? '' : 's'}
+            </span>
+          )}
+        </h2>
+      </div>
 
+      {/* Botão "Filtros" mobile-only que toggle os filtros adicionais */}
+      <button
+        type="button"
+        className="ghost banco-filters-toggle"
+        onClick={() => setFiltersOpen((v) => !v)}
+        aria-expanded={filtersOpen}
+        style={{
+          width: '100%',
+          padding: '10px 14px',
+          marginBottom: 10,
+          textAlign: 'left',
+          display: 'none', // visível só em mobile (CSS)
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <span>🔧 Filtros e ordenação</span>
+        <span style={{ fontSize: '0.85em', opacity: 0.7 }}>
+          {filtersOpen ? '▲' : '▼'}
+        </span>
+      </button>
       <div
-        className="row gap wrap banco-filters"
+        className={
+          'row gap wrap banco-filters' +
+          (filtersOpen ? ' filters-open' : ' filters-collapsed')
+        }
         style={{
           marginBottom: 14,
           paddingBottom: 12,
@@ -1444,7 +1546,7 @@ export function BancoList() {
           onChange={(e) => setImgFilter(e.target.value as typeof imgFilter)}
           title="Filtrar por presença de imagens"
         >
-          <option value="">Imagens (qq)</option>
+          <option value="">Imagens (qualquer)</option>
           <option value="com">🖼 Com imagem</option>
           <option value="sem">— Sem imagem</option>
         </select>
@@ -1453,7 +1555,7 @@ export function BancoList() {
           onChange={(e) => setNotasFilter(e.target.value as typeof notasFilter)}
           title="Filtrar por anotação pessoal (notes_user)"
         >
-          <option value="">Notas (qq)</option>
+          <option value="">Notas (qualquer)</option>
           <option value="com">📝 Com anotação</option>
           <option value="sem">— Sem anotação</option>
         </select>
@@ -1462,7 +1564,7 @@ export function BancoList() {
           onChange={(e) => setMnemoFilter(e.target.value as typeof mnemoFilter)}
           title="Filtrar por mnemônico/dica de memorização"
         >
-          <option value="">Mnemônico (qq)</option>
+          <option value="">Mnemônico (qualquer)</option>
           <option value="com">🧠 Com mnemônico</option>
           <option value="sem">— Sem mnemônico</option>
         </select>
@@ -1471,7 +1573,7 @@ export function BancoList() {
           onChange={(e) => setLatexFilter(e.target.value as typeof latexFilter)}
           title="Filtrar por presença de fórmulas LaTeX"
         >
-          <option value="">LaTeX (qq)</option>
+          <option value="">LaTeX (qualquer)</option>
           <option value="com">∑ Com LaTeX</option>
           <option value="sem">— Sem LaTeX</option>
         </select>
@@ -1480,7 +1582,7 @@ export function BancoList() {
           onChange={(e) => setTempoFilter(e.target.value as typeof tempoFilter)}
           title="Filtrar pela última revisão"
         >
-          <option value="">Última revisão (qq)</option>
+          <option value="">Última revisão (qualquer)</option>
           <option value="hoje">📅 Estudadas hoje</option>
           <option value="ontem">⏪ Estudadas ontem</option>
           <option value="semana">7d Esta semana</option>
@@ -1800,6 +1902,20 @@ export function BancoList() {
                   />
                   <div className="meta">
                     <BookmarkButton question={q} size="small" />
+                    {isLeech(q) && (
+                      <span
+                        title={`Errou ${q.stats?.wrong ?? 0} vezes — leech (precisa estratégia diferente)`}
+                        style={{
+                          background: 'var(--danger-soft)',
+                          color: 'var(--danger)',
+                          padding: '1px 6px',
+                          borderRadius: 4,
+                          fontWeight: 500,
+                        }}
+                      >
+                        🐌 leech
+                      </span>
+                    )}
                     {q.origem === 'real' && (
                       <span
                         title={`Questão real: ${q.fonte?.banca ?? '?'} ${q.fonte?.ano ?? ''} ${q.fonte?.orgao ?? ''}`}
@@ -2201,9 +2317,9 @@ export function BancoList() {
           <button
             type="button"
             className="ghost"
-            onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+            onClick={() => setVisibleCount((c) => c + pageSize)}
           >
-            Carregar mais {Math.min(PAGE_SIZE, filtered.length - visibleCount)}
+            Carregar mais {Math.min(pageSize, filtered.length - visibleCount)}
           </button>
           <button
             type="button"

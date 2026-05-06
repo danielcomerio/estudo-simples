@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { getState, hydrate, migrateGuestToUser, resetStore, useStore } from '@/lib/store';
 import { scheduleSync, startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
 import { clearHierarchyCache } from '@/lib/hierarchy';
-import { applyCvdMode, applyTheme, getCvdMode, getTheme, setActiveConcursoId } from '@/lib/settings';
+import { applyCvdMode, applyFontSize, applyTheme, getCvdMode, getFontSize, getTheme, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
 import { clearSeedFlag, loadPlatformSeed } from '@/lib/platform-seed';
 import { toast } from './Toast';
@@ -36,6 +36,7 @@ export function StoreProvider({
     // roda quase imediatamente após hydrate.)
     applyTheme(getTheme());
     applyCvdMode(getCvdMode());
+    applyFontSize(getFontSize());
 
     // hydrate é async desde a migração pra IndexedDB. Espera carregar
     // o estado persistido ANTES de iniciar background sync — sem isso,

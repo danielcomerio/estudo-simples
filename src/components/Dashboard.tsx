@@ -12,6 +12,7 @@ import { useActiveConcursoFilter } from '@/lib/hierarchy';
 import type { Question } from '@/lib/types';
 import { DailyQuests } from './DailyQuests';
 import { SmartSuggestions } from './SmartSuggestions';
+import { WelcomeBackBanner } from './WelcomeBackBanner';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 
@@ -486,6 +487,8 @@ export function Dashboard() {
           </Link>
         </div>
       )}
+
+      <WelcomeBackBanner dueCount={dueToday} />
 
       {streakAtRisk && streak >= 3 && (
         <div

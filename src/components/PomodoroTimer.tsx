@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useReducer, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { toast } from './Toast';
 
 const STORAGE_KEY = 'estudo-simples:pomodoro:v2';
@@ -127,6 +128,15 @@ const PHASE_COLOR: Record<Phase, string> = {
  * render — sem fontes de defasagem.
  */
 export function PomodoroTimer() {
+  const pathname = usePathname();
+  // Em rotas de sessão, mantém o widget bem discreto (só botão circular)
+  // pra não cobrir rate buttons sticky no fundo. User pode expandir.
+  const inSession =
+    pathname?.startsWith('/estudar') ||
+    pathname?.startsWith('/cards') ||
+    pathname?.startsWith('/discursivas') ||
+    pathname?.startsWith('/simulado');
+
   const [persisted, setPersisted] = useState<Persisted | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [expanded, setExpanded] = useState(false);
@@ -247,6 +257,10 @@ export function PomodoroTimer() {
   };
 
   // ============ Renderização ============
+  // Em sessão sem timer ativo, esconde completamente — pomodoro só faz
+  // sentido se o user iniciou um. Voltar pro Painel pra começar.
+  if (inSession && !persisted) return null;
+
   if (!persisted) {
     if (!expanded) {
       return (
@@ -277,6 +291,7 @@ export function PomodoroTimer() {
     }
     return (
       <div
+        className="pomodoro-widget"
         style={{
           position: 'fixed',
           left: 16,
@@ -292,6 +307,9 @@ export function PomodoroTimer() {
           flexDirection: 'column',
           gap: 6,
           minWidth: 220,
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 32px)',
+          overflowY: 'auto',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -364,6 +382,7 @@ export function PomodoroTimer() {
     <div
       role="status"
       aria-live="off"
+      className="pomodoro-widget"
       style={{
         position: 'fixed',
         left: 16,
@@ -376,6 +395,9 @@ export function PomodoroTimer() {
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
         fontVariantNumeric: 'tabular-nums',
         minWidth: 200,
+        maxWidth: 'calc(100vw - 32px)',
+        maxHeight: 'calc(100vh - 96px)',
+        overflowY: 'auto',
       }}
     >
       <div

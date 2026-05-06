@@ -63,6 +63,8 @@ App é mobile-first. Diferenças notáveis em telas até 760px:
 
 Em `/configuracoes` há seção dedicada:
 
+- **Tamanho de fonte**: Normal (16px) / Grande (18px) / Extra grande (20px). Aplica em todo o app.
+
 - **Modo daltônico (CVD)**: 4 opções (Padrão · Deuteranopia · Protanopia · Tritanopia). Substitui paleta verde/vermelho por azul/laranja (deutan/protan) ou verde/magenta (tritan). Aplicado real-time em todo o app — feedback de acerto/erro fica discriminável.
 - **Notificações** (opt-in): pede permissão e avisa quando há revisões vencendo. Cooldown 6h. Funciona apenas com a aba aberta (sem servidor externo). Botão "🔔 Ativar".
 - **Reduced motion**: respeitado automaticamente — confetti, animações de cards, drawer slide-in e celebrações ficam off pra users com `prefers-reduced-motion: reduce`.
@@ -79,16 +81,17 @@ Em `/configuracoes` há seção dedicada:
 
 `@media print`: ao imprimir, esconde topbar, FAB, bottom nav, toasts e botões. Cards, alternativas (verde correta / vermelho errada) e feedback ficam estilizados pra papel. Útil pra material de estudo offline.
 
-### Geração de questões com IA (`/banco`)
+### Hub de IA (`/banco`)
 
-Botão **🤖 Gerar com IA** na aba Banco abre formulário com:
+Botão **🤖 Gerar com IA** na aba Banco abre o hub com 5 modos de prompt:
 
-- Disciplina (obrigatório), tipo (objetiva/discursiva/cloze/flashcard), banca (opcional), tema (opcional), quantidade (1-50), dificuldade (1-5), observações.
-- Gera prompt completo com **schema JSON do app embutido** (todas as regras: 5 alternativas, explicações por opção, formato exato).
-- Botão "📋 Copiar" + links pra abrir Claude/ChatGPT/Gemini direto (copia prompt no clipboard ao clicar).
-- Resposta da IA cola na área normal de import logo abaixo — wizard valida e dedupa antes de gravar.
+- **📝 Gerar questões**: prompt completo com schema JSON do app embutido (5 alternativas, explicações por opção, formato exato). Resposta JSON cola na área de import logo abaixo.
+- **🧠 Mnemônicos**: gera N mnemônicos curtos pra memorizar conteúdo da disciplina/tema.
+- **📖 Resumir tópico**: resumo conciso (~300 palavras) com pontos-chave, pegadinhas comuns e exemplos.
+- **🏷 Sugerir tags**: sugere N tags em kebab-case pra catalogar questões.
+- **📅 Plano de estudos**: plano de N dias com tópicos, atividades e tempo estimado.
 
-Sem chave de API, sem custo: usa as IAs gratuitas que o user já tem.
+Cada modo tem botão "📋 Copiar" + links pra abrir Claude/ChatGPT/Gemini direto (copia ao clicar). Sem chave de API, sem custo: usa as IAs gratuitas que o user já tem.
 
 ### Insights pós-sessão
 
@@ -144,6 +147,25 @@ Dashboard inicial com um overview do estudo:
 ## 3. Banco de questões (`/banco`)
 
 Lista de todas as questões do usuário, com filtros, ordenações e ações em lote.
+
+### Sugestões inteligentes (Dashboard)
+
+Card "💡 Sugestões" aparece com até 3 dicas auto-derivadas do histórico:
+
+- 📉 Disciplina sem revisão há ≥7 dias (com link rápido pra estudar)
+- ⚠ Acerto caiu ≥10pp essa semana vs anterior
+- ⚔ ≥5 inimigas pendentes
+- 📅 ≥20 questões vencendo amanhã (sugere adiantar)
+
+Sem IA externa — heurísticas locais sobre o histórico.
+
+### Welcome back banner
+
+Quando user volta após ≥3 dias sem login, banner gentil "Bem-vindo de volta. Você sumiu por X dias. Tem N vencendo. Bora começar suave?" com CTA pra sessão de 10 SRS. Dispense fecha. Persistência via `lastVisit` em LS.
+
+### Toast com ação (Desfazer)
+
+Toasts de exclusão (única ou em lote) trazem botão **Desfazer** que dura 8s. Click restaura. Útil pra reverter exclusões acidentais sem precisar ir pra lixeira.
 
 ### Favoritas
 
@@ -336,6 +358,8 @@ Página dedicada com **todas as conquistas** agrupadas por categoria:
 
 Cada tier mostra emoji desbloqueado ou 🔒 com "faltam X". Barra de progresso geral no topo. Confetti automático quando bate streak novo (3/7/14/30...).
 
+**📅 Calendar do mês**: bem no topo de /conquistas, grid 7×N do mês atual com dias estudados em verde (intensidade conforme volume), hoje com borda destacada. Visualização imediata da consistência.
+
 ## 8. Estatísticas (`/stats`)
 
 Selector de escopo no topo: **Geral** / **Concurso ativo** / **qualquer concurso específico**.
@@ -346,6 +370,7 @@ Botão **📥 Exportar CSV** com 3 modos: questões agregadas, disciplinas agreg
 
 - **Predição de nota** (com concurso ativo) — combina taxa de acerto × qtd_questoes_prova vinculada
 - **📊 Por período**: snapshot 7d / 30d / total (revisões + % acerto + dias estudados)
+- **📅 Exportar agenda (.ics)**: botão no topo da /stats que gera arquivo iCalendar com revisões agendadas dos próximos 30 dias. Importável no Google Calendar, Outlook, Apple Calendar — vê suas revisões direto no calendário do celular.
 - **📅 Por dia da semana**: distribuição com bar chart e % acerto
 - **📜 Últimas sessões**: lista das 10 mais recentes (kind + tempo + % acerto)
 - **Esta semana vs anterior**

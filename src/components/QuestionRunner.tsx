@@ -666,11 +666,24 @@ export function QuestionRunner() {
             </span>
             )
           </div>
-          <div className="row gap">
-            <button type="button" className="primary" onClick={resumePaused}>
+          <div
+            className="row gap wrap"
+            style={{ justifyContent: 'flex-start' }}
+          >
+            <button
+              type="button"
+              className="primary"
+              onClick={resumePaused}
+              style={{ flex: '1 1 auto', minWidth: 140, padding: '10px 16px' }}
+            >
               ▶ Continuar
             </button>
-            <button type="button" className="ghost" onClick={discardPaused}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={discardPaused}
+              style={{ flex: '0 1 auto', padding: '10px 14px' }}
+            >
               Descartar
             </button>
           </div>
@@ -958,16 +971,39 @@ export function QuestionRunner() {
         </label>
       </div>
 
-      <div className="row gap">
+      <div
+        className="row gap wrap"
+        style={{
+          alignItems: 'center',
+          marginTop: 18,
+          paddingTop: 14,
+          borderTop: '1px solid var(--border)',
+        }}
+      >
         <button
           type="button"
           className="primary"
           onClick={start}
           disabled={objCount === 0}
+          style={{
+            flex: '1 1 auto',
+            minWidth: 160,
+            padding: '12px 24px',
+            fontSize: '1rem',
+          }}
         >
-          Iniciar
+          ▶ Iniciar
         </button>
-        <span className="muted">{objCount} objetiva(s) no banco</span>
+        <span
+          className="muted"
+          style={{
+            fontSize: '0.85rem',
+            flex: '0 0 auto',
+            textAlign: 'center',
+          }}
+        >
+          {objCount} objetiva{objCount === 1 ? '' : 's'} no banco
+        </span>
       </div>
     </div>
   );
@@ -1032,14 +1068,22 @@ function RunningView({
     };
   }, [focusMode]);
 
-  // Embaralha alternativas uma vez por questão
+  // Embaralha alternativas uma vez por questão. Re-rotula em A/B/C/D/E
+  // baseado na nova ordem — visual fica sempre alfabético, mesmo após
+  // embaralhar. correta=true preserva quem é a certa.
   const alts = useMemo<Alternativa[]>(() => {
-    return session.embaralhar ? shuffle(payload.alternativas || []) : payload.alternativas || [];
+    const original = payload.alternativas || [];
+    const ordered = session.embaralhar ? shuffle(original) : original;
+    const LETRAS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    return ordered.map((a, i) => ({ ...a, letra: LETRAS[i] ?? a.letra }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q.id]);
+  }, [q.id, session.embaralhar]);
 
   const correctLetra =
-    payload.alternativas?.find((a) => a.correta === true)?.letra ?? payload.gabarito ?? null;
+    alts.find((a) => a.correta === true)?.letra ??
+    payload.alternativas?.find((a) => a.correta === true)?.letra ??
+    payload.gabarito ??
+    null;
 
   // reset ao trocar de questão
   useEffect(() => {
@@ -1266,10 +1310,12 @@ function RunningView({
     onLeft: skip,
   });
 
-  const chosenAlt = chosen ? payload.alternativas?.find((a) => a.letra === chosen) : null;
+  // chosen é a letra após re-rotular (A/B/C...). Busca em `alts` (já
+   // re-rotulado) pra pegar a alternativa real.
+  const chosenAlt = chosen ? alts.find((a) => a.letra === chosen) : null;
   const correctAlt =
-    payload.alternativas?.find((a) => a.correta === true) ||
-    payload.alternativas?.find((a) => a.letra === payload.gabarito);
+    alts.find((a) => a.correta === true) ||
+    alts.find((a) => a.letra === payload.gabarito);
 
   const isCorrect = !!chosen && chosen === correctLetra;
   const timerCls =
@@ -1644,9 +1690,9 @@ function RunningView({
             type="button"
             className="ghost"
             onClick={skip}
-            title="Pular (Tab) — não conta como tentativa nem erro"
+            title="Pular — não conta como tentativa nem erro"
           >
-            Pular (Tab)
+            Pular<span className="kbd-hint-only"> (Tab)</span>
           </button>
         )}
       </div>

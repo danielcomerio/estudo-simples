@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useStore, selectActiveQuestions } from '@/lib/store';
+import { StreakCalendar } from './StreakCalendar';
 import { startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
 
@@ -250,6 +251,8 @@ export function ConquistasView() {
           />
         </div>
       </div>
+
+      <StreakCalendar questions={questions} />
 
       {categories.map((cat) => (
         <CategoryCard key={cat.title} category={cat} />

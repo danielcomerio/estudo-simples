@@ -173,8 +173,86 @@ const AI_LINKS = [
   },
 ];
 
+type PromptMode = 'questoes' | 'mnemonico' | 'resumo' | 'tags' | 'plano';
+
+const MODE_LABEL: Record<PromptMode, string> = {
+  questoes: '📝 Gerar questões',
+  mnemonico: '🧠 Mnemônicos',
+  resumo: '📖 Resumir tópico',
+  tags: '🏷 Sugerir tags',
+  plano: '📅 Plano de estudos',
+};
+
+function buildSecondaryPrompt(opts: {
+  mode: PromptMode;
+  disciplina: string;
+  tema?: string;
+  notas?: string;
+  qtd: number;
+}): string {
+  const { mode, disciplina, tema, qtd, notas } = opts;
+  const temaLine = tema ? ` (tema: ${tema})` : '';
+  const notasLine = notas ? `\n\nObservações: ${notas}` : '';
+
+  if (mode === 'mnemonico') {
+    return `Você é especialista em técnicas de memorização. Gere ${qtd} mnemônico${qtd === 1 ? '' : 's'} curto${qtd === 1 ? '' : 's'} pra memorizar conteúdo de **${disciplina}**${temaLine}.
+
+Cada mnemônico deve:
+- Ter no máximo 1 frase memorável (ou um acrônimo claro)
+- Ser fácil de associar ao conteúdo
+- Funcionar pra concursos brasileiros
+
+Formato: lista numerada, cada item com:
+1. **[acrônimo / frase]** — explicação curta do que ele lembra.${notasLine}
+
+Sem JSON, sem markdown extra. Texto direto.`;
+  }
+
+  if (mode === 'resumo') {
+    return `Você é professor de cursinho. Faça um resumo conciso (~300 palavras) de **${disciplina}${temaLine}** focado em prova de concurso público brasileiro.
+
+Cubra:
+- Conceito central
+- 3-5 pontos-chave que costumam cair em prova
+- Pegadinhas comuns (banca brasileira)
+- 1-2 exemplos rápidos
+
+Use bullet points e bold pra termos técnicos. Sem floreio.${notasLine}`;
+  }
+
+  if (mode === 'tags') {
+    return `Sugira ${qtd} tags adequadas pra catalogar questões de **${disciplina}${temaLine}** num app de SRS (concurso público brasileiro).
+
+Cada tag deve:
+- Ser curta (1-3 palavras, kebab-case ex: "art-5-cf")
+- Específica o suficiente pra agrupar questões similares
+- Não muito ampla (não use só "português" — prefira "regência-verbal")
+
+Formato: lista simples, uma tag por linha, sem numeração.${notasLine}`;
+  }
+
+  if (mode === 'plano') {
+    return `Você é coach de concurseiro. Crie um plano de estudos de ${qtd} dia${qtd === 1 ? '' : 's'} pra dominar **${disciplina}${temaLine}**.
+
+Cada dia deve ter:
+- Tópico do dia (claro e objetivo)
+- 1-2 atividades práticas (ler, resolver, revisar)
+- Tempo estimado (60-180 min)
+
+Formato:
+**Dia 1: [tópico]**
+- Atividade 1 (Xmin)
+- Atividade 2 (Ymin)
+
+Sem JSON.${notasLine}`;
+  }
+
+  return '';
+}
+
 export function AIPromptGenerator() {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<PromptMode>('questoes');
   const [type, setType] = useState<QuestionType>('objetiva');
   const [disciplina, setDisciplina] = useState('');
   const [banca, setBanca] = useState('');
@@ -189,15 +267,26 @@ export function AIPromptGenerator() {
       toast('Informe a disciplina', 'error');
       return;
     }
-    const prompt = buildPrompt({
-      type,
-      disciplina: disciplina.trim(),
-      banca: banca.trim() || undefined,
-      tema: tema.trim() || undefined,
-      qtd: Math.max(1, Math.min(50, qtd)),
-      dificuldade,
-      notas: notas.trim() || undefined,
-    });
+    let prompt: string;
+    if (mode === 'questoes') {
+      prompt = buildPrompt({
+        type,
+        disciplina: disciplina.trim(),
+        banca: banca.trim() || undefined,
+        tema: tema.trim() || undefined,
+        qtd: Math.max(1, Math.min(50, qtd)),
+        dificuldade,
+        notas: notas.trim() || undefined,
+      });
+    } else {
+      prompt = buildSecondaryPrompt({
+        mode,
+        disciplina: disciplina.trim(),
+        tema: tema.trim() || undefined,
+        qtd: Math.max(1, Math.min(50, qtd)),
+        notas: notas.trim() || undefined,
+      });
+    }
     setGenerated(prompt);
   };
 
@@ -246,15 +335,41 @@ export function AIPromptGenerator() {
           border: '1px solid var(--primary)',
         }}
       >
-        <h3 style={{ margin: '0 0 4px' }}>🤖 Gerar questões com IA</h3>
+        <h3 style={{ margin: '0 0 4px' }}>🤖 Hub de prompts pra IA</h3>
         <p
           className="muted"
-          style={{ margin: '0 0 14px', fontSize: '0.88rem' }}
+          style={{ margin: '0 0 12px', fontSize: '0.88rem' }}
         >
-          Configure os parâmetros, copie o prompt pronto e cole numa IA
-          (Claude / ChatGPT / Gemini). A resposta JSON pode ser colada na
-          área de import abaixo.
+          Configure os parâmetros e copie o prompt pronto pra Claude /
+          ChatGPT / Gemini. Sem chave de API, sem custo.
         </p>
+
+        {/* Tabs de modo */}
+        <div
+          className="row gap wrap"
+          style={{ marginBottom: 14, gap: 6 }}
+          role="tablist"
+        >
+          {(Object.keys(MODE_LABEL) as PromptMode[]).map((m) => {
+            const active = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={active ? 'primary' : 'ghost'}
+                onClick={() => {
+                  setMode(m);
+                  setGenerated('');
+                }}
+                style={{ padding: '6px 10px', fontSize: '0.85rem' }}
+              >
+                {MODE_LABEL[m]}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="form-grid">
           <label>
@@ -268,10 +383,11 @@ export function AIPromptGenerator() {
             />
           </label>
           <label>
-            <span>Tipo</span>
+            <span>{mode === 'questoes' ? 'Tipo' : 'Tipo (não usado)'}</span>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as QuestionType)}
+              disabled={mode !== 'questoes'}
             >
               <option value="objetiva">Objetiva (A-E)</option>
               <option value="discursiva">Discursiva</option>
@@ -279,15 +395,17 @@ export function AIPromptGenerator() {
               <option value="flashcard">Flashcard</option>
             </select>
           </label>
-          <label>
-            <span>Banca (opcional)</span>
-            <input
-              type="text"
-              value={banca}
-              onChange={(e) => setBanca(e.target.value)}
-              placeholder="ex: FGV, Cebraspe, FCC"
-            />
-          </label>
+          {mode === 'questoes' && (
+            <label>
+              <span>Banca (opcional)</span>
+              <input
+                type="text"
+                value={banca}
+                onChange={(e) => setBanca(e.target.value)}
+                placeholder="ex: FGV, Cebraspe, FCC"
+              />
+            </label>
+          )}
           <label>
             <span>Tema (opcional)</span>
             <input
@@ -298,7 +416,17 @@ export function AIPromptGenerator() {
             />
           </label>
           <label>
-            <span>Quantidade</span>
+            <span>
+              {mode === 'questoes'
+                ? 'Quantidade'
+                : mode === 'mnemonico'
+                  ? 'Quantidade de mnemônicos'
+                  : mode === 'tags'
+                    ? 'Quantidade de tags'
+                    : mode === 'plano'
+                      ? 'Quantos dias'
+                      : 'Quantidade'}
+            </span>
             <input
               type="number"
               min={1}
@@ -307,16 +435,18 @@ export function AIPromptGenerator() {
               onChange={(e) => setQtd(parseInt(e.target.value) || 1)}
             />
           </label>
-          <label>
-            <span>Dificuldade (1-5)</span>
-            <input
-              type="number"
-              min={1}
-              max={5}
-              value={dificuldade}
-              onChange={(e) => setDificuldade(parseInt(e.target.value) || 3)}
-            />
-          </label>
+          {mode === 'questoes' && (
+            <label>
+              <span>Dificuldade (1-5)</span>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={dificuldade}
+                onChange={(e) => setDificuldade(parseInt(e.target.value) || 3)}
+              />
+            </label>
+          )}
           <label style={{ gridColumn: '1 / -1' }}>
             <span>Observações (opcional)</span>
             <textarea
