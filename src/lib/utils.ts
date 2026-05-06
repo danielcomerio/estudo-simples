@@ -203,6 +203,52 @@ export function interleaveByGroup<T>(items: T[], keyFn: (item: T) => string): T[
   return out;
 }
 
+/**
+ * Mistura o pool pra evitar K+ itens difíceis consecutivos. Cognitive
+ * load research (Sweller, 1988): blocos longos de alta dificuldade
+ * causam fadiga mental e retenção pior. Intercalar fácil/médio/difícil
+ * é a base de "desirable difficulty" (Bjork).
+ *
+ * Implementação: passa pelo array, se detectar K difíceis seguidas,
+ * troca a próxima posição com a primeira não-difícil disponível à frente.
+ * Estável: questões mantém ordem relativa quando possível.
+ *
+ * `getDifficulty` retorna 1-5 (1=fácil, 5=difícil). Considera "difícil"
+ * se >= 4. Bom default pra K é 3 (3+ difíceis em sequência = pause).
+ */
+export function mixDifficulty<T>(
+  items: T[],
+  getDifficulty: (item: T) => number,
+  k = 3
+): T[] {
+  if (items.length <= k) return items.slice();
+  const out = items.slice();
+  const isHard = (item: T) => getDifficulty(item) >= 4;
+  let consec = 0;
+  for (let i = 0; i < out.length; i++) {
+    if (isHard(out[i])) {
+      consec++;
+      if (consec >= k) {
+        // Procura o próximo não-difícil
+        let swap = -1;
+        for (let j = i + 1; j < out.length; j++) {
+          if (!isHard(out[j])) {
+            swap = j;
+            break;
+          }
+        }
+        if (swap >= 0) {
+          [out[i], out[swap]] = [out[swap], out[i]];
+          consec = 0; // out[i] agora é não-difícil
+        }
+      }
+    } else {
+      consec = 0;
+    }
+  }
+  return out;
+}
+
 export function debounce<T extends (...args: never[]) => unknown>(
   fn: T,
   ms: number

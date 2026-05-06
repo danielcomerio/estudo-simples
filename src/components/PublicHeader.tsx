@@ -41,16 +41,13 @@ export function PublicHeader() {
             color: 'inherit',
           }}
         >
-          <span
+          <img
+            src="/icon.svg"
+            alt=""
             aria-hidden
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 12,
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              boxShadow: '0 0 0 3px rgba(34,197,94,0.18)',
-              flexShrink: 0,
-            }}
+            width={28}
+            height={28}
+            style={{ display: 'block', flexShrink: 0 }}
           />
           <strong style={{ fontSize: '1rem', letterSpacing: '-0.01em' }}>
             Estudo Simples

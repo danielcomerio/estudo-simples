@@ -141,15 +141,32 @@ export function applyFSRS(
 /**
  * Ponto de entrada único pra aplicar revisão. Caller passa o
  * algoritmo escolhido pelo user (default 'sm2' por enquanto).
+ *
+ * `examDate`: data da prova em ms (opcional). Se passada e o intervalo
+ * agendado pelo SRS for além da prova, o `dueDate` é capado pra
+ * `examDate - 1d`. Evita "agendado pra depois da prova" que é inútil
+ * — densifica revisões na janela disponível conforme prova se aproxima.
  */
 export function applyReview(
   card: { srs?: SRS },
   quality: number,
-  algorithm: SRSAlgorithm = 'sm2'
+  algorithm: SRSAlgorithm = 'sm2',
+  examDate?: number | null
 ): void {
   if (algorithm === 'fsrs') {
     applyFSRS(card, quality);
   } else {
     applySRS(card, quality);
+  }
+  // Exam-date densification: cap dueDate em min(due, examDate - 1d).
+  if (examDate && card.srs && typeof card.srs.dueDate === 'number') {
+    const cap = examDate - DAY_MS; // 1 dia antes da prova
+    if (card.srs.dueDate > cap) {
+      card.srs.dueDate = Math.max(Date.now(), cap);
+      // Reflete o cap também no interval (em dias). Se o cap for hoje
+      // ou no passado, interval = 0 (vence hoje).
+      const dDays = Math.max(0, Math.round((card.srs.dueDate - Date.now()) / DAY_MS));
+      card.srs.interval = dDays;
+    }
   }
 }

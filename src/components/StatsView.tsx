@@ -200,6 +200,8 @@ export function StatsView() {
         allDisciplinas={allDisciplinas ?? []}
       />
 
+      <ForgettingCurveSection questions={questions} />
+
       <CargaProximaSection questions={questions} />
 
       <OrigemDistSection questions={questions} />
@@ -2715,6 +2717,200 @@ function levelColor(lvl: number): string {
   if (lvl >= 5) return '#22c55e';  // verde
   if (lvl >= 3) return '#3b82f6';  // azul
   return '#64748b';                 // cinza azulado
+}
+
+/**
+ * Curva de esquecimento (Ebbinghaus / FSRS). Usa stability média das
+ * questões em consolidação como proxy: R(t) = 0.9^(t/S). Compara com
+ * a curva "natural" sem revisão. Educa sobre o valor do SRS.
+ *
+ * S (stability) é estimada a partir do interval atual das questões com
+ * pelo menos 2 acertos. Não usa ts-fsrs aqui — fórmula simplificada
+ * que alinha com o request_retention=0.9 usado pelo scheduler real.
+ */
+function ForgettingCurveSection({
+  questions,
+}: {
+  questions: ReturnType<typeof selectActiveQuestions>;
+}) {
+  const data = useMemo(() => {
+    const intervals: number[] = [];
+    let totalRevisadas = 0;
+    let dominadas = 0;
+    for (const q of questions) {
+      if (!q.srs?.lastReviewed) continue;
+      totalRevisadas++;
+      const interval = q.srs.interval ?? 0;
+      if (interval > 0 && (q.srs.repetitions ?? 0) >= 2) {
+        intervals.push(interval);
+      }
+      const h = q.stats?.history ?? [];
+      if (
+        h.length >= 5 &&
+        h.slice(-5).every((r) => r.result === 'correct' || r.result === 'self_pass')
+      ) {
+        dominadas++;
+      }
+    }
+    if (intervals.length === 0) return null;
+    intervals.sort((a, b) => a - b);
+    const median =
+      intervals[Math.floor(intervals.length / 2)] ??
+      intervals[intervals.length - 1] ??
+      1;
+    const avg = intervals.reduce((s, x) => s + x, 0) / intervals.length;
+    const stability = Math.max(1, Math.round((median + avg) / 2));
+    return { stability, totalRevisadas, dominadas, intervals };
+  }, [questions]);
+
+  if (!data) return null;
+
+  // Retenção em vários horizons
+  const horizons = [1, 3, 7, 14, 30, 60, 90];
+  const retent = (t: number, S: number) => Math.pow(0.9, t / S);
+
+  // Curva natural (Ebbinghaus): S ≈ 1 dia (sem revisão = esquece rápido)
+  const natural = horizons.map((t) => Math.pow(0.9, t / 1));
+  const yours = horizons.map((t) => retent(t, data.stability));
+
+  // SVG dimensions
+  const W = 320;
+  const H = 140;
+  const PAD = { top: 10, right: 10, bottom: 24, left: 28 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top - PAD.bottom;
+
+  const xScale = (i: number) => PAD.left + (i / (horizons.length - 1)) * innerW;
+  const yScale = (v: number) => PAD.top + (1 - v) * innerH;
+
+  const polylineFor = (values: number[]) =>
+    values.map((v, i) => `${xScale(i)},${yScale(v)}`).join(' ');
+
+  return (
+    <div className="card">
+      <h2 style={{ margin: '0 0 6px' }}>📉 Curva de retenção</h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 12px', fontSize: '0.85rem' }}
+      >
+        Probabilidade de você ainda lembrar uma questão em função do
+        tempo desde a última revisão. Sua stability média:{' '}
+        <strong>{data.stability} dia(s)</strong> · {data.intervals.length}{' '}
+        questões consolidadas.
+      </p>
+
+      <div
+        style={{
+          background: 'var(--bg-elev-2)',
+          borderRadius: 'var(--radius)',
+          padding: 12,
+          overflow: 'auto',
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height={H}
+          style={{ maxWidth: 480, display: 'block', margin: '0 auto' }}
+          role="img"
+          aria-label="Curva de retenção"
+        >
+          {/* Grid Y (0%, 50%, 90%, 100%) */}
+          {[0, 0.5, 0.9, 1].map((y) => (
+            <g key={y}>
+              <line
+                x1={PAD.left}
+                x2={W - PAD.right}
+                y1={yScale(y)}
+                y2={yScale(y)}
+                stroke="var(--border)"
+                strokeDasharray={y === 0.9 ? '0' : '2 3'}
+                strokeWidth={y === 0.9 ? 1.5 : 1}
+                opacity={y === 0.9 ? 0.6 : 0.35}
+              />
+              <text
+                x={PAD.left - 4}
+                y={yScale(y) + 3}
+                fontSize="9"
+                fill="var(--muted)"
+                textAnchor="end"
+              >
+                {Math.round(y * 100)}%
+              </text>
+            </g>
+          ))}
+
+          {/* X-axis labels */}
+          {horizons.map((t, i) => (
+            <text
+              key={t}
+              x={xScale(i)}
+              y={H - PAD.bottom + 14}
+              fontSize="9"
+              fill="var(--muted)"
+              textAnchor="middle"
+            >
+              {t}d
+            </text>
+          ))}
+
+          {/* Curva natural (esquecimento sem revisão) */}
+          <polyline
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="2"
+            strokeDasharray="3 3"
+            points={polylineFor(natural)}
+            opacity="0.7"
+          />
+
+          {/* Sua curva (com SRS) */}
+          <polyline
+            fill="none"
+            stroke="var(--primary)"
+            strokeWidth="2.5"
+            points={polylineFor(yours)}
+          />
+
+          {/* Pontos */}
+          {yours.map((v, i) => (
+            <circle
+              key={i}
+              cx={xScale(i)}
+              cy={yScale(v)}
+              r="3"
+              fill="var(--primary)"
+            />
+          ))}
+        </svg>
+
+        {/* Legenda */}
+        <div
+          className="row gap"
+          style={{
+            justifyContent: 'center',
+            marginTop: 10,
+            fontSize: '0.78rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ color: 'var(--primary)' }}>
+            ━ Você (S={data.stability}d)
+          </span>
+          <span style={{ color: '#ef4444' }}>━ ━ Sem revisão (Ebbinghaus)</span>
+        </div>
+      </div>
+
+      <p className="muted" style={{ fontSize: '0.78rem', marginTop: 10 }}>
+        Em <strong>{data.stability * 7}d</strong>, você ainda deve lembrar
+        ~{Math.round(retent(data.stability * 7, data.stability) * 100)}% das
+        questões consolidadas (sem revisar). Em <strong>30d</strong> sem
+        revisar nada, retenção cai pra ~
+        {Math.round(retent(30, data.stability) * 100)}%. SRS evita essa
+        queda agendando revisões antes de você esquecer.
+      </p>
+    </div>
+  );
 }
 
 /**

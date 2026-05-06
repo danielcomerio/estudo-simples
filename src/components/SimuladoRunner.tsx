@@ -13,6 +13,7 @@ import { confirmDialog } from './ConfirmDialog';
 import { renderRichText, shuffle } from '@/lib/utils';
 import { QuestionImages } from './QuestionImages';
 import { useSwipe } from '@/lib/use-swipe';
+import { acquireWakeLock } from '@/lib/wake-lock';
 import type {
   Alternativa,
   ObjetivaPayload,
@@ -34,6 +35,12 @@ export function SimuladoRunner({
   const [currentIdx, setCurrentIdx] = useState(0);
   const [showTimeUpDialog, setShowTimeUpDialog] = useState(false);
   const [now, setNow] = useState(Date.now());
+
+  // Wake Lock — simulado pode durar 1-3h, tela apagar é ruim demais
+  useEffect(() => {
+    const lock = acquireWakeLock();
+    return () => lock.release();
+  }, []);
   const questionStartRef = useRef(Date.now());
 
   // Lookup questão por id (filtra deletadas/inexistentes)

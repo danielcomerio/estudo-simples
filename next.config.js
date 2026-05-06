@@ -2,16 +2,17 @@
 
 // CSP estrita. Justificativas pra cada source:
 //  - script-src 'self' + 'unsafe-inline' pra runtime do Next (style/_next/static).
-//    'unsafe-eval' EVITADO — Next 14 production não precisa.
+//    'unsafe-eval' SÓ em dev (Next dev server usa eval pra HMR/React Refresh).
+//    Em produção fica fora — defesa contra XSS via injeção de eval.
 //  - connect-src: Supabase (domínio configurado por env), Stripe API (pra
-//    hosted Checkout / Customer Portal).
+//    hosted Checkout / Customer Portal). Em dev, ws://localhost pra HMR.
 //  - frame-src: Stripe Checkout/Customer Portal (iframes do Stripe Elements
 //    se forem usados no futuro).
 //  - img-src: 'self' + data: (KaTeX inline) + blob: (lightbox preview) +
 //    https: pra imagens de Supabase Storage.
 //  - object-src 'none': bloqueia <object>/<embed> (XSS vetor antigo).
 //  - frame-ancestors 'none': clickjacking impossível.
-//  - upgrade-insecure-requests: força HTTPS em sub-resources.
+//  - upgrade-insecure-requests: força HTTPS em sub-resources (skip em dev pra http://localhost).
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 let supabaseHost = '';
 let supabaseWs = '';
@@ -23,19 +24,30 @@ try {
   }
 } catch {}
 
+const isDev = process.env.NODE_ENV !== 'production';
+
+const scriptSrc = isDev
+  ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com`
+  : `script-src 'self' 'unsafe-inline' https://js.stripe.com`;
+
+const connectSrc = isDev
+  ? `connect-src 'self' ${supabaseHost} ${supabaseWs} https://api.stripe.com ws://localhost:* http://localhost:*`
+  : `connect-src 'self' ${supabaseHost} ${supabaseWs} https://api.stripe.com`;
+
 const csp = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' https://js.stripe.com`,
+  scriptSrc,
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob: https:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${supabaseHost} ${supabaseWs} https://api.stripe.com`,
+  connectSrc,
   `frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com https://billing.stripe.com`,
   `frame-ancestors 'none'`,
   `object-src 'none'`,
   `base-uri 'self'`,
   `form-action 'self' https://checkout.stripe.com https://billing.stripe.com`,
-  `upgrade-insecure-requests`,
+  // upgrade-insecure-requests só em prod — em dev quebra http://localhost
+  isDev ? '' : `upgrade-insecure-requests`,
 ]
   .filter(Boolean)
   .join('; ');

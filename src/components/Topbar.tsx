@@ -153,6 +153,76 @@ export function Topbar({
             </Link>
           );
         })}
+
+        {/* Drawer mobile: extras que ficam fora da topbar visível em
+            mobile (concurso, sair, criar conta) — só aparecem aqui
+            dentro do hamburger menu. Em desktop ficam escondidos. */}
+        <div className="topbar-mobile-drawer-extras">
+          <div className="topbar-mobile-divider" aria-hidden />
+          <div className="topbar-mobile-row">
+            <ActiveConcursoSelector />
+          </div>
+          {isGuest ? (
+            <div className="topbar-mobile-row">
+              <span style={{ color: 'var(--warn, #d97706)', fontWeight: 500 }}>
+                👤 Modo visitante
+              </span>
+              <Link
+                href="/signup"
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--primary)',
+                  color: 'var(--primary)',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                }}
+              >
+                Criar conta
+              </Link>
+              <form
+                action={async () => {
+                  logoutAndReset();
+                  await exitGuest();
+                }}
+              >
+                <button
+                  type="submit"
+                  className="ghost"
+                  style={{ padding: '8px 14px' }}
+                >
+                  ↪ Sair do modo visitante
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="topbar-mobile-row">
+              {email && (
+                <span
+                  style={{ color: 'var(--muted)', fontSize: '0.9rem' }}
+                  title={email}
+                >
+                  👤 {email}
+                </span>
+              )}
+              <form
+                action={async () => {
+                  logoutAndReset();
+                  await logout();
+                }}
+              >
+                <button
+                  type="submit"
+                  className="ghost"
+                  style={{ padding: '8px 14px' }}
+                >
+                  ↪ Sair
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
       </nav>
 
       <div className="right">
@@ -166,7 +236,9 @@ export function Topbar({
 
         <ThemeToggleQuick />
 
-        <ActiveConcursoSelector />
+        <span className="topbar-desktop-only">
+          <ActiveConcursoSelector />
+        </span>
 
         {!isGuest && (
           <button
@@ -180,6 +252,7 @@ export function Topbar({
           </button>
         )}
 
+        <div className="topbar-desktop-only" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
         {isGuest ? (
           <>
             <span
@@ -248,6 +321,7 @@ export function Topbar({
             </form>
           </>
         )}
+        </div>
       </div>
     </header>
   );

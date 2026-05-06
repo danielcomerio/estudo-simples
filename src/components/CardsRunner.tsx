@@ -24,6 +24,7 @@ import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { renderClozeHTML } from '@/lib/cloze';
 import { haptic } from '@/lib/haptic';
+import { acquireWakeLock } from '@/lib/wake-lock';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { toast } from './Toast';
@@ -112,6 +113,13 @@ export function CardsRunner() {
     const saved = loadPrefs<Partial<CardConfig>>('cards');
     if (saved) setCfgRaw((c) => ({ ...c, ...saved, disciplinas: [] }));
   }, []);
+
+  // Wake Lock: tela acesa durante sessão de cards
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const lock = acquireWakeLock();
+    return () => lock.release();
+  }, [phase]);
   const setCfg = (next: CardConfig | ((prev: CardConfig) => CardConfig)) => {
     setCfgRaw((prev) => {
       const resolved =
@@ -564,6 +572,12 @@ function CardView({
   const [revealed, setRevealed] = useState(0);
   const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const algorithm = useAlgorithm();
+  const { concurso: activeConcurso } = useActiveConcursoFilter();
+  const examDateMs = useMemo(() => {
+    if (!activeConcurso?.data_prova) return null;
+    const t = new Date(activeConcurso.data_prova).getTime();
+    return Number.isNaN(t) ? null : t;
+  }, [activeConcurso?.data_prova]);
 
   const totalBlanks = useMemo(() => {
     if (q.type !== 'cloze') return 1;
@@ -639,7 +653,7 @@ function CardView({
       prevStats: { ...q.stats },
     };
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-    applyReview(card, quality, algorithm);
+    applyReview(card, quality, algorithm, examDateMs);
 
     // Considera "correto" para stats se quality >= 3
     const isCorrect = quality >= 3;
@@ -811,7 +825,7 @@ function CardView({
         const preview = (quality: number) => {
           if (free) return '';
           const card = { srs: { ...q.srs } };
-          applyReview(card, quality, algorithm);
+          applyReview(card, quality, algorithm, examDateMs);
           const due = card.srs?.dueDate ?? Date.now();
           const dDays = Math.max(0, Math.round((due - Date.now()) / 86400000));
           if (dDays < 1) return '<1d';

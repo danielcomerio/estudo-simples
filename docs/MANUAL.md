@@ -43,16 +43,39 @@ Este documento é mantido junto com o código — sempre que algo muda, ele é a
 
 App é mobile-first. Diferenças notáveis em telas até 760px:
 
-- **Topbar simplificada**: hamburger + logo + concurso (só ícone) + tema + sair. Sync pill, install PWA, atalhos e nome do app ficam pro desktop.
+- **Topbar mínima**: hamburger + logo + tema. Concurso, "Sair", "Criar conta" e info de usuário moveram pro **drawer do hamburger** (clica no ☰ → menu vertical com tabs + extras).
 - **Bottom nav fixo**: 5 atalhos polegar-friendly (Painel · Banco · Estudar · Cards · Stats) com badge de pendências. Indicador visual abaixo da rota ativa.
 - **🎯 FAB (botão flutuante)**: sobre a barra inferior, em qualquer rota fora de sessão. Vai direto pra `/estudar` com 10 questões SRS automáticas. Badge vermelho mostra qtd vencendo.
 - **Pull-to-refresh** no `/banco`: arrasta pra baixo no topo da página → força sync manual.
+- **Banco-item vertical** em mobile: checkbox + conteúdo em cima, ações em row no fim com border dashed separando. Texto preview com line-clamp generoso, chips arredondados, tap-target 40px+.
 - **Alternativas tap-target generoso** (min 56px de altura) com letra circular maior, padding 14px e gap 10px. Layout otimizado pra centenas de questões sem fadiga.
 - **Rate row sticky** no fundo da tela depois de responder — botões De novo / Difícil / Bom / Fácil sempre alcançáveis com o polegar, sem rolagem.
 - **Confidence rating em 3 colunas** (33% cada, min 44px) também tap-friendly.
+- **Wake Lock** durante sessões: tela não apaga em /estudar, /cards, /discursivas, /simulado (Android Chrome 90+, iOS 16.4+).
 - **Haptic feedback**: vibração curta ao acertar, dois pulsos ao errar (Android — silencioso em iOS). Respeita `prefers-reduced-motion`.
 - **Sem double-tap zoom**: `touch-action: manipulation` mata o atraso de 300ms; pinch-zoom segue funcionando pra acessibilidade.
 - **Sem overflow horizontal**: `body { overflow-x: hidden }` impede que qualquer card largo crie scroll horizontal.
+
+### Geração de questões com IA (`/banco`)
+
+Botão **🤖 Gerar com IA** na aba Banco abre formulário com:
+
+- Disciplina (obrigatório), tipo (objetiva/discursiva/cloze/flashcard), banca (opcional), tema (opcional), quantidade (1-50), dificuldade (1-5), observações.
+- Gera prompt completo com **schema JSON do app embutido** (todas as regras: 5 alternativas, explicações por opção, formato exato).
+- Botão "📋 Copiar" + links pra abrir Claude/ChatGPT/Gemini direto (copia prompt no clipboard ao clicar).
+- Resposta da IA cola na área normal de import logo abaixo — wizard valida e dedupa antes de gravar.
+
+Sem chave de API, sem custo: usa as IAs gratuitas que o user já tem.
+
+### Pomodoro (configurável)
+
+Timer flutuante (canto inferior esquerdo). v2 com:
+
+- **Foco / pausa curta / pausa longa** todos configuráveis (clica ⚙ pra ajustar). Defaults 25/5/15min.
+- **Long break a cada N focos** (default 4). Ciclo automático: foco → pausa → foco → ... → após N, pausa longa → reset.
+- **Skip** (⏭) pula pra próxima fase.
+- **Barra de progresso** em baixo do timer.
+- Persiste em localStorage — sobrevive a refresh.
 
 ---
 
@@ -165,7 +188,8 @@ Configuração é persistida entre sessões.
 - Nota inline (ahá-momento): captura insight no exato momento da revelação.
 - Após responder: explicação + alternativa correta + mnemônico (se houver).
 - **Em caso de erro**: aparece um picker rápido pra marcar a *causa* do erro (🧠 não sabia, 🤦 atenção, 📖 leitura, ⏱ tempo, 🎩 pegadinha). Anota no histórico — agregado depois em /stats com tip por categoria.
-- Rate buttons mostram **preview do próximo intervalo SRS** (1d, 6d, 2mo).
+- Rate buttons mostram **preview do próximo intervalo SRS** (1d, 6d, 2mo). Cap por **exam date**: se há concurso ativo com data_prova e o intervalo passaria a prova, é capado pra `data_prova - 1d` (não agenda revisão pra depois da prova).
+- **Cognitive load mix**: pool nunca tem 3+ questões dificuldade≥4 consecutivas (exceto modo "dificuldade" explícito). Reordena automaticamente pra intercalar fácil/médio/difícil.
 
 ### Atalhos /estudar
 
@@ -259,6 +283,7 @@ Botão **📥 Exportar CSV** com 3 modos: questões agregadas, disciplinas agreg
 - **Calibração metacognitiva** (overconfidence/underconfidence baseada em confidence rating)
 - **Causas dos seus erros** (🧠 não sabia / 🤦 atenção / 📖 leitura / ⏱ tempo / 🎩 pegadinha) — distribuição agregada com tip de ação por categoria
 - **⚡ Níveis por disciplina** — XP por disciplina (acerto +10, sequência +12, self-pass +8) com barra de progresso até o próximo nível e badge colorido. Top 12 mostradas. Pura derivação do histórico, sem schema novo
+- **📉 Curva de retenção** — gráfico SVG mostrando R(t) = 0.9^(t/S) onde S é a stability média estimada das suas questões consolidadas. Compara com curva de Ebbinghaus (esquecimento sem revisão). Educa sobre o valor do SRS
 - **Simulados**: agregado + sparkline
 - **Desempenho por disciplina**
 

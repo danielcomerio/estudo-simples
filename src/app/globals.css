@@ -432,7 +432,11 @@ h4 {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.topbar-mobile-drawer-extras {
+  display: none;
+}
 @media (max-width: 759px) {
+  /* Em mobile, o brand TEXTO some — só logo + hamburger */
   .topbar-brand-text {
     display: none !important;
   }
@@ -443,27 +447,56 @@ h4 {
     display: none !important;
   }
   .topbar {
-    padding: 8px 10px;
+    padding: 8px 12px;
     gap: 4px;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between;
+  }
+  /* Topbar mobile compacta: hamburger esquerda · logo centro · tema direita */
+  .topbar .brand {
+    flex: 0 0 auto;
   }
   .topbar .right {
     gap: 4px;
     flex-wrap: nowrap;
-    overflow: hidden;
     min-width: 0;
+    flex: 0 0 auto;
   }
-  .topbar .right > button.ghost,
-  .topbar .right form button {
-    padding: 6px 10px !important;
-    font-size: 0.85rem;
+
+  /* Drawer mobile: ao abrir hamburger, mostra extras dentro do menu */
+  .topbar .tabs-open .topbar-mobile-drawer-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 8px;
   }
-  /* Concurso selector em mobile: só ícone + seta (esconde nome) */
-  .concurso-selector-label {
-    display: none;
+  .topbar-mobile-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0 2px;
   }
-  .concurso-selector-btn {
+  .topbar-mobile-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  .topbar-mobile-row .concurso-selector-label {
+    display: inline; /* dentro do drawer, mostra nome do concurso */
+  }
+  .topbar-mobile-row .concurso-selector-btn {
     max-width: none;
-    padding: 6px 8px;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 10px 12px;
+  }
+}
+/* Em desktop, esconde o drawer mobile fictício */
+@media (min-width: 760px) {
+  .topbar-mobile-drawer-extras {
+    display: none !important;
   }
 }
 .sync-pill.idle .dot {
@@ -1686,17 +1719,76 @@ label.check-row input {
     max-width: 100% !important;
     width: 100%;
   }
+  /* Mobile redesign: banco-item passa a ser layout vertical
+     (preview + meta + actions empilhados), com mais respiro entre items.
+     Tap targets maiores, sem texto comprimido. */
   .banco-item {
-    padding: 10px;
+    grid-template-columns: auto 1fr !important;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      'check content'
+      'actions actions';
+    padding: 14px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+  .banco-item > input[type='checkbox'] {
+    grid-area: check;
+    width: 22px !important;
+    height: 22px !important;
+    margin-top: 2px;
+  }
+  .banco-item > div:not(.actions) {
+    grid-area: content;
+  }
+  .banco-item .actions {
+    grid-area: actions;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    margin-top: 4px;
+  }
+  .banco-item .actions button {
+    padding: 8px 12px !important;
+    font-size: 0.85rem !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+  }
+  .banco-item .preview {
+    font-size: 0.95rem !important;
+    -webkit-line-clamp: 3 !important;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
   .banco-item .meta {
     font-size: 0.78rem;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .banco-item .meta span,
+  .banco-item .meta button {
+    padding: 3px 8px !important;
+    border-radius: 999px;
+    line-height: 1.4;
+  }
+  /* Em mobile, .compact ainda é compacto mas sem ficar minúsculo */
+  .banco-item.compact {
+    padding: 12px;
+  }
+  .banco-item.compact .preview {
+    -webkit-line-clamp: 2 !important;
+    font-size: 0.9rem !important;
   }
   /* Mais espaço entre items pra fácil tap */
   .banco-list {
-    gap: 6px !important;
-    /* Em mobile, lista NÃO tem scroll próprio: a página rola.
-       Scroll aninhado é confuso (qual rola, lista ou página?). */
+    gap: 10px !important;
+    /* Em mobile, lista NÃO tem scroll próprio: a página rola. */
     max-height: none !important;
     overflow-y: visible !important;
     padding-right: 0 !important;

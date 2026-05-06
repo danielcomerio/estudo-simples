@@ -17,9 +17,10 @@ import {
   matchActiveConcurso,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
-import { interleaveByGroup, renderRichText, shuffle, startOfDay } from '@/lib/utils';
+import { interleaveByGroup, mixDifficulty, renderRichText, shuffle, startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
 import { haptic } from '@/lib/haptic';
+import { acquireWakeLock, type WakeLockHandle } from '@/lib/wake-lock';
 import {
   clearSession as clearStoredSession,
   readSession,
@@ -173,7 +174,14 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
     pool = shuffle(pool);
   }
 
-  const truncated = pool.slice(0, Math.max(1, cfg.qtd));
+  let truncated = pool.slice(0, Math.max(1, cfg.qtd));
+
+  // Cognitive load: evita 3+ questões difíceis consecutivas (causa fadiga,
+  // pior retenção — cf. Sweller "cognitive load theory"). Pulado em modo
+  // 'dificuldade' (que explicitamente quer ordenar por dificuldade).
+  if (cfg.modo !== 'dificuldade') {
+    truncated = mixDifficulty(truncated, (q) => q.dificuldade ?? 3, 3);
+  }
 
   // Interleaving: aplicado APÓS sort + truncate. Mantém ordem relativa
   // dentro de cada disciplina (SRS continua priorizando vencidas dentro
@@ -209,6 +217,15 @@ export function QuestionRunner() {
 
   const [phase, setPhase] = useState<Phase>('config');
   const [cfg, setCfgRaw] = useState<SessionConfig>(defaultCfg);
+
+  // Wake Lock: tela acesa durante a sessão. Sem isso, mobile dorme em
+  // 30-60s e quebra o fluxo de leitura. Re-adquire ao voltar pro foco.
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const lock: WakeLockHandle = acquireWakeLock();
+    return () => lock.release();
+  }, [phase]);
+
   // Carrega prefs salvas no mount (mantém disciplinas vazio sempre — pra
   // evitar pickear disciplinas que não existem mais).
   useEffect(() => {
@@ -941,6 +958,14 @@ function RunningView({
   const update = (fn: (s: SessionState) => SessionState) =>
     setSession((cur) => (cur ? fn(cur) : cur));
   const algorithm = useAlgorithm();
+  const { concurso: activeConcurso } = useActiveConcursoFilter();
+  // Exam date densification: cap de intervalo SRS pra não agendar pra
+  // depois da prova. Só quando há concurso ativo com data_prova válida.
+  const examDateMs = useMemo(() => {
+    if (!activeConcurso?.data_prova) return null;
+    const t = new Date(activeConcurso.data_prova).getTime();
+    return Number.isNaN(t) ? null : t;
+  }, [activeConcurso?.data_prova]);
   const q = session.pool[session.idx];
   const payload = q.payload as ObjetivaPayload;
   const [answered, setAnswered] = useState(false);
@@ -1078,7 +1103,7 @@ function RunningView({
     // submit(). Útil pra revisão pré-prova sem interferir no schedule.
     if (!session.free) {
       const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-      applyReview(card, quality, algorithm);
+      applyReview(card, quality, algorithm, examDateMs);
       updateQuestionLocal(q.id, { srs: card.srs });
     }
     scheduleSync(800);
@@ -1548,7 +1573,7 @@ function RunningView({
         const preview = (quality: number) => {
           if (session.free) return null;
           const card = { srs: { ...q.srs } };
-          applyReview(card, quality, algorithm);
+          applyReview(card, quality, algorithm, examDateMs);
           const due = card.srs?.dueDate ?? Date.now();
           const dDays = Math.max(0, Math.round((due - Date.now()) / DAY_MS));
           if (dDays < 1) return '<1d';

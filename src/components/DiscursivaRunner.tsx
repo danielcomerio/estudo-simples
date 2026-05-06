@@ -23,6 +23,7 @@ import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
+import { acquireWakeLock } from '@/lib/wake-lock';
 import type {
   DiscSessionConfig,
   DiscursivaPayload,
@@ -81,6 +82,13 @@ export function DiscursivaRunner() {
     const saved = loadPrefs<Partial<DiscSessionConfig>>('discursivas');
     if (saved) setCfgRaw((c) => ({ ...c, ...saved, disciplinas: [] }));
   }, []);
+
+  // Wake Lock — discursivas requerem leitura longa, tela apagar é pior aqui
+  useEffect(() => {
+    if (phase !== 'running') return;
+    const lock = acquireWakeLock();
+    return () => lock.release();
+  }, [phase]);
   const setCfg = (
     next: DiscSessionConfig | ((p: DiscSessionConfig) => DiscSessionConfig)
   ) => {
@@ -363,6 +371,12 @@ function DiscRunningView({
   onQuit: () => void;
 }) {
   const algorithm = useAlgorithm();
+  const { concurso: activeConcurso } = useActiveConcursoFilter();
+  const examDateMs = useMemo(() => {
+    if (!activeConcurso?.data_prova) return null;
+    const t = new Date(activeConcurso.data_prova).getTime();
+    return Number.isNaN(t) ? null : t;
+  }, [activeConcurso?.data_prova]);
   const payload = q.payload as DiscursivaPayload;
   const enun =
     payload.enunciado_completo ||
@@ -478,7 +492,7 @@ function DiscRunningView({
     };
     setRated(true);
     const card: { srs: typeof q.srs } = { srs: { ...q.srs } };
-    applyReview(card, quality, algorithm);
+    applyReview(card, quality, algorithm, examDateMs);
     const newHistory = [
       ...(q.stats?.history || []).slice(-49),
       {
@@ -596,6 +610,7 @@ function DiscRunningView({
           <DiscReveal
             q={q}
             algorithm={algorithm}
+            examDateMs={examDateMs}
             payload={payload}
             quesitos={quesitos}
             grades={grades}
@@ -620,6 +635,7 @@ function DiscRunningView({
 function DiscReveal({
   q,
   algorithm,
+  examDateMs,
   payload,
   quesitos,
   grades,
@@ -631,6 +647,7 @@ function DiscReveal({
 }: {
   q: Question;
   algorithm: 'sm2' | 'fsrs';
+  examDateMs: number | null;
   payload: DiscursivaPayload;
   quesitos: Quesito[];
   grades: Record<number, number>;
@@ -774,7 +791,7 @@ function DiscReveal({
       {(() => {
         const preview = (quality: number) => {
           const card = { srs: { ...q.srs } };
-          applyReview(card, quality, algorithm);
+          applyReview(card, quality, algorithm, examDateMs);
           const due = card.srs?.dueDate ?? Date.now();
           const dDays = Math.max(0, Math.round((due - Date.now()) / 86400000));
           if (dDays < 1) return '<1d';
