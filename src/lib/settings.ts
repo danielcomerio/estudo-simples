@@ -23,6 +23,7 @@ const STORAGE_KEY_THEME = 'estudo-simples:settings:theme';
 const STORAGE_KEY_DAILY_GOAL = 'estudo-simples:settings:dailyGoal';
 const STORAGE_KEY_CVD = 'estudo-simples:settings:cvd';
 const STORAGE_KEY_FONT = 'estudo-simples:settings:fontSize';
+const STORAGE_KEY_HC = 'estudo-simples:settings:highContrast';
 
 const DAILY_GOAL_DEFAULT = 30;
 const DAILY_GOAL_MIN = 1;
@@ -338,6 +339,56 @@ export function useFontSize(): FontSize {
     };
   }, []);
   return size;
+}
+
+/**
+ * High contrast mode (acessibilidade). Aumenta contraste de bordas,
+ * texto e cores em todo o app. Útil pra users com baixa visão.
+ * Aplicado via class no body que sobrescreve --border, --text, etc.
+ */
+export function isHighContrast(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(STORAGE_KEY_HC) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setHighContrast(on: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_HC, on ? '1' : '0');
+  } catch {}
+  applyHighContrast(on);
+  notify();
+}
+
+export function applyHighContrast(on: boolean): void {
+  if (typeof document === 'undefined') return;
+  document.body.classList.toggle('high-contrast', on);
+}
+
+export function useHighContrast(): boolean {
+  const [on, setO] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      const v = isHighContrast();
+      setO(v);
+      applyHighContrast(v);
+    };
+    listeners.add(sync);
+    sync();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_HC) sync();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      listeners.delete(sync);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+  return on;
 }
 
 export function useDailyGoal(): number {

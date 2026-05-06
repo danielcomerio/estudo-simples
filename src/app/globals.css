@@ -2517,6 +2517,28 @@ body.font-xlarge {
   font-size: 20px;
 }
 
+/* High contrast mode — bordas mais fortes, texto puro, sem opacities
+   suaves. Útil pra users com baixa visão / luz forte. */
+body.high-contrast {
+  --border: var(--text-strong);
+  --border-strong: var(--text-strong);
+  --muted: var(--text);
+  --muted-2: var(--text);
+  --primary-soft: rgba(34, 197, 94, 0.3);
+}
+body.high-contrast .card,
+body.high-contrast input,
+body.high-contrast select,
+body.high-contrast textarea,
+body.high-contrast button {
+  border-width: 2px !important;
+}
+body.high-contrast .muted,
+body.high-contrast .stat-label,
+body.high-contrast .stat-sub {
+  color: var(--text) !important;
+}
+
 /* ============ Color Vision Deficiency (CVD) overrides ============
  * Acessibilidade: substitui verde/vermelho (~9% dos homens são CVD) por
  * azul/laranja (Wong palette + complementos) sem mudar valores

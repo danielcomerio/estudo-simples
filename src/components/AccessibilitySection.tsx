@@ -7,6 +7,8 @@ import {
   setFontSize,
   useFontSize,
   type FontSize,
+  setHighContrast,
+  useHighContrast,
 } from '@/lib/settings';
 
 const OPTIONS: { value: CvdMode; label: string; sub: string }[] = [
@@ -45,10 +47,32 @@ const FONT_OPTIONS: { value: FontSize; label: string; sub: string }[] = [
 export function AccessibilitySection() {
   const mode = useCvdMode();
   const font = useFontSize();
+  const hc = useHighContrast();
 
   return (
     <div className="card">
       <h2 style={{ margin: '0 0 6px' }}>♿ Acessibilidade</h2>
+
+      <h3 style={{ margin: '14px 0 6px', fontSize: '1rem' }}>
+        Alto contraste
+      </h3>
+      <p
+        className="muted"
+        style={{ margin: '0 0 10px', fontSize: '0.88rem' }}
+      >
+        Bordas mais fortes, texto puro, sem opacities suaves. Útil pra
+        baixa visão ou luz forte.
+      </p>
+      <div className="row gap" style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          className={hc ? 'primary' : 'ghost'}
+          onClick={() => setHighContrast(!hc)}
+          style={{ padding: '8px 14px' }}
+        >
+          {hc ? '✓ Alto contraste ativo' : '○ Ativar alto contraste'}
+        </button>
+      </div>
 
       <h3 style={{ margin: '14px 0 6px', fontSize: '1rem' }}>
         Tamanho de fonte
