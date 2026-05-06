@@ -19,6 +19,8 @@ const PUBLIC_PATHS = [
   // API routes do Stripe usam própria auth (signature/cookies). Webhook
   // recebe POST direto do Stripe sem nossa sessão.
   '/api/stripe/webhook',
+  // Health check sem auth (uptime monitoring)
+  '/api/health',
 ];
 
 export async function updateSession(request: NextRequest) {
