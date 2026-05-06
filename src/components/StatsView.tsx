@@ -2608,6 +2608,21 @@ function AprendizadoSection({
             2–3 acertos seguidos depois de erro. Reforçar antes de prova
             ajuda a fixar.
           </p>
+          {data.consolidando.length > 0 && (
+            <Link
+              href={`/estudar?modo=erros&qtd=${Math.min(15, data.consolidando.length)}&auto=1`}
+              style={{
+                display: 'inline-block',
+                marginTop: 8,
+                color: 'var(--primary)',
+                fontSize: '0.85rem',
+                textDecoration: 'none',
+                fontWeight: 500,
+              }}
+            >
+              ▶ Reforçar essas {Math.min(15, data.consolidando.length)} →
+            </Link>
+          )}
         </div>
       </div>
     </div>
