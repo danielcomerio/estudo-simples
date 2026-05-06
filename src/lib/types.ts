@@ -293,7 +293,8 @@ export type StudyMode =
   | 'erros'
   | 'novas'
   | 'inimigas'
-  | 'final-prova';
+  | 'final-prova'
+  | 'favoritas';
 
 export type SessionConfig = {
   disciplinas: string[];

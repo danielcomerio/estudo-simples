@@ -145,6 +145,30 @@ Dashboard inicial com um overview do estudo:
 
 Lista de todas as questões do usuário, com filtros, ordenações e ações em lote.
 
+### Favoritas
+
+Cada questão tem botão **⭐** no card pra marcar/desmarcar como favorita. Persistido em `payload.bookmarked`.
+
+- **Filtro**: chip ⭐ Favoritas no /banco mostra só marcadas. Pode usar prefixo `bookmark:1` no search também.
+- **Modo de sessão**: opção "⭐ Só favoritas" em /estudar.
+- **Bulk**: com seleção múltipla, botões ⭐ Favoritar / ☆ Desfavoritar aplicam em lote.
+
+### Performance: lazy mount em /stats
+
+A página /stats tem 20+ sections. Cada uma com `useMemo` pesado sobre `questions`. Pra evitar bloqueio inicial:
+
+- **PeriodoSnapshot** e **WeekdayDistribution** carregam imediato (above-the-fold).
+- Demais sections são wrapadas em `<LazyMount>` que monta children só quando 300px próximas do viewport (Intersection Observer).
+- Cada section reserva ~120px enquanto não monta — sem layout shift.
+
+Resultado: tempo até interactive em /stats reduzido significativamente.
+
+### Search history
+
+O input de busca do /banco lembra suas últimas 10 buscas (≥ 3 chars, descartando buscas só-prefixos). Ao focar o input vazio, dropdown mostra histórico — click insere.
+
+Botão "Limpar" remove todo o histórico.
+
 ### Quick filter chips
 
 Linha de chips no topo (atrasadas, hoje, novas, inimigas, dominadas) com counts. Click toggla o filtro.

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { LazyMount } from './LazyMount';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
@@ -173,52 +174,96 @@ export function StatsView() {
         />
       )}
 
+      {/* Sections acima da fold montam direto pra LCP rápido. */}
       <PeriodoSnapshot questions={questions} />
 
       <WeekdayDistributionSection questions={questions} />
 
-      <ErrorCausesSection questions={questions} />
+      {/* Sections abaixo são lazy-mounted: só renderizam quando próximas
+          do viewport. Reduz tempo até interactive em /stats com 20+
+          sections. Cada uma reserva ~140px enquanto não monta. */}
+      <LazyMount>
+        <ErrorCausesSection questions={questions} />
+      </LazyMount>
 
-      <SessionsLogSection />
+      <LazyMount>
+        <SessionsLogSection />
+      </LazyMount>
 
-      <SemanaSection questions={questions} />
+      <LazyMount>
+        <SemanaSection questions={questions} />
+      </LazyMount>
 
-      <HoraDoDiaSection questions={questions} />
+      <LazyMount>
+        <HoraDoDiaSection questions={questions} />
+      </LazyMount>
 
-      <ProgressaoSection questions={questions} />
+      <LazyMount>
+        <ProgressaoSection questions={questions} />
+      </LazyMount>
 
-      <TempoMedioSection questions={questions} />
+      <LazyMount>
+        <TempoMedioSection questions={questions} />
+      </LazyMount>
 
-      <DificuldadeSection questions={questions} />
+      <LazyMount>
+        <DificuldadeSection questions={questions} />
+      </LazyMount>
 
-      <NemesisSection questions={questions} />
+      <LazyMount>
+        <NemesisSection questions={questions} />
+      </LazyMount>
 
-      <AprendizadoSection questions={questions} />
+      <LazyMount>
+        <AprendizadoSection questions={questions} />
+      </LazyMount>
 
-      <DisciplinaXPSection
-        questions={questions}
-        allDisciplinas={allDisciplinas ?? []}
-      />
+      <LazyMount>
+        <DisciplinaXPSection
+          questions={questions}
+          allDisciplinas={allDisciplinas ?? []}
+        />
+      </LazyMount>
 
-      <ForgettingCurveSection questions={questions} />
+      <LazyMount>
+        <ForgettingCurveSection questions={questions} />
+      </LazyMount>
 
-      <CargaProximaSection questions={questions} />
+      <LazyMount>
+        <CargaProximaSection questions={questions} />
+      </LazyMount>
 
-      <OrigemDistSection questions={questions} />
+      <LazyMount>
+        <OrigemDistSection questions={questions} />
+      </LazyMount>
 
-      <TemasSection questions={questions} />
+      <LazyMount>
+        <TemasSection questions={questions} />
+      </LazyMount>
 
-      <BancasSection questions={questions} />
+      <LazyMount>
+        <BancasSection questions={questions} />
+      </LazyMount>
 
-      <TagsSection questions={questions} />
+      <LazyMount>
+        <TagsSection questions={questions} />
+      </LazyMount>
 
-      <TagRankingSection questions={questions} />
+      <LazyMount>
+        <TagRankingSection questions={questions} />
+      </LazyMount>
 
-      <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
+      <LazyMount>
+        <SimuladoStatsSection scopeDiscNomes={scopeDiscNomes} />
+      </LazyMount>
 
-      <CalibracaoSection questions={questions} />
+      <LazyMount>
+        <CalibracaoSection questions={questions} />
+      </LazyMount>
 
-      <ConcursosOverview />
+      <LazyMount>
+        <ConcursosOverview />
+      </LazyMount>
 
       <div className="card">
         <h2>Desempenho por disciplina</h2>

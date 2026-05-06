@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react';
 
 type ToastKind = 'success' | 'error' | 'warn' | '';
-type ToastItem = { id: number; msg: string; kind: ToastKind; ms: number };
+type ToastAction = { label: string; onClick: () => void };
+type ToastItem = {
+  id: number;
+  msg: string;
+  kind: ToastKind;
+  ms: number;
+  action?: ToastAction;
+};
 
 let counter = 0;
 const listeners = new Set<(t: ToastItem) => void>();
@@ -18,12 +25,19 @@ const DEFAULT_MS: Record<ToastKind, number> = {
   error: 8000,
 };
 
-export function toast(msg: string, kind: ToastKind = '', ms?: number) {
+export function toast(
+  msg: string,
+  kind: ToastKind = '',
+  ms?: number,
+  action?: ToastAction
+) {
   const item: ToastItem = {
     id: ++counter,
     msg,
     kind,
-    ms: ms ?? DEFAULT_MS[kind] ?? 3500,
+    // Toasts com ação ficam mais tempo (user precisa decidir)
+    ms: ms ?? (action ? 8000 : DEFAULT_MS[kind] ?? 3500),
+    action,
   };
   if (listeners.size === 0) {
     // Sem host montado — segura na fila e drena no primeiro listener
@@ -75,7 +89,34 @@ export function ToastHost() {
           title="Clique para dispensar"
           style={{ cursor: 'pointer' }}
         >
+          <span aria-hidden style={{ fontSize: '1.1em', flexShrink: 0 }}>
+            {iconFor(t.kind)}
+          </span>
           <span style={{ flex: 1 }}>{t.msg}</span>
+          {t.action && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                t.action!.onClick();
+                dismiss(t.id);
+              }}
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                border: '1px solid currentColor',
+                color: 'inherit',
+                padding: '3px 10px',
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: '0.85em',
+                cursor: 'pointer',
+                marginLeft: 8,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
           <span
             aria-hidden
             style={{
@@ -91,4 +132,11 @@ export function ToastHost() {
       ))}
     </div>
   );
+}
+
+function iconFor(kind: ToastKind): string {
+  if (kind === 'success') return '✓';
+  if (kind === 'error') return '⚠';
+  if (kind === 'warn') return '⚠';
+  return 'ℹ';
 }

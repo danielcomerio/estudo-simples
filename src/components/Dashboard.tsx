@@ -11,6 +11,7 @@ import { useDailyGoal } from '@/lib/settings';
 import { useActiveConcursoFilter } from '@/lib/hierarchy';
 import type { Question } from '@/lib/types';
 import { DailyQuests } from './DailyQuests';
+import { SmartSuggestions } from './SmartSuggestions';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 
@@ -79,6 +80,70 @@ export function Dashboard() {
   }, []);
   // Dia clicado no heatmap (modal de detalhes)
   const [heatmapDay, setHeatmapDay] = useState<number | null>(null);
+
+  // Confetti idempotente em PR de revisões/dia + streak milestones.
+  // CRÍTICO: hooks ficam ANTES dos early returns (regra do React).
+  // Calculam streak/PR inline em vez de depender de variáveis locais
+  // declaradas só depois do return condicional.
+  useEffect(() => {
+    if (!hydrated) return;
+    const today0 = startOfDay(Date.now());
+    // Conta revisões hoje + max histórico (excluindo hoje) + streak
+    const dayCounts = new Map<number, number>();
+    for (const q of questions) {
+      for (const h of q.stats?.history ?? []) {
+        const d = startOfDay(h.date);
+        dayCounts.set(d, (dayCounts.get(d) ?? 0) + 1);
+      }
+    }
+    const reviewsToday = dayCounts.get(today0) ?? 0;
+    let bestBefore = 0;
+    for (const [d, c] of dayCounts) {
+      if (d < today0 && c > bestBefore) bestBefore = c;
+    }
+    // PR celebration
+    if (reviewsToday > 0 && reviewsToday > bestBefore && bestBefore >= 5) {
+      const key =
+        'estudo-simples:pr-celebrated:' +
+        new Date(today0).toISOString().slice(0, 10);
+      try {
+        if (localStorage.getItem(key) !== '1') {
+          localStorage.setItem(key, '1');
+          triggerConfetti();
+        }
+      } catch {}
+    }
+    // Streak (consecutivos a partir de hoje pra trás, com freeze de 1 dia)
+    let s = 0;
+    let freeze = false;
+    let cur = reviewsToday > 0 ? today0 : today0 - DAY_MS;
+    for (let i = 0; i < 365; i++) {
+      const c = dayCounts.get(cur) ?? 0;
+      if (c > 0) {
+        s++;
+      } else if (!freeze) {
+        freeze = true;
+        s++;
+      } else {
+        break;
+      }
+      cur -= DAY_MS;
+    }
+    if (s >= 3) {
+      const milestones = [3, 7, 14, 30, 60, 90, 180, 365];
+      const reached = milestones.filter((m) => s >= m);
+      if (reached.length > 0) {
+        const top = reached[reached.length - 1];
+        const key = `estudo-simples:streak-celebrated:${top}`;
+        try {
+          if (localStorage.getItem(key) !== '1') {
+            localStorage.setItem(key, '1');
+            triggerConfetti();
+          }
+        } catch {}
+      }
+    }
+  }, [hydrated, questions]);
 
   // Mostra skeleton enquanto carrega o store local OU enquanto a
   // primeira sincronização com o servidor ainda não terminou — sem
@@ -251,34 +316,6 @@ export function Dashboard() {
   const prTodayCount =
     reviewsToday > 0 && reviewsToday > bestDayBefore && bestDayBefore >= 5;
 
-  // Dispara confetti uma vez por dia quando bate PR (idempotente via LS)
-  useEffect(() => {
-    if (!hydrated || !prTodayCount) return;
-    const key =
-      'estudo-simples:pr-celebrated:' +
-      new Date(startOfDay(Date.now())).toISOString().slice(0, 10);
-    try {
-      if (localStorage.getItem(key) === '1') return;
-      localStorage.setItem(key, '1');
-      triggerConfetti();
-    } catch {}
-  }, [hydrated, prTodayCount]);
-
-  // Confetti em milestones de streak (3, 7, 14, 30, 60, 90, 180, 365).
-  // Só dispara uma vez por milestone — usa LS pra idempotência.
-  useEffect(() => {
-    if (!hydrated || streak < 3) return;
-    const milestones = [3, 7, 14, 30, 60, 90, 180, 365];
-    const reached = milestones.filter((m) => streak >= m);
-    if (reached.length === 0) return;
-    const top = reached[reached.length - 1];
-    const key = `estudo-simples:streak-celebrated:${top}`;
-    try {
-      if (localStorage.getItem(key) === '1') return;
-      localStorage.setItem(key, '1');
-      triggerConfetti();
-    } catch {}
-  }, [hydrated, streak]);
   const goalPct = Math.min(100, Math.round((reviewsToday / dailyGoal) * 100));
   const goalReached = reviewsToday >= dailyGoal;
 
@@ -666,6 +703,8 @@ export function Dashboard() {
 
       {/* Missões diárias — derivadas do histórico do dia, sem state */}
       <DailyQuests questions={questions} dailyGoal={dailyGoal} />
+
+      <SmartSuggestions questions={questions} />
 
       {achievements.length > 0 && (
         <div className="card" style={{ padding: '12px 16px' }}>

@@ -95,6 +95,10 @@ function buildPool(all: Question[], cfg: SessionConfig): Question[] {
   const now = Date.now();
   if (cfg.modo === 'novas') {
     pool = pool.filter((q) => !q.srs?.lastReviewed);
+  } else if (cfg.modo === 'favoritas') {
+    pool = pool.filter(
+      (q) => (q.payload as Record<string, unknown>).bookmarked === true
+    );
   } else if (cfg.modo === 'erros') {
     pool = pool.filter((q) => {
       const h = q.stats?.history || [];
@@ -365,6 +369,15 @@ export function QuestionRunner() {
   };
 
   const objCount = useMemo(() => all.filter((q) => q.type === 'objetiva').length, [all]);
+  const favCount = useMemo(
+    () =>
+      all.filter(
+        (q) =>
+          q.type === 'objetiva' &&
+          (q.payload as Record<string, unknown>).bookmarked === true
+      ).length,
+    [all]
+  );
 
   // Query params: ?modo=srs&qtd=10&auto=1 → preset + auto-start
   // Útil pros quick actions do Painel. Também ?qid=ID pra estudar
@@ -429,6 +442,7 @@ export function QuestionRunner() {
       'erros',
       'novas',
       'inimigas',
+      'favoritas',
       'final-prova',
     ];
     const newCfg: SessionConfig = { ...cfg };
@@ -707,6 +721,18 @@ export function QuestionRunner() {
               <span className="qs-label">Pré-prova</span>
               <span className="qs-sub">30 mistas</span>
             </button>
+            {favCount > 0 && (
+              <button
+                type="button"
+                className="quick-start-btn"
+                onClick={() => quickStart('favoritas', Math.min(favCount, 20))}
+                title={`${favCount} questão(ões) marcadas com ⭐`}
+              >
+                <span className="qs-emoji">⭐</span>
+                <span className="qs-label">Favoritas</span>
+                <span className="qs-sub">{favCount} marcadas</span>
+              </button>
+            )}
           </div>
           <p
             className="muted"
@@ -828,6 +854,7 @@ export function QuestionRunner() {
             <option value="erros">Só as que errei recentemente</option>
             <option value="inimigas">⚔ Inimigas (≥3 tentativas, &lt;30% acerto)</option>
             <option value="novas">Só novas (nunca vistas)</option>
+            <option value="favoritas">⭐ Só favoritas (marcadas com ⭐)</option>
             <option value="final-prova">🎓 Revisão pré-prova (mistura SRS + inimigas + recém-aprendidas)</option>
           </select>
         </label>

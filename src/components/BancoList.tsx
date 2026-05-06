@@ -29,6 +29,10 @@ import { QuestionCreateDrawer } from './QuestionCreateDrawer';
 import { VoiceSearchButton } from './VoiceSearchButton';
 import { QuestionQuickActions } from './QuestionQuickActions';
 import { useLongPress } from '@/lib/use-long-press';
+import { BookmarkButton } from './BookmarkButton';
+import { SearchHistoryDropdown } from './SearchHistoryDropdown';
+import { saveSearchHistory } from '@/lib/search-history';
+import { BancoItemSkeleton } from './BancoItemSkeleton';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
@@ -282,6 +286,16 @@ export function BancoList() {
   const [focusedIdx, setFocusedIdx] = useState(-1);
   // Long-press no /banco mobile abre menu rápido de ações
   const [quickActionsQ, setQuickActionsQ] = useState<Question | null>(null);
+  // Search history: salva 1.5s após user parar de digitar (debounce)
+  const [searchHistoryRefresh, setSearchHistoryRefresh] = useState(0);
+  useEffect(() => {
+    if (!search.trim()) return;
+    const t = setTimeout(() => {
+      saveSearchHistory(search);
+      setSearchHistoryRefresh((n) => n + 1);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [search]);
   const longPress = useLongPress((target) => {
     const id = target.getAttribute('data-banco-qid');
     if (!id) return;
@@ -321,6 +335,7 @@ export function BancoList() {
     const bancaFilters: string[] = [];
     const idFilters: string[] = [];
     let dueWithinDays: number | null = null; // due:7d → 7
+    let onlyBookmarked = false;
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
@@ -332,6 +347,8 @@ export function BancoList() {
         const v = lower.slice(4);
         const m = /^(\d+)d?$/.exec(v);
         if (m) dueWithinDays = parseInt(m[1], 10);
+      } else if (lower === 'bookmark:1' || lower === 'fav:1' || lower === '⭐') {
+        onlyBookmarked = true;
       } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
@@ -343,6 +360,10 @@ export function BancoList() {
       if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
+      if (onlyBookmarked) {
+        const p = q.payload as Record<string, unknown>;
+        if (p.bookmarked !== true) return false;
+      }
       // id:XYZ filtra a questão específica
       if (idFilters.length > 0) {
         if (!idFilters.some((id) => q.id.startsWith(id))) return false;
@@ -572,10 +593,25 @@ export function BancoList() {
       danger: true,
     });
     if (!ok) return;
-    deleteQuestionsBulk(Array.from(selected));
+    const ids = Array.from(selected);
+    deleteQuestionsBulk(ids);
     setSelected(new Set());
     scheduleSync(500);
-    toast('Selecionadas excluídas.', 'success');
+    toast(
+      `${ids.length} excluída(s).`,
+      'success',
+      8000,
+      {
+        label: 'Desfazer',
+        onClick: () => {
+          for (const id of ids) {
+            updateQuestionLocal(id, { deleted_at: null });
+          }
+          scheduleSync(500);
+          toast(`${ids.length} restaurada(s).`, 'success');
+        },
+      }
+    );
   };
 
   const bulkAddTags = async (tagsRaw: string) => {
@@ -705,6 +741,30 @@ export function BancoList() {
     setSelected(new Set());
     scheduleSync(500);
     toast(`${selected.size} marcada(s) como ${label}.`, 'success');
+  };
+
+  const bulkSetBookmark = async (bookmarked: boolean) => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const label = bookmarked ? 'favoritar' : 'desfavoritar';
+    const ok = await confirmDialog({
+      title: bookmarked ? 'Favoritar em lote' : 'Desfavoritar em lote',
+      message: `${bookmarked ? 'Marcar' : 'Desmarcar'} ${selected.size} questão(ões) como favorita?`,
+    });
+    if (!ok) return;
+    for (const id of selected) {
+      updateQuestionLocal(id, (q) => ({
+        payload: {
+          ...(q.payload as Record<string, unknown>),
+          bookmarked,
+        },
+      }));
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`${selected.size} ${label}.`, 'success');
   };
 
   const bulkResetSrs = async () => {
@@ -1168,7 +1228,9 @@ export function BancoList() {
         let cInimigas = 0;
         let cDominadas = 0;
         let cNovas = 0;
+        let cFavoritas = 0;
         for (const q of questions) {
+          if ((q.payload as Record<string, unknown>).bookmarked === true) cFavoritas++;
           const due = q.srs?.dueDate ?? 0;
           if (due < startOfDay(nowMs)) cAtrasadas++;
           else if (due < tomorrow0) cHoje++;
@@ -1198,6 +1260,7 @@ export function BancoList() {
           { key: 'inimigas', label: '⚔ Inimigas', n: cInimigas, color: 'var(--danger)' },
           { key: 'dominadas', label: '🏆 Dominadas', n: cDominadas },
         ];
+        const favActive = search.toLowerCase().includes('bookmark:1');
         return (
           <div
             className="row gap wrap"
@@ -1229,6 +1292,39 @@ export function BancoList() {
                 </button>
               );
             })}
+            {(cFavoritas > 0 || favActive) && (
+              <button
+                type="button"
+                className="chip"
+                onClick={() => {
+                  if (favActive) {
+                    // Remove bookmark:1 da query
+                    const next = search
+                      .split(/\s+/)
+                      .filter((tok) => tok.toLowerCase() !== 'bookmark:1')
+                      .join(' ')
+                      .trim();
+                    setSearch(next);
+                  } else {
+                    setSearch((search ? search + ' ' : '') + 'bookmark:1');
+                  }
+                }}
+                title={
+                  favActive
+                    ? 'Remover filtro de favoritas'
+                    : 'Mostrar só questões marcadas com ⭐'
+                }
+                style={{
+                  cursor: 'pointer',
+                  background: favActive ? 'var(--primary-soft)' : undefined,
+                  borderColor: favActive ? 'var(--primary)' : undefined,
+                  color: favActive ? 'var(--primary)' : '#facc15',
+                  fontWeight: favActive ? 600 : undefined,
+                }}
+              >
+                ⭐ Favoritas <strong>· {cFavoritas}</strong>
+              </button>
+            )}
           </div>
         );
       })()}
@@ -1270,18 +1366,28 @@ export function BancoList() {
             gap: 4,
             flex: '1 1 auto',
             maxWidth: 360,
+            position: 'relative',
           }}
         >
           <input
             ref={searchRef}
             type="search"
-            placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d"
+            placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d bookmark:1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, minWidth: 0 }}
-            title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
+            title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · bookmark:1 (favoritas) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
           />
           <VoiceSearchButton onTranscript={(t) => setSearch(t)} />
+          <SearchHistoryDropdown
+            inputRef={searchRef}
+            currentValue={search}
+            onPick={(entry) => {
+              setSearch(entry);
+              searchRef.current?.focus();
+            }}
+            refreshKey={searchHistoryRefresh}
+          />
         </div>
         <select value={disc} onChange={(e) => setDisc(e.target.value)}>
           <option value="">Todas as disciplinas</option>
@@ -1498,6 +1604,22 @@ export function BancoList() {
           onAdd={bulkAddTags}
           onRemove={bulkRemoveTags}
         />
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => void bulkSetBookmark(true)}
+          title="Favoritar selecionadas"
+        >
+          ⭐ Favoritar
+        </button>
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => void bulkSetBookmark(false)}
+          title="Desfavoritar selecionadas"
+        >
+          ☆ Desfavoritar
+        </button>
         <BulkConcursoMenu
           disabled={selected.size === 0}
           onPick={bulkSetConcurso}
@@ -1606,12 +1728,12 @@ export function BancoList() {
 
       <div className="banco-list">
         {!hydrated || firstSyncInFlight || (!emptyAllowed && questions.length === 0) ? (
-          <div className="empty">
-            <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
-            <div className="skeleton" style={{ height: 60, marginBottom: 8 }} />
-            <div className="skeleton" style={{ height: 60 }} />
-            <p className="muted" style={{ marginTop: 14 }}>Carregando suas questões…</p>
-          </div>
+          <>
+            <BancoItemSkeleton rows={5} />
+            <p className="muted" style={{ marginTop: 14, textAlign: 'center' }}>
+              Carregando suas questões…
+            </p>
+          </>
         ) : filtered.length === 0 ? (
           <div className="empty">
             <div className="big">∅</div>
@@ -1677,6 +1799,7 @@ export function BancoList() {
                     }}
                   />
                   <div className="meta">
+                    <BookmarkButton question={q} size="small" />
                     {q.origem === 'real' && (
                       <span
                         title={`Questão real: ${q.fonte?.banca ?? '?'} ${q.fonte?.ano ?? ''} ${q.fonte?.orgao ?? ''}`}

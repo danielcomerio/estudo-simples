@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from './Toast';
 import { confirmDialog } from './ConfirmDialog';
-import { deleteQuestionLocal } from '@/lib/store';
+import { deleteQuestionLocal, updateQuestionLocal } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import type { Question } from '@/lib/types';
 
@@ -66,9 +66,17 @@ export function QuestionQuickActions({
       danger: true,
     });
     if (!ok) return;
-    deleteQuestionLocal(question.id);
+    const id = question.id;
+    deleteQuestionLocal(id);
     scheduleSync(800);
-    toast('Questão excluída', 'success');
+    toast('Questão excluída', 'success', 8000, {
+      label: 'Desfazer',
+      onClick: () => {
+        updateQuestionLocal(id, { deleted_at: null });
+        scheduleSync(500);
+        toast('Restaurada', 'success');
+      },
+    });
     onClose();
   };
 
