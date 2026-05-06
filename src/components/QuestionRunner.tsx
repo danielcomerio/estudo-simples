@@ -1290,6 +1290,32 @@ function RunningView({
     next();
   };
 
+  // Snooze: adia revisão em 1h sem aplicar SRS normal. Útil quando
+  // user respondeu mas quer rever a questão "logo mais" sem afetar
+  // o schedule longo-prazo. Stats já foram contabilizadas em submit().
+  const HOUR_MS = 60 * 60 * 1000;
+  const snooze = () => {
+    if (ratedRef.current) return;
+    ratedRef.current = true;
+    haptic('select');
+    updateQuestionLocal(q.id, (cur) => ({
+      srs: {
+        ...(cur.srs ?? {
+          easeFactor: 2.5,
+          interval: 0,
+          repetitions: 0,
+          dueDate: 0,
+          lastReviewed: null,
+        }),
+        dueDate: Date.now() + HOUR_MS,
+        lastReviewed: Date.now(),
+      },
+    }));
+    scheduleSync(800);
+    toast('💤 Adiada por 1h', '', 1500);
+    next();
+  };
+
   // Atalhos de teclado
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1345,6 +1371,12 @@ function RunningView({
         else if (e.key === '2') rate(3);
         else if (e.key === '3' || e.key === 'Enter' || e.key === ' ') rate(4);
         else if (e.key === '4') rate(5);
+        else if (e.key === 's' || e.key === 'S') {
+          if (!session.free) {
+            e.preventDefault();
+            snooze();
+          }
+        }
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1746,6 +1778,16 @@ function RunningView({
             title="Pular — não conta como tentativa nem erro"
           >
             Pular<span className="kbd-hint-only"> (Tab)</span>
+          </button>
+        )}
+        {answered && !session.free && (
+          <button
+            type="button"
+            className="ghost"
+            onClick={snooze}
+            title="Adiar 1h — questão volta a aparecer em 1 hora sem aplicar SRS normal"
+          >
+            💤 Adiar 1h<span className="kbd-hint-only"> (S)</span>
           </button>
         )}
       </div>
