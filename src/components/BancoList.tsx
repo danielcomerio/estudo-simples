@@ -33,6 +33,7 @@ import { BookmarkButton } from './BookmarkButton';
 import { SearchHistoryDropdown } from './SearchHistoryDropdown';
 import { saveSearchHistory } from '@/lib/search-history';
 import { BancoItemSkeleton } from './BancoItemSkeleton';
+import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
 import { toast } from './Toast';
@@ -334,6 +335,7 @@ export function BancoList() {
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [tagMergeOpen, setTagMergeOpen] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const editingQuestion = useMemo(
     () => (editingId ? questions.find((q) => q.id === editingId) ?? null : null),
@@ -1641,6 +1643,14 @@ export function BancoList() {
         </button>
         <button
           type="button"
+          onClick={() => setTagMergeOpen(true)}
+          disabled={questions.length === 0}
+          title="Renomear ou unificar tags em massa"
+        >
+          🏷 Mesclar tags
+        </button>
+        <button
+          type="button"
           onClick={() => {
             // Decide pra onde mandar com base no tipo dominante.
             // Se selecionou: usa selecionadas; senão: filtradas (até 200).
@@ -1819,6 +1829,10 @@ export function BancoList() {
 
       {creating && (
         <QuestionCreateDrawer onClose={() => setCreating(false)} />
+      )}
+
+      {tagMergeOpen && (
+        <TagMergeDialog onClose={() => setTagMergeOpen(false)} />
       )}
 
       {browsing && sorted.length > 0 && (
