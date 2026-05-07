@@ -1,0 +1,11 @@
+begin;
+drop policy if exists "qc_owner_or_author_delete" on public.question_comments;
+drop policy if exists "qc_own_update" on public.question_comments;
+drop policy if exists "qc_own_insert" on public.question_comments;
+drop policy if exists "qc_public_select" on public.question_comments;
+drop trigger if exists qc_set_updated_at on public.question_comments;
+drop function if exists public.qc_set_updated_at();
+drop index if exists public.qc_author_idx;
+drop index if exists public.qc_question_idx;
+drop table if exists public.question_comments;
+commit;
