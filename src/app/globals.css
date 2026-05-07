@@ -714,6 +714,14 @@ h4 {
     opacity: 0.4;
   }
 }
+@keyframes pulse-danger {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--danger-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
 .skip-link {
   position: absolute;
   left: -9999px;

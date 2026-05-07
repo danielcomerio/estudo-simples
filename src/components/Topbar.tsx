@@ -15,6 +15,7 @@ import { ActiveConcursoSelector } from './ActiveConcursoSelector';
 import { InstallPWAButton } from './InstallPWAButton';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { StreakBadge } from './StreakBadge';
+import { ConcursoCountdown } from './ConcursoCountdown';
 import { BrandLogo } from './BrandLogo';
 
 const TABS = [
@@ -295,6 +296,8 @@ export function Topbar({
             Min-height comum (definido no globals.css) garante alturas
             visualmente alinhadas. */}
         <StreakBadge />
+
+        <ConcursoCountdown />
 
         <span className="topbar-desktop-only">
           <InstallPWAButton />
