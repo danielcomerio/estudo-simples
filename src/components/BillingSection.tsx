@@ -3,18 +3,34 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMyPlan } from '@/lib/use-plan';
-import { isPaid, planLabel } from '@/lib/billing';
+import {
+  canManageSubscription,
+  isMaster,
+  isPaid,
+  planLabel,
+} from '@/lib/billing';
 import { toast } from './Toast';
 
 /**
  * Seção de assinatura em /configuracoes. Mostra plano atual + atalho
  * pra Customer Portal (Stripe) onde user gerencia (cancelar, atualizar
  * cartão, ver faturas).
+ *
+ * Casos cobertos:
+ *  - free: CTA "Ver planos".
+ *  - master: badge especial + nota "gerenciamento manual" (não tem
+ *    Stripe customer).
+ *  - pro/estudante COM customer Stripe: botão "Gerenciar".
+ *  - pro/estudante SEM customer (webhook ainda não rolou): mensagem
+ *    "Aguardando confirmação… recarregue em alguns segundos". Antes
+ *    aparecia botão que dava 400 e toast contraditório "sem permissão".
  */
 export function BillingSection() {
   const { plan, loading } = useMyPlan();
   const [opening, setOpening] = useState(false);
   const paid = isPaid(plan);
+  const master = isMaster(plan);
+  const canManage = canManageSubscription(plan);
   const planName = plan ? planLabel(plan.plan) : 'Grátis';
 
   if (loading) {
@@ -32,12 +48,14 @@ export function BillingSection() {
       const res = await fetch('/api/stripe/portal', { method: 'POST' });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.url) {
-        toast(
-          json?.error === 'no_subscription'
-            ? 'Você ainda não tem assinatura Pro pra gerenciar.'
-            : 'Erro abrindo portal. Tente de novo.',
-          'error'
-        );
+        const errCode = (json as { error?: string } | null)?.error;
+        const msg =
+          errCode === 'no_subscription'
+            ? 'Sua assinatura ainda não foi vinculada ao Stripe. Aguarde alguns segundos e recarregue a página — o webhook deve sincronizar logo.'
+            : errCode === 'unauthenticated'
+              ? 'Sessão expirada. Faça login novamente.'
+              : 'Erro abrindo portal. Tente de novo em instantes.';
+        toast(msg, 'error', 6000);
         setOpening(false);
         return;
       }
@@ -86,12 +104,44 @@ export function BillingSection() {
             </div>
           )}
         </div>
-        <div className="row gap">
-          {paid ? (
-            <button type="button" onClick={openPortal} disabled={opening}>
+        <div className="row gap" style={{ alignItems: 'center' }}>
+          {master && (
+            <span
+              className="muted"
+              style={{
+                fontSize: '0.82rem',
+                fontStyle: 'italic',
+                maxWidth: 280,
+                textAlign: 'right',
+              }}
+            >
+              Conta operacional — gerenciada manualmente, sem assinatura Stripe.
+            </span>
+          )}
+          {!master && canManage && (
+            <button
+              type="button"
+              onClick={openPortal}
+              disabled={opening}
+              aria-label="Abrir portal de gerenciamento de assinatura"
+            >
               {opening ? 'Carregando…' : '⚙ Gerenciar assinatura'}
             </button>
-          ) : (
+          )}
+          {!master && paid && !canManage && (
+            <span
+              className="muted"
+              style={{
+                fontSize: '0.82rem',
+                maxWidth: 280,
+                textAlign: 'right',
+              }}
+            >
+              Aguardando confirmação do pagamento. Recarregue a página em
+              instantes.
+            </span>
+          )}
+          {!paid && (
             <Link href="/planos">
               <button type="button" className="primary">
                 Ver planos →
