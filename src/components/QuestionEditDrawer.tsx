@@ -28,6 +28,7 @@ import { toast } from './Toast';
 import { QuestionTimeline } from './QuestionTimeline';
 import { QuestionComments } from './QuestionComments';
 import { QuestionChatPanel } from './QuestionChatPanel';
+import { AIRewriteButton } from './AIRewriteButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -629,7 +630,7 @@ export function QuestionEditDrawer({
             display: 'flex',
             flexDirection: 'column',
             gap: 6,
-            marginBottom: 14,
+            marginBottom: 4,
           }}
         >
           <span style={{ fontSize: '0.85rem' }}>Enunciado *</span>
@@ -640,6 +641,13 @@ export function QuestionEditDrawer({
             maxLength={50_000}
           />
         </label>
+        <div style={{ marginBottom: 14 }}>
+          <AIRewriteButton
+            originalText={enun}
+            banca={banca}
+            onApply={(t) => setEnun(t)}
+          />
+        </div>
 
         {/* Específico por tipo */}
         {question.type === 'objetiva' ? (
