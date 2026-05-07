@@ -74,6 +74,23 @@ export function Topbar({
     setMobileOpen(false);
   }, [pathname]);
 
+  // Bloqueia scroll do body quando drawer mobile aberto. Antes scroll
+  // do background "vazava" e o conteúdo principal podia sobrepor visualmente
+  // o drawer (z-index intermediário). Lock garante que só o drawer scrolla.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (mobileOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      // Marker pra CSS poder ajustar coisas relacionadas
+      document.body.classList.add('drawer-open');
+      return () => {
+        document.body.style.overflow = original;
+        document.body.classList.remove('drawer-open');
+      };
+    }
+  }, [mobileOpen]);
+
   // Click-outside fecha menu mobile
   useEffect(() => {
     if (!mobileOpen) return;
