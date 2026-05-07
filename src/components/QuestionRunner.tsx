@@ -25,6 +25,7 @@ import { playSound } from '@/lib/sounds';
 import { acquireWakeLock, type WakeLockHandle } from '@/lib/wake-lock';
 import { triggerConfetti } from './ConfettiHost';
 import { triggerXP } from './XPToast';
+import { prefetchUpcoming } from '@/lib/prefetch-images';
 import { DidYouKnowTip } from './DidYouKnowTip';
 import {
   clearSession as clearStoredSession,
@@ -1130,7 +1131,9 @@ function RunningView({
     setRevealed(!session.activeRecall);
     startedAtRef.current = Date.now();
     ratedRef.current = false;
-  }, [q.id, session.tempoLimite, session.activeRecall]);
+    // Prefetch das próximas 3 questões (imagens)
+    prefetchUpcoming(session.pool, session.idx);
+  }, [q.id, session.tempoLimite, session.activeRecall, session.pool, session.idx]);
 
   // Timer — não roda enquanto active recall está escondendo as
   // alternativas (sem opção visível, contagem regressiva é injusta).
