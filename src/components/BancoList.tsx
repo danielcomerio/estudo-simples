@@ -943,8 +943,18 @@ export function BancoList() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       const inField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-      // / sempre foca a busca
+      // / sempre foca a busca da app
       if (e.key === '/' && !inField) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      // Ctrl+F / Cmd+F: intercepta find-in-page do browser e foca a
+      // busca da app (que filtra de verdade pelo enunciado/tags/disc).
+      // Mais útil aqui — find-in-page só vê o que está visualmente
+      // renderizado (paginação esconde a maioria das questões).
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         searchRef.current?.focus();
         searchRef.current?.select();
@@ -1701,6 +1711,10 @@ export function BancoList() {
           selectedIds={selected}
           onApplied={() => setSelected(new Set())}
         />
+        {/* Compartilhar: posicionado cedo pra não perder no wrap em
+            telas estreitas, e antes do destrutivo "Excluir" pra evitar
+            cliques acidentais. */}
+        <ShareDeckButton selectedIds={selected} />
         <button type="button" className="danger" onClick={deleteSelected}>
           Excluir selecionadas
         </button>
@@ -1737,7 +1751,6 @@ export function BancoList() {
           disabled={selected.size === 0}
           onPick={bulkSetConcurso}
         />
-        <ShareDeckButton selectedIds={selected} />
         <button
           type="button"
           disabled={selected.size === 0}
@@ -1899,12 +1912,23 @@ export function BancoList() {
                   setFocusedIdx(i);
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selected.has(q.id)}
-                  onChange={() => toggle(q.id)}
-                  aria-label="Selecionar"
-                />
+                {/* Hitbox aumentada via label wrapper: o user clica em
+                    qualquer pixel da área 32x32 e o checkbox dispara.
+                    Antes o checkbox 13×13 nativo era difícil de acertar,
+                    especialmente porque o item se move quando a lista
+                    re-renderiza. stopPropagation evita que o click
+                    propague pro onClick do item (que move focus). */}
+                <label
+                  className="banco-checkbox-hitbox"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`Selecionar questão ${i + 1}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(q.id)}
+                    onChange={() => toggle(q.id)}
+                  />
+                </label>
                 <div>
                   <div
                     className="preview"

@@ -189,11 +189,58 @@ export function PlanosCheckout() {
             <Feat>Stats básicas</Feat>
             <Feat>Backup local + restore</Feat>
           </ul>
-          <Link href="/signup">
-            <button type="button" style={{ width: '100%', padding: '12px' }}>
-              Criar conta grátis
-            </button>
-          </Link>
+          {/* Pra usuários logados, "Criar conta grátis" não faz sentido.
+              Cada estado tem um botão coerente:
+              - free logado: "Plano atual ✓" disabled
+              - estudante/pro logado: "Manter no Grátis" → portal pra
+                cancelar (Stripe gerencia downgrade)
+              - master: "Conta operacional" disabled
+              - anon (não-logado): "Criar conta grátis" original */}
+          {(() => {
+            if (master) {
+              return (
+                <button
+                  type="button"
+                  disabled
+                  style={{ width: '100%', padding: '12px' }}
+                >
+                  👑 Conta Master
+                </button>
+              );
+            }
+            if (currentPlan === 'free') {
+              return (
+                <button
+                  type="button"
+                  disabled
+                  style={{ width: '100%', padding: '12px' }}
+                >
+                  ✓ Plano atual
+                </button>
+              );
+            }
+            if (isActive && (currentPlan === 'estudante' || currentPlan === 'pro')) {
+              return (
+                <button
+                  type="button"
+                  onClick={openPortal}
+                  disabled={loading !== null}
+                  style={{ width: '100%', padding: '12px' }}
+                  title="Cancelar assinatura paga via portal Stripe"
+                >
+                  {loading === 'portal' ? 'Abrindo…' : 'Cancelar pra Grátis'}
+                </button>
+              );
+            }
+            // Anon (sem plan carregado) — flow normal de signup
+            return (
+              <Link href="/signup">
+                <button type="button" style={{ width: '100%', padding: '12px' }}>
+                  Criar conta grátis
+                </button>
+              </Link>
+            );
+          })()}
         </div>
 
         {/* Estudante */}

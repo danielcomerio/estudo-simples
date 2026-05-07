@@ -77,12 +77,17 @@ export function BillingSection() {
           <div style={{ fontSize: '0.92rem' }}>
             Plano atual:{' '}
             <strong style={{ color: paid ? 'var(--primary)' : undefined }}>
-              {plan?.subscription_status === 'trialing'
+              {/* Master ignora subscription_status (histórico Stripe não
+                  é fonte de verdade pra master). Pro/Estudante mostra
+                  badge de trial se aplicável. */}
+              {!master && plan?.subscription_status === 'trialing'
                 ? `🎁 ${planName} (trial)`
                 : planName}
             </strong>
           </div>
-          {plan?.subscription_status && (
+          {/* Bloco de status: SÓ pra Pro/Estudante. Master tem campos
+              Stripe legados que não devem aparecer. Free não tem nada. */}
+          {!master && plan?.subscription_status && (
             <div className="muted" style={{ fontSize: '0.82rem', marginTop: 2 }}>
               {plan.subscription_status === 'trialing' && plan.current_period_end ? (
                 <>

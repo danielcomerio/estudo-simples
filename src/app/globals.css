@@ -1292,9 +1292,31 @@ label.check-row input {
 .banco-item input[type='checkbox'] {
   width: 18px;
   height: 18px;
-  margin-top: 4px;
   accent-color: var(--primary);
   flex-shrink: 0;
+  cursor: pointer;
+}
+/* Hitbox grande envolvendo o checkbox — clique em qualquer parte da
+   área 36×36 dispara. Antes o checkbox 18×18 era difícil de acertar
+   especialmente quando a lista re-renderiza por update do SRS/stats. */
+.banco-checkbox-hitbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  min-height: 36px;
+  margin: -4px -8px -4px -4px;
+  padding: 0 8px 0 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 6px;
+  transition: background 120ms;
+}
+.banco-checkbox-hitbox:hover {
+  background: var(--bg-elev-2);
+}
+.banco-checkbox-hitbox:active {
+  background: var(--primary-soft);
 }
 .banco-item .preview {
   font-size: 0.92rem;

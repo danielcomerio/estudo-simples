@@ -93,10 +93,16 @@ export function ShareDeckButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`Compartilhar ${selectedIds.size} questão(ões) selecionadas`}
-        aria-label={`Compartilhar ${selectedIds.size} questões`}
+        title={`Compartilhar ${selectedIds.size} questão(ões) selecionadas via link`}
+        aria-label={`Compartilhar ${selectedIds.size} questões via link`}
+        style={{
+          background: 'var(--primary-soft)',
+          border: '1px solid var(--primary)',
+          color: 'var(--primary)',
+          fontWeight: 500,
+        }}
       >
-        🔗 Compartilhar
+        🔗 Compartilhar ({selectedIds.size})
       </button>
 
       {open && (

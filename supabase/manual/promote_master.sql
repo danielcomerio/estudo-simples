@@ -36,7 +36,11 @@ update public.profiles p
        -- stripe_customer_id mantido — barato, e útil se o user voltar
        -- a ser pro futuramente (Stripe reusa o customer).
   from target_user t
- where p.user_id = t.user_id;
+ where p.user_id = t.user_id
+   -- Reseta SEMPRE pra master (não só quando muda plan), pra limpar
+   -- subscription_status legado (ex: 'canceled' caído pelo webhook
+   -- antes do skip-master ficar em vigor).
+   ;
 
 -- Garante profile existe (caso tenha logado antes da migration de
 -- billing — trigger handle_new_user cobre signups novos, mas users
