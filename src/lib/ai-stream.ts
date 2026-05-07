@@ -37,6 +37,11 @@ export type StreamRequest = {
    * conversas com histórico — cache key não captura turno anterior.
    */
   cacheable?: boolean;
+  /**
+   * Tag pra agrupamento em /api/ai/usage (ex: 'explain', 'discursiva-eval',
+   * 'generate', 'chat', 'rewrite'). Max 32 chars.
+   */
+  kind?: string;
 };
 
 export function streamAIChat(

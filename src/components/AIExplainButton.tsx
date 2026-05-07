@@ -98,7 +98,13 @@ export function AIExplainButton({
       // cacheable: explicação de questão é determinística (mesma questão
       // sempre tem mesma resposta correta + explicação). Cache compartilhado
       // economiza tokens entre users.
-      { provider, apiKey, prompt: buildPrompt(), cacheable: true },
+      {
+        provider,
+        apiKey,
+        prompt: buildPrompt(),
+        cacheable: true,
+        kind: 'explain',
+      },
       {
         onChunk: (chunk) => setResponse((prev) => (prev ?? '') + chunk),
         onDone: () => setLoading(false),

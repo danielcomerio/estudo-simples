@@ -93,7 +93,7 @@ Seja específico e útil. Em pt-BR. Max 400 palavras.`;
 
     abortRef.current?.abort();
     abortRef.current = streamAIChat(
-      { provider, apiKey, prompt },
+      { provider, apiKey, prompt, kind: 'discursiva-eval' },
       {
         onChunk: (chunk) => setResult((prev) => (prev ?? '') + chunk),
         onDone: () => setLoading(false),

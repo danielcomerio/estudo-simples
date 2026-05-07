@@ -138,6 +138,7 @@ function AIGenerateWizard({
           provider,
           apiKey,
           prompt: buildGenerationPrompt(cfg),
+          kind: 'generate',
           // cacheable false — prompt criativo, mesma config gera coisas
           // diferentes; cache atrapalharia
         }),

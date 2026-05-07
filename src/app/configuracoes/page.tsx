@@ -6,6 +6,7 @@ import { DailyGoalSection } from '@/components/DailyGoalSection';
 import { NotificationsSection } from '@/components/NotificationsSection';
 import { PushNotificationsSection } from '@/components/PushNotificationsSection';
 import { AIKeysSection } from '@/components/AIKeysSection';
+import { AIUsageSection } from '@/components/AIUsageSection';
 import { TelegramSection } from '@/components/TelegramSection';
 import { DiscordSection } from '@/components/DiscordSection';
 import { DailyPreferencesSection } from '@/components/DailyPreferencesSection';
@@ -54,6 +55,8 @@ export default async function ConfiguracoesPage() {
       <DiscordSection />
 
       <AIKeysSection />
+
+      <AIUsageSection />
 
       <DailyPreferencesSection />
 
