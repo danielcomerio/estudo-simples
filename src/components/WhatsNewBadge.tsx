@@ -72,10 +72,16 @@ function WhatsNewModal({ onClose }: { onClose: () => void }) {
         inset: 0,
         background: 'rgba(0,0,0,0.5)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         zIndex: 9999,
-        padding: 20,
+        // Overlay rola se conteúdo > viewport (evita corte em mobile)
+        overflowY: 'auto',
+        // Respeita safe-area do iOS + Topbar (~64px)
+        paddingTop: 'max(72px, env(safe-area-inset-top, 20px))',
+        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
+        paddingLeft: 16,
+        paddingRight: 16,
       }}
     >
       <div
@@ -86,9 +92,9 @@ function WhatsNewModal({ onClose }: { onClose: () => void }) {
           padding: 24,
           maxWidth: 540,
           width: '100%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
+          // Sem maxHeight — overlay rola, conteúdo flui
           border: '1px solid var(--border)',
+          marginBottom: 'auto', // mantém perto do topo, deixa sobra embaixo
         }}
       >
         <div className="row between" style={{ marginBottom: 12 }}>
