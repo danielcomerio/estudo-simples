@@ -181,4 +181,92 @@ describe('validateShareRequest', () => {
       validateShareRequest({ questionIds: ['a'], expirationDays: 365 }).ok
     ).toBe(true);
   });
+
+  it('rejeita Infinity', () => {
+    expect(
+      validateShareRequest({
+        questionIds: ['a'],
+        expirationDays: Infinity,
+      }).ok
+    ).toBe(false);
+  });
+
+  it('rejeita string como expirationDays', () => {
+    expect(
+      validateShareRequest({
+        questionIds: ['a'],
+        expirationDays: '30' as unknown as number,
+      }).ok
+    ).toBe(false);
+  });
+
+  it('rejeita questionIds não-array', () => {
+    expect(
+      validateShareRequest({
+        questionIds: 'not-array' as unknown as string[],
+      }).ok
+    ).toBe(false);
+  });
+
+  it('aceita exatamente MAX_QUESTIONS_PER_SHARE', () => {
+    const ids = Array.from(
+      { length: MAX_QUESTIONS_PER_SHARE },
+      (_, i) => String(i)
+    );
+    expect(validateShareRequest({ questionIds: ids }).ok).toBe(true);
+  });
+});
+
+describe('sanitizeQuestionForShare — mais tipos', () => {
+  it('flashcard: payload preserved', () => {
+    const q = sampleQuestion({
+      type: 'flashcard',
+      payload: { frente: 'F', verso: 'V' },
+    });
+    const s = sanitizeQuestionForShare(q);
+    expect(s.type).toBe('flashcard');
+    expect((s.payload as { frente: string }).frente).toBe('F');
+  });
+
+  it('cloze: payload preserved', () => {
+    const q = sampleQuestion({
+      type: 'cloze',
+      payload: { texto: '{{c1::ABC}}' },
+    });
+    const s = sanitizeQuestionForShare(q);
+    expect(s.type).toBe('cloze');
+    expect((s.payload as { texto: string }).texto).toBe('{{c1::ABC}}');
+  });
+
+  it('discursiva sem origem/fonte: omitidos', () => {
+    const q = sampleQuestion({
+      type: 'discursiva',
+      origem: null,
+      fonte: undefined,
+      verificacao: null,
+    });
+    const s = sanitizeQuestionForShare(q) as Record<string, unknown>;
+    expect(s.origem).toBeUndefined();
+    expect(s.fonte).toBeUndefined();
+    expect(s.verificacao).toBeUndefined();
+  });
+
+  it('disciplina_id null preservado', () => {
+    const q = sampleQuestion({ disciplina_id: null });
+    const s = sanitizeQuestionForShare(q);
+    expect(s.disciplina_id).toBe(null);
+  });
+
+  it('serializa pra JSON sem vazar campos pessoais', () => {
+    const q = sampleQuestion();
+    const json = JSON.stringify(sanitizeQuestionForShare(q));
+    // negativos:
+    expect(json).not.toContain('uid-1');
+    expect(json).not.toContain('topic-x');
+    expect(json).not.toContain('uuid-z');
+    expect(json).not.toContain('1234567890');
+    // positivos:
+    expect(json).toContain('Direito Penal');
+    expect(json).toContain('FGV');
+  });
 });
