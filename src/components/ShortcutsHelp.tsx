@@ -91,7 +91,7 @@ export function ShortcutsHelp() {
               <Row k="Ctrl+I" desc="Vai pra /banco (atalho de import)" />
               <Row k="Ctrl+B" desc="Vai pra /banco" />
               <Row k="Ctrl+E" desc="Vai pra /estudar" />
-              <Row k="Ctrl+F" desc="Busca global em todas as questões" />
+              <Row k="Ctrl+Shift+F" desc="Busca global em todas as questões" />
               <Row k="Ctrl+Shift+L" desc="Cicla tema (auto / claro / escuro)" />
               <Row k="?" desc="Abre/fecha esta ajuda" />
               <Row k="G H/B/E/C/D/S/M/K/O" desc="Vim-jump: g + letra navega (h painel, b banco, e estudar, c cards, d discursivas, s stats, m simulado, k concursos, o opções)" />

@@ -162,6 +162,12 @@ export function ShareDeckButton({
                     <option value={90}>90 dias</option>
                     <option value={180}>180 dias</option>
                     <option value={365}>1 ano</option>
+                    {/* "Sem expiração" = 100 anos. Nada é "sem prazo"
+                        no DB (CHECK exige expires_at > created_at), mas
+                        100 anos é além de qualquer relevância prática.
+                        User mantém a opção de revogar manualmente
+                        quando quiser via /configuracoes. */}
+                    <option value={36500}>Sem expiração</option>
                   </select>
                 </label>
 

@@ -6,13 +6,15 @@ import { useStore, selectActiveQuestions } from '@/lib/store';
 import { renderRichText } from '@/lib/utils';
 
 /**
- * Busca global pela tecla Ctrl+F. Sobrepõe o find nativo, mostra dialog
- * com input e top 20 resultados (objetiva/discursiva/cloze/flashcard).
- * Click navega pra /banco?search=termo (filtrado).
+ * Busca global pela tecla Ctrl+Shift+F (Cmd+Shift+F em Mac). Mostra
+ * dialog com input e top 20 resultados (objetiva/discursiva/cloze/
+ * flashcard). Click navega pra /banco?search=termo (filtrado).
  *
- * Por que sobrepor Ctrl+F? Porque o find do navegador busca só no que
- * está renderizado (que é a página visível, não as 2745 questões).
- * Aqui buscamos no banco inteiro.
+ * Atalho mudou de Ctrl+F → Ctrl+Shift+F (2026-05): user reportou que
+ * sequestrar o Ctrl+F nativo era inesperado/confuso. Convenção
+ * IDE-like pra "search in all files" mantém a feature poderosa
+ * (busca em TODAS as questões, não só visíveis) sem conflitar com
+ * o find-in-page do browser.
  */
 export function GlobalSearch() {
   const router = useRouter();
@@ -23,8 +25,13 @@ export function GlobalSearch() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Ctrl+F (Cmd+F em mac) abre/fecha
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+      // Ctrl+Shift+F (Cmd+Shift+F em mac) abre/fecha. Antes era Ctrl+F
+      // mas conflitava com find-in-page nativo do browser e confundia.
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        (e.key === 'F' || e.key === 'f')
+      ) {
         e.preventDefault();
         setOpen((v) => !v);
         return;
@@ -126,7 +133,7 @@ export function GlobalSearch() {
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Busca global em todas as questões (Ctrl+F)…"
+            placeholder="Busca global em todas as questões (Ctrl+Shift+F)…"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && q.trim()) {
                 if (results.length === 1) {

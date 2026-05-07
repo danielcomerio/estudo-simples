@@ -950,16 +950,9 @@ export function BancoList() {
         searchRef.current?.select();
         return;
       }
-      // Ctrl+F / Cmd+F: intercepta find-in-page do browser e foca a
-      // busca da app (que filtra de verdade pelo enunciado/tags/disc).
-      // Mais útil aqui — find-in-page só vê o que está visualmente
-      // renderizado (paginação esconde a maioria das questões).
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-        return;
-      }
+      // Removido: Ctrl+F local conflitava com GlobalSearch + browser
+      // find-in-page nativo. Devolvido ao default do browser.
+      // Atalho do app pra busca: '/' (apenas dentro do /banco).
       // n cria nova questão
       if ((e.key === 'n' || e.key === 'N') && !inField) {
         e.preventDefault();

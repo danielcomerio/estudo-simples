@@ -120,7 +120,7 @@ export function BillingSection() {
                 textAlign: 'right',
               }}
             >
-              Conta operacional — gerenciada manualmente, sem assinatura Stripe.
+              Conta operacional · sem cobrança
             </span>
           )}
           {!master && canManage && (

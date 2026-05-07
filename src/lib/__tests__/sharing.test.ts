@@ -155,7 +155,7 @@ describe('validateShareRequest', () => {
     ).toEqual({ ok: true });
   });
 
-  it('rejeita expiração 0, negativa, > 365 ou non-number', () => {
+  it('rejeita expiração 0, negativa, > 36500 (100 anos) ou non-number', () => {
     expect(
       validateShareRequest({ questionIds: ['a'], expirationDays: 0 }).ok
     ).toBe(false);
@@ -163,7 +163,7 @@ describe('validateShareRequest', () => {
       validateShareRequest({ questionIds: ['a'], expirationDays: -5 }).ok
     ).toBe(false);
     expect(
-      validateShareRequest({ questionIds: ['a'], expirationDays: 400 }).ok
+      validateShareRequest({ questionIds: ['a'], expirationDays: 36501 }).ok
     ).toBe(false);
     expect(
       validateShareRequest({
@@ -171,5 +171,14 @@ describe('validateShareRequest', () => {
         expirationDays: NaN,
       }).ok
     ).toBe(false);
+  });
+
+  it('aceita expiração "sem prazo" (36500 dias = 100 anos)', () => {
+    expect(
+      validateShareRequest({ questionIds: ['a'], expirationDays: 36500 }).ok
+    ).toBe(true);
+    expect(
+      validateShareRequest({ questionIds: ['a'], expirationDays: 365 }).ok
+    ).toBe(true);
   });
 });

@@ -123,15 +123,18 @@ export function validateShareRequest(input: {
     };
   }
   if (input.expirationDays !== undefined) {
+    // 36500 dias = 100 anos = "sem expiração" prática (UI usa esse
+    // valor pra opção sem prazo). Cap evita valores absurdos
+    // (negative, NaN, Infinity).
     if (
       typeof input.expirationDays !== 'number' ||
       !Number.isFinite(input.expirationDays) ||
       input.expirationDays < 1 ||
-      input.expirationDays > 365
+      input.expirationDays > 36500
     ) {
       return {
         ok: false,
-        error: 'Expiração deve ser entre 1 e 365 dias.',
+        error: 'Expiração deve ser entre 1 dia e ~100 anos.',
       };
     }
   }

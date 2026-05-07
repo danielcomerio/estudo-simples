@@ -121,15 +121,22 @@ export function Topbar({
         >
           {mobileOpen ? '✕' : '☰'}
         </button>
-        <img
-          src="/icon.svg"
-          alt=""
-          aria-hidden
-          width={26}
-          height={26}
-          className="topbar-logo"
-        />
-        <h1 className="topbar-brand-text">Estudo Simples</h1>
+        {/* Logo + nome clicáveis voltam pra home (convenção UX). */}
+        <Link
+          href="/"
+          className="topbar-brand-link"
+          aria-label="Estudo Simples — voltar para o painel"
+        >
+          <img
+            src="/icon.svg"
+            alt=""
+            aria-hidden
+            width={26}
+            height={26}
+            className="topbar-logo"
+          />
+          <h1 className="topbar-brand-text">Estudo Simples</h1>
+        </Link>
       </div>
 
       {/* Backdrop dim do drawer mobile. Click fecha. */}
