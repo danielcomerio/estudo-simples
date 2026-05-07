@@ -46,7 +46,25 @@ export async function GET() {
       process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
     ),
     cron_secret: !!process.env.CRON_SECRET,
+    telegram: !!process.env.TELEGRAM_BOT_TOKEN,
   };
+
+  // Check Telegram (getMe — endpoint barato, valida token sem efeitos).
+  let tgOk: boolean | null = null;
+  let tgLatencyMs = -1;
+  if (config.telegram) {
+    try {
+      const t0 = Date.now();
+      const res = await fetch(
+        `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/getMe`,
+        { signal: AbortSignal.timeout(3000) }
+      );
+      tgLatencyMs = Date.now() - t0;
+      tgOk = res.ok;
+    } catch {
+      tgOk = false;
+    }
+  }
 
   const overall = dbOk && config.supabase ? 'ok' : 'degraded';
 
@@ -62,6 +80,10 @@ export async function GET() {
       response_ms: Date.now() - startTime,
       checks: {
         db: { ok: dbOk, latency_ms: dbLatencyMs },
+        telegram:
+          tgOk === null
+            ? { configured: false }
+            : { configured: true, ok: tgOk, latency_ms: tgLatencyMs },
         config,
       },
     },
