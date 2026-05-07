@@ -1450,6 +1450,38 @@ export function BancoList() {
               </button>
             )}
             {(() => {
+              // Chip "sem origem definida": questões sem fonte.gabarito_source
+              // setado. Útil pra revisar e categorizar em massa.
+              const cSemSource = questions.filter((q) => {
+                if (q.deleted_at) return false;
+                return !q.fonte?.gabarito_source;
+              }).length;
+              const semSrcActive = gabSourceFilter === 'sem_source';
+              if (cSemSource === 0 && !semSrcActive) return null;
+              return (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() =>
+                    setGabSourceFilter(semSrcActive ? '' : 'sem_source')
+                  }
+                  title={
+                    semSrcActive
+                      ? 'Remover filtro'
+                      : 'Questões sem origem do gabarito definida — categorize'
+                  }
+                  style={{
+                    cursor: 'pointer',
+                    background: semSrcActive ? 'var(--bg-elev-2)' : undefined,
+                    borderColor: semSrcActive ? 'var(--muted)' : undefined,
+                    fontWeight: semSrcActive ? 600 : undefined,
+                  }}
+                >
+                  📌 Sem origem <strong>· {cSemSource}</strong>
+                </button>
+              );
+            })()}
+            {(() => {
               // Chip combinado: questões com gabarito IA-pendente.
               // Atalho rápido pra "validar contra fonte oficial".
               const cIaPendente = questions.filter((q) => {
