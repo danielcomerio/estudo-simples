@@ -491,16 +491,6 @@ h4 {
   display: inline-flex;
   align-items: center;
 }
-/* Separador visual sutil entre grupos (streak | utility | account)
-   marcado por classe-vazia .topbar-sep. */
-.topbar-sep {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-  display: inline-block;
-  margin: 0 2px;
-  align-self: center;
-}
 .sync-pill {
   display: inline-flex;
   align-items: center;

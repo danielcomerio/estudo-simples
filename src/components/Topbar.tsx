@@ -285,12 +285,11 @@ export function Topbar({
       </nav>
 
       <div className="right">
-        {/* Grupo 1: streak (info pessoal de progresso) */}
+        {/* Espaçamento uniforme entre todos os ícones via gap do parent.
+            Min-height comum (definido no globals.css) garante alturas
+            visualmente alinhadas. */}
         <StreakBadge />
 
-        <span className="topbar-sep topbar-desktop-only" aria-hidden />
-
-        {/* Grupo 2: utility icons (install, tema, atalhos) */}
         <span className="topbar-desktop-only">
           <InstallPWAButton />
         </span>
@@ -301,14 +300,10 @@ export function Topbar({
           <ShortcutsHelp />
         </span>
 
-        <span className="topbar-sep topbar-desktop-only" aria-hidden />
-
-        {/* Grupo 3: contexto (concurso ativo) */}
         <span className="topbar-desktop-only">
           <ActiveConcursoSelector />
         </span>
 
-        {/* Grupo 4: status de sync (info técnica) */}
         {!isGuest && (
           <button
             type="button"
