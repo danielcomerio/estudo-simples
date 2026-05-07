@@ -1399,6 +1399,54 @@ export function BancoList() {
                 🐌 Leech <strong>· {cLeech}</strong>
               </button>
             )}
+            {(() => {
+              // Chip combinado: questões com gabarito IA-pendente.
+              // Atalho rápido pra "validar contra fonte oficial".
+              const cIaPendente = questions.filter((q) => {
+                if (q.deleted_at) return false;
+                if (q.fonte?.gabarito_source !== 'ia') return false;
+                if (q.verificacao !== 'pendente') return false;
+                return true;
+              }).length;
+              const iaPendActive =
+                gabSourceFilter === 'ia' && verif === 'pendente';
+              if (cIaPendente === 0 && !iaPendActive) return null;
+              return (
+                <button
+                  type="button"
+                  className="chip"
+                  onClick={() => {
+                    if (iaPendActive) {
+                      setGabSourceFilter('');
+                      setVerif('');
+                    } else {
+                      setGabSourceFilter('ia');
+                      setVerif('pendente');
+                    }
+                  }}
+                  title={
+                    iaPendActive
+                      ? 'Remover filtro IA-pendente'
+                      : 'Questões com gabarito de IA aguardando validação contra fonte oficial'
+                  }
+                  style={{
+                    cursor: 'pointer',
+                    background: iaPendActive
+                      ? 'var(--warn-bg, rgba(217,119,6,0.12))'
+                      : undefined,
+                    borderColor: iaPendActive
+                      ? 'var(--warn, #d97706)'
+                      : undefined,
+                    color: iaPendActive
+                      ? 'var(--warn, #d97706)'
+                      : 'var(--warn, #d97706)',
+                    fontWeight: iaPendActive ? 600 : undefined,
+                  }}
+                >
+                  🤖 IA p/ validar <strong>· {cIaPendente}</strong>
+                </button>
+              );
+            })()}
           </div>
         );
       })()}
