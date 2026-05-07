@@ -1509,7 +1509,11 @@ export function BancoList() {
             refreshKey={searchHistoryRefresh}
           />
         </div>
-        <select value={disc} onChange={(e) => setDisc(e.target.value)}>
+        <select
+          value={disc}
+          onChange={(e) => setDisc(e.target.value)}
+          aria-label="Filtrar por disciplina"
+        >
           <option value="">Todas as disciplinas</option>
           {disciplinas.map((d) => (
             <option key={d} value={d}>
@@ -1520,6 +1524,7 @@ export function BancoList() {
         <select
           value={tipo}
           onChange={(e) => setTipo(e.target.value as typeof tipo)}
+          aria-label="Filtrar por tipo de questão"
         >
           <option value="">Todos os tipos</option>
           <option value="objetiva">Objetivas</option>
@@ -1529,6 +1534,7 @@ export function BancoList() {
           value={origem}
           onChange={(e) => setOrigem(e.target.value as typeof origem)}
           title="Filtrar por origem"
+          aria-label="Filtrar por origem"
         >
           <option value="">Toda origem</option>
           <option value="real">📋 Reais</option>
@@ -1538,6 +1544,7 @@ export function BancoList() {
           value={verif}
           onChange={(e) => setVerif(e.target.value as typeof verif)}
           title="Filtrar por verificação"
+          aria-label="Filtrar por verificação"
         >
           <option value="">Toda verificação</option>
           <option value="verificada">✅ Verificadas</option>
@@ -1551,6 +1558,7 @@ export function BancoList() {
             setGabSourceFilter(e.target.value as typeof gabSourceFilter)
           }
           title="Filtrar por origem do gabarito"
+          aria-label="Filtrar por origem do gabarito"
         >
           <option value="">Toda origem de gabarito</option>
           <option value="oficial">✓ Oficial (banca)</option>
@@ -1562,6 +1570,7 @@ export function BancoList() {
           value={srsFilter}
           onChange={(e) => setSrsFilter(e.target.value as typeof srsFilter)}
           title="Filtrar por estado de revisão (SRS)"
+          aria-label="Filtrar por estado de revisão"
         >
           <option value="">Todo estado SRS</option>
           <option value="atrasadas">🔴 Atrasadas</option>
@@ -1576,6 +1585,7 @@ export function BancoList() {
           value={imgFilter}
           onChange={(e) => setImgFilter(e.target.value as typeof imgFilter)}
           title="Filtrar por presença de imagens"
+          aria-label="Filtrar por presença de imagens"
         >
           <option value="">Imagens (qualquer)</option>
           <option value="com">🖼 Com imagem</option>
@@ -1584,7 +1594,8 @@ export function BancoList() {
         <select
           value={notasFilter}
           onChange={(e) => setNotasFilter(e.target.value as typeof notasFilter)}
-          title="Filtrar por anotação pessoal (notes_user)"
+          title="Filtrar por anotação pessoal"
+          aria-label="Filtrar por anotação pessoal"
         >
           <option value="">Notas (qualquer)</option>
           <option value="com">📝 Com anotação</option>
@@ -1594,6 +1605,7 @@ export function BancoList() {
           value={mnemoFilter}
           onChange={(e) => setMnemoFilter(e.target.value as typeof mnemoFilter)}
           title="Filtrar por mnemônico/dica de memorização"
+          aria-label="Filtrar por mnemônico"
         >
           <option value="">Mnemônico (qualquer)</option>
           <option value="com">🧠 Com mnemônico</option>
@@ -1603,6 +1615,7 @@ export function BancoList() {
           value={latexFilter}
           onChange={(e) => setLatexFilter(e.target.value as typeof latexFilter)}
           title="Filtrar por presença de fórmulas LaTeX"
+          aria-label="Filtrar por LaTeX"
         >
           <option value="">LaTeX (qualquer)</option>
           <option value="com">∑ Com LaTeX</option>
@@ -1612,6 +1625,7 @@ export function BancoList() {
           value={tempoFilter}
           onChange={(e) => setTempoFilter(e.target.value as typeof tempoFilter)}
           title="Filtrar pela última revisão"
+          aria-label="Filtrar por última revisão"
         >
           <option value="">Última revisão (qualquer)</option>
           <option value="hoje">📅 Estudadas hoje</option>
@@ -1623,6 +1637,7 @@ export function BancoList() {
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           title="Ordenar lista"
+          aria-label="Ordenar lista"
         >
           <option value="recente">↓ Mais recentes (import)</option>
           <option value="antiga">↑ Mais antigas (import)</option>

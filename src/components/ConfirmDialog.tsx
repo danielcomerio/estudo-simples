@@ -76,9 +76,14 @@ export function ConfirmHost() {
   };
 
   return (
-    <dialog ref={dlgRef} onClose={() => close(false)}>
-      <h3>{cur?.title || 'Confirmar'}</h3>
-      <p>{cur?.message || ''}</p>
+    <dialog
+      ref={dlgRef}
+      onClose={() => close(false)}
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-message"
+    >
+      <h3 id="confirm-dialog-title">{cur?.title || 'Confirmar'}</h3>
+      <p id="confirm-dialog-message">{cur?.message || ''}</p>
       <div className="row gap right">
         <button type="button" onClick={() => close(false)}>
           Cancelar (N)
