@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { questionMatchesConcurso } from '../question-concursos';
+import {
+  invalidateLinkCache,
+  questionMatchesConcurso,
+} from '../question-concursos';
 
 describe('questionMatchesConcurso', () => {
   const C1 = '11111111-1111-1111-1111-111111111111';
@@ -63,5 +66,40 @@ describe('questionMatchesConcurso', () => {
     expect(
       questionMatchesConcurso({ id: 'q1', concurso_id: C1 }, C2, links)
     ).toBe(true);
+  });
+
+  it('concurso_id null sem links: false', () => {
+    expect(
+      questionMatchesConcurso({ id: 'q1', concurso_id: null }, C1, new Map())
+    ).toBe(false);
+    expect(
+      questionMatchesConcurso({ id: 'q1' }, C1, new Map())
+    ).toBe(false);
+  });
+
+  it('múltiplos concursos via link funciona pra cada um isoladamente', () => {
+    const links = new Map([['q1', new Set([C1, C2, C3])]]);
+    expect(
+      questionMatchesConcurso({ id: 'q1', concurso_id: null }, C1, links)
+    ).toBe(true);
+    expect(
+      questionMatchesConcurso({ id: 'q1', concurso_id: null }, C2, links)
+    ).toBe(true);
+    expect(
+      questionMatchesConcurso({ id: 'q1', concurso_id: null }, C3, links)
+    ).toBe(true);
+  });
+});
+
+describe('invalidateLinkCache', () => {
+  it('callable sem throw mesmo sem cache populada', () => {
+    expect(() => invalidateLinkCache()).not.toThrow();
+  });
+
+  it('idempotente — chamadas múltiplas não quebram', () => {
+    invalidateLinkCache();
+    invalidateLinkCache();
+    invalidateLinkCache();
+    expect(true).toBe(true);
   });
 });
