@@ -44,7 +44,7 @@ export function CommandPalette() {
       { label: 'Estatísticas', action: () => router.push('/stats'), keywords: 'stats grafico' },
       { label: 'Concursos', action: () => router.push('/concursos') },
       { label: 'Disciplinas', action: () => router.push('/disciplinas') },
-      { label: 'Revisar pendentes (bulk-fill)', action: () => router.push('/revisar'), keywords: 'gabarito ia' },
+      { label: 'Preencher gabaritos faltantes', action: () => router.push('/revisar'), keywords: 'revisar gabarito ia bulk pendentes' },
       { label: 'Configurações', action: () => router.push('/configuracoes') },
       // Ações
       {

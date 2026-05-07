@@ -171,16 +171,19 @@ export function RevisorPendentes() {
   return (
     <>
       <div className="card">
-        <h1 style={{ margin: '0 0 8px' }}>Revisar gabaritos pendentes</h1>
+        <h1 style={{ margin: '0 0 8px' }}>Preencher gabaritos faltantes</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Bulk-fill de gabarito pra questões SEM gabarito (ou com{' '}
-          <code>?</code>). Pra cada lote: gere o prompt, cole na IA,
-          traga a resposta de volta e aplique. Questões com gabarito
-          ficam <code>verificada</code>.
+          Aqui você completa em lote o gabarito de questões que foram
+          importadas <strong>sem resposta correta definida</strong>.
+          Para cada lote: copie o prompt, cole numa IA (Claude/ChatGPT/
+          Gemini), traga de volta a resposta e aplique. As questões
+          recebem o gabarito e ficam marcadas como verificadas
+          automaticamente.
           {activeConcurso && (
             <>
               {' '}
-              Filtrando por concurso ativo: <strong>{activeConcurso.nome}</strong>.
+              Filtrando pelo concurso ativo:{' '}
+              <strong>{activeConcurso.nome}</strong>.
             </>
           )}
         </p>
@@ -196,13 +199,16 @@ export function RevisorPendentes() {
               borderLeft: '3px solid var(--primary)',
             }}
           >
-            <strong>{pendentesOficializacao}</strong> questão(ões) com
-            gabarito mas <code>verificacao=pendente</code> não aparecem
-            aqui — elas têm gabarito (gerado por IA, por exemplo) e
-            precisam só de <strong>confirmação manual</strong> contra
-            fonte oficial. Filtre por <code>verificacao:pendente</code>{' '}
-            em <Link href="/banco" style={{ color: 'var(--primary)' }}>/banco</Link>{' '}
-            e marque como <code>verificada</code> no editor de cada uma.
+            Você tem outras{' '}
+            <strong>{pendentesOficializacao} questão(ões) pendentes</strong>{' '}
+            que <em>já possuem gabarito</em> e não aparecem nesta tela
+            (gabarito vindo de IA, importação ou outras origens).
+            Para essas, basta validar contra a fonte oficial e marcar
+            como verificada no editor de cada uma — abra em{' '}
+            <Link href="/banco" style={{ color: 'var(--primary)' }}>
+              /banco
+            </Link>{' '}
+            e use o filtro de verificação <em>“Pendentes”</em>.
           </p>
         )}
       </div>
