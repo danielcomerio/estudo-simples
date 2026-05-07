@@ -199,6 +199,11 @@ export type Question = {
   concurso_id?: string | null;
   /** Tags livres pra cortes ortogonais à hierarquia. */
   tags?: string[];
+  // ===== Campo da migration 0010 (Fase B - disciplina FK rígida) =====
+  /** UUID da disciplina (referencia public.disciplinas.id). Coexiste
+   *  com disciplina_id text durante transição (dual-write). Final:
+   *  vai substituir disciplina_id text na 0012. */
+  disciplina_uuid?: string | null;
   // ===== Campos da migration 0003 (origem/fonte/verificação) =====
   /** Origem: real | autoral | adaptada. Null = legado. */
   origem?: QuestionOrigem | null;

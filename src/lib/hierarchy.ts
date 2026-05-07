@@ -548,6 +548,31 @@ export async function updateDisciplina(
  * Erros individuais (ex: 23505 race com outra tab) não interrompem o
  * loop. Falhas são logadas mas não throw — caller não precisa try/catch.
  */
+/**
+ * Lookup síncrono de disciplina por nome (slug-aware) usando cache em
+ * memória. Retorna o registro completo ou null. Usado por mutações de
+ * questão pra preencher disciplina_uuid (Fase B - migration 0010).
+ *
+ * Não dispara load — caller deve garantir cache pronta. Em geral
+ * chamado depois de ensureDisciplinasExist (que carrega cache).
+ */
+export function findDisciplinaByNome(nome: string | null | undefined): {
+  id: string;
+  nome: string;
+  slug?: string | null;
+} | null {
+  if (!nome) return null;
+  const slug = slugify(nome);
+  if (!slug) return null;
+  const data = disciplinasCache.data ?? [];
+  for (const d of data) {
+    if (d.deleted_at) continue;
+    const dSlug = d.slug || slugify(d.nome);
+    if (dSlug === slug) return d;
+  }
+  return null;
+}
+
 export async function ensureDisciplinasExist(nomes: string[]): Promise<void> {
   if (isGuestMode()) {
     // No modo visitante, disciplinas vivem só no campo `disciplina_id` da

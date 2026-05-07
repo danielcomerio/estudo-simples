@@ -1,8 +1,16 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getState, hydrate, migrateGuestToUser, resetStore, useStore } from '@/lib/store';
+import {
+  backfillDisciplinaUuids,
+  getState,
+  hydrate,
+  migrateGuestToUser,
+  resetStore,
+  useStore,
+} from '@/lib/store';
 import { scheduleSync, startBackgroundSync, stopBackgroundSync } from '@/lib/sync';
+import { findDisciplinaByNome, loadDisciplinas } from '@/lib/hierarchy';
 import { clearHierarchyCache } from '@/lib/hierarchy';
 import { applyCvdMode, applyFontSize, applyHighContrast, applyTheme, getCvdMode, getFontSize, getTheme, isHighContrast, setActiveConcursoId } from '@/lib/settings';
 import { clearSimuladosCache } from '@/lib/simulado-store';
@@ -75,6 +83,26 @@ export function StoreProvider({
       await hydrate(userId);
       if (cancelled) return;
       startBackgroundSync();
+
+      // Fase B (migration 0010): backfill de disciplina_uuid em questões
+      // locais que ainda não têm. Carrega cache de disciplinas primeiro,
+      // depois resolve via slug match. Não bloqueia o boot — roda em
+      // background. Best-effort: se falhar, próxima visita tenta de novo.
+      void (async () => {
+        try {
+          if (userId === 'guest') return; // guest não usa hierarquia DB
+          await loadDisciplinas();
+          if (cancelled) return;
+          const changed = backfillDisciplinaUuids((nome) =>
+            findDisciplinaByNome(nome)?.id ?? null
+          );
+          if (changed > 0) {
+            scheduleSync(1500);
+          }
+        } catch {
+          // Schema pré-0010 sem coluna disciplina_uuid: ignora.
+        }
+      })();
     })();
 
     const onBeforeUnload = () => {

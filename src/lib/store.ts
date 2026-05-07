@@ -402,6 +402,47 @@ export function deleteQuestionLocal(id: string) {
   });
 }
 
+/**
+ * Backfill de questions.disciplina_uuid (Fase B - migration 0010):
+ * pra cada questão local sem uuid mas com disciplina_id text, tenta
+ * resolver via slug match contra cache de disciplinas. Se acha, atualiza
+ * e marca pendingSync (próximo push leva pro server).
+ *
+ * Idempotente: só toca em questões que precisam. Caller é responsável
+ * por garantir que a cache de disciplinas está populada antes
+ * (loadDisciplinas).
+ *
+ * Resolver passado por dependency injection pra evitar import circular
+ * (hierarchy.ts já importa store de outras formas).
+ */
+export function backfillDisciplinaUuids(
+  resolve: (nome: string) => string | null
+): number {
+  let changed = 0;
+  setState((s) => {
+    const pending = { ...s.pendingSync };
+    const now = new Date().toISOString();
+    const list = s.questions.map((q) => {
+      if (q.deleted_at) return q;
+      if (q.disciplina_uuid) return q; // já tem
+      if (!q.disciplina_id) return q;
+      const uuid = resolve(q.disciplina_id);
+      if (!uuid) return q;
+      pending[q.id] = true;
+      changed++;
+      return {
+        ...q,
+        disciplina_uuid: uuid,
+        updated_at: now,
+        _dirty: true,
+      };
+    });
+    if (changed === 0) return s;
+    return { ...s, questions: list, pendingSync: pending };
+  });
+  return changed;
+}
+
 export function deleteQuestionsBulk(ids: string[]) {
   setState((s) => {
     const set = new Set(ids);

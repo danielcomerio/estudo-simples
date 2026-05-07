@@ -43,6 +43,9 @@ function rowToQuestion(row: Record<string, unknown>): Question {
     origem: (row.origem as Question['origem']) ?? null,
     fonte: (row.fonte as Question['fonte']) ?? {},
     verificacao: (row.verificacao as Question['verificacao']) ?? null,
+    // Campo da migration 0010 (Fase B). Opcional: schema pré-0010 não
+    // tem essa coluna; cliente lendo daí recebe undefined.
+    disciplina_uuid: (row.disciplina_uuid as string | null) ?? null,
   };
 }
 
@@ -71,6 +74,8 @@ function questionToRow(q: Question) {
     origem: q.origem ?? null,
     fonte: q.fonte ?? {},
     verificacao: q.verificacao ?? null,
+    // Migration 0010 — dual-write durante transição. Server tolera null.
+    disciplina_uuid: q.disciplina_uuid ?? null,
   };
 }
 

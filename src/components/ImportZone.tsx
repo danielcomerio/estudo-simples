@@ -1,10 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useStore, addQuestionsBulk, selectActiveQuestions } from '@/lib/store';
+import {
+  useStore,
+  addQuestionsBulk,
+  backfillDisciplinaUuids,
+  selectActiveQuestions,
+} from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import {
   ensureDisciplinasExist,
+  findDisciplinaByNome,
   useConcursos,
   useDisciplinas,
   useTopicos,
@@ -227,11 +233,18 @@ export function ImportZone() {
     addQuestionsBulk(items, userId);
     scheduleSync(800);
 
-    // Auto-cria disciplinas pra cada nome final único
+    // Auto-cria disciplinas pra cada nome final único, depois backfill
+    // dos disciplina_uuid das questões recém-importadas (Fase B - 0010).
     const nomes = items
       .map((n) => n.disciplina_id)
       .filter((d): d is string => !!d);
-    void ensureDisciplinasExist(nomes);
+    void (async () => {
+      await ensureDisciplinasExist(nomes);
+      const changed = backfillDisciplinaUuids((nome) =>
+        findDisciplinaByNome(nome)?.id ?? null
+      );
+      if (changed > 0) scheduleSync(1500);
+    })();
 
     const nReal = items.filter((i) => i.origem === 'real').length;
     const nAuto = items.length - nReal;
