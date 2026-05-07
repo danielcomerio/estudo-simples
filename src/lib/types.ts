@@ -159,6 +159,8 @@ export type QuestionVerificacao = 'verificada' | 'pendente' | 'duvidosa';
 /** Metadata da fonte original. Preservado em jsonb pra evoluir sem
  *  migration. Quando origem='real', `banca` (string) e `ano` (number)
  *  são obrigatórios — DB CHECK valida. */
+export type GabaritoSource = 'ia' | 'oficial' | 'crowd';
+
 export type QuestionFonte = {
   banca?: string;
   ano?: number;
@@ -170,6 +172,11 @@ export type QuestionFonte = {
    *  evitar reimport silencioso e debugar conflitos. */
   external_id?: string | number;
   link?: string;
+  /** Origem do gabarito (não da questão — questão é `Question.origem`).
+   *  Permite distinguir entre gabarito vindo da banca oficial vs gerado
+   *  por IA pendente de validação. Quando 'ia', UI adiciona badge e tag
+   *  `gabarito-ia` automaticamente. */
+  gabarito_source?: GabaritoSource | null;
   [k: string]: unknown;
 };
 

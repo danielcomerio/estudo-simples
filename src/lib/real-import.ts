@@ -300,6 +300,20 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
   const rawTags = (o.tags ?? o.palavrasChave ?? o.palavras_chave) as unknown;
   const tags = normalizeTagList(rawTags);
 
+  // Origem do gabarito: aceita `gabarito_source`/`gabaritoSource`/
+  // `gabarito_origem` no JSON. Se vier 'ia', adiciona automaticamente
+  // a tag `gabarito-ia` (não polui se source='oficial' ou null).
+  const rawGabSource = (o.gabarito_source ??
+    o.gabaritoSource ??
+    o.gabarito_origem) as unknown;
+  let gabaritoSource: 'ia' | 'oficial' | 'crowd' | null = null;
+  if (rawGabSource === 'ia' || rawGabSource === 'oficial' || rawGabSource === 'crowd') {
+    gabaritoSource = rawGabSource;
+  }
+  if (gabaritoSource === 'ia' && !tags.includes('gabarito-ia')) {
+    tags.push('gabarito-ia');
+  }
+
   const payload: ObjetivaPayload = {
     enunciado,
     alternativas,
@@ -312,6 +326,9 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
   }
   if (typeof o.concursoEdicao === 'string' && o.concursoEdicao.trim()) {
     fonte.edicao = o.concursoEdicao.replace(/^"|"$/g, '');
+  }
+  if (gabaritoSource) {
+    fonte.gabarito_source = gabaritoSource;
   }
 
   return {

@@ -124,6 +124,13 @@ export function QuestionEditDrawer({
   const [fLink, setFLink] = useState(
     typeof initialFonte.link === 'string' ? initialFonte.link : ''
   );
+  const [fGabSource, setFGabSource] = useState<'' | 'ia' | 'oficial' | 'crowd'>(
+    initialFonte.gabarito_source === 'ia' ||
+      initialFonte.gabarito_source === 'oficial' ||
+      initialFonte.gabarito_source === 'crowd'
+      ? initialFonte.gabarito_source
+      : ''
+  );
 
   // Imagens — URLs públicas no Storage. Init do payload se houver.
   const [imagens, setImagens] = useState<string[]>(() =>
@@ -286,6 +293,7 @@ export function QuestionEditDrawer({
     delete fonte.cargo;
     delete fonte.prova;
     delete fonte.link;
+    delete fonte.gabarito_source;
     if (trim(fBanca)) fonte.banca = trim(fBanca);
     if (fAno.trim()) {
       const n = Number(fAno);
@@ -302,6 +310,7 @@ export function QuestionEditDrawer({
         return { patch: {}, error: 'fonte.link: deve começar com http:// ou https://' };
       fonte.link = trim(fLink);
     }
+    if (fGabSource) fonte.gabarito_source = fGabSource;
     if (origem === 'real') {
       if (!fonte.banca)
         return { patch: {}, error: 'origem real exige fonte.banca' };
@@ -309,12 +318,24 @@ export function QuestionEditDrawer({
         return { patch: {}, error: 'origem real exige fonte.ano (número)' };
     }
 
+    // Sincroniza tag 'gabarito-ia' com fonte.gabarito_source: se source
+    // mudou pra/de 'ia', adiciona ou remove a tag automaticamente. User
+    // pode ainda assim adicionar/remover manualmente — só estamos garantindo
+    // consistência com o source quando ele é o sinal autoritativo.
+    let finalTags = tags;
+    const hasIaTag = tags.includes('gabarito-ia');
+    if (fGabSource === 'ia' && !hasIaTag) {
+      finalTags = [...tags, 'gabarito-ia'];
+    } else if (fGabSource !== 'ia' && hasIaTag) {
+      finalTags = tags.filter((t) => t !== 'gabarito-ia');
+    }
+
     const patch: Partial<Question> = {
       disciplina_id: trim(discId) || null,
       tema: trim(tema) || null,
       banca_estilo: trim(banca) || null,
       dificuldade,
-      tags,
+      tags: finalTags,
       payload,
       origem: origem || null,
       fonte,
@@ -901,6 +922,35 @@ export function QuestionEditDrawer({
                     onChange={(e) => setFLink(e.target.value)}
                     placeholder="https://..."
                   />
+                </label>
+                <label
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    marginTop: 8,
+                    gridColumn: '1 / -1',
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>
+                    Origem do gabarito{' '}
+                    <span className="muted" style={{ fontWeight: 400 }}>
+                      (define a tag <code>gabarito-ia</code> automaticamente)
+                    </span>
+                  </span>
+                  <select
+                    value={fGabSource}
+                    onChange={(e) =>
+                      setFGabSource(
+                        e.target.value as '' | 'ia' | 'oficial' | 'crowd'
+                      )
+                    }
+                  >
+                    <option value="">— não especificado —</option>
+                    <option value="oficial">✓ Oficial (banca)</option>
+                    <option value="ia">🤖 IA (pendente de oficialização)</option>
+                    <option value="crowd">👥 Crowd (validação coletiva)</option>
+                  </select>
                 </label>
               </div>
             )}

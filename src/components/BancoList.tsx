@@ -30,6 +30,7 @@ import { VoiceSearchButton } from './VoiceSearchButton';
 import { QuestionQuickActions } from './QuestionQuickActions';
 import { useLongPress } from '@/lib/use-long-press';
 import { BookmarkButton } from './BookmarkButton';
+import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { SearchHistoryDropdown } from './SearchHistoryDropdown';
 import { saveSearchHistory } from '@/lib/search-history';
 import { BancoItemSkeleton } from './BancoItemSkeleton';
@@ -122,6 +123,9 @@ export function BancoList() {
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
   const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
   const [verif, setVerif] = useState<'' | 'verificada' | 'pendente' | 'duvidosa' | 'sem_verif'>('');
+  const [gabSourceFilter, setGabSourceFilter] = useState<
+    '' | 'ia' | 'oficial' | 'crowd' | 'sem_source'
+  >('');
   const [srsFilter, setSrsFilter] = useState<
     '' | 'atrasadas' | 'hoje' | 'novas' | 'recentes' | 'sem_estudo' | 'dominadas' | 'inimigas'
   >('');
@@ -507,6 +511,14 @@ export function BancoList() {
           if (q.verificacao !== verif) return false;
         }
       }
+      if (gabSourceFilter) {
+        const src = q.fonte?.gabarito_source ?? null;
+        if (gabSourceFilter === 'sem_source') {
+          if (src) return false;
+        } else {
+          if (src !== gabSourceFilter) return false;
+        }
+      }
       if (txt) {
         const hay = [
           q.tema,
@@ -521,7 +533,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, gabSourceFilter, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -1534,6 +1546,19 @@ export function BancoList() {
           <option value="sem_verif">— Sem status</option>
         </select>
         <select
+          value={gabSourceFilter}
+          onChange={(e) =>
+            setGabSourceFilter(e.target.value as typeof gabSourceFilter)
+          }
+          title="Filtrar por origem do gabarito"
+        >
+          <option value="">Toda origem de gabarito</option>
+          <option value="oficial">✓ Oficial (banca)</option>
+          <option value="ia">🤖 IA (pendente oficialização)</option>
+          <option value="crowd">👥 Crowd</option>
+          <option value="sem_source">— Sem origem definida</option>
+        </select>
+        <select
           value={srsFilter}
           onChange={(e) => setSrsFilter(e.target.value as typeof srsFilter)}
           title="Filtrar por estado de revisão (SRS)"
@@ -1978,6 +2003,9 @@ export function BancoList() {
                     )}
                     {q.verificacao === 'pendente' && (
                       <span title="Pendente de revisão" style={{ color: 'var(--warn, #d97706)' }}>⏳</span>
+                    )}
+                    {q.fonte?.gabarito_source && (
+                      <GabaritoSourceBadge source={q.fonte.gabarito_source} />
                     )}
                     {q.verificacao === 'duvidosa' && (
                       <span title="Marcada como duvidosa (revisar antes de estudar)" style={{ color: 'var(--danger)' }}>⚠️</span>
