@@ -69,6 +69,20 @@ export async function GET(req: Request) {
     results.telegram_pending = `exception: ${(e as Error).message}`;
   }
 
+  // 4. ai_response_cache > 90 dias sem hit (resposta velha não vai ser
+  // pedida de novo OU se for, vale gerar de novo com modelo possivelmente
+  // melhor)
+  try {
+    const cutoff = new Date(now - 90 * DAY_MS).toISOString();
+    const { error, count } = await sb
+      .from('ai_response_cache')
+      .delete({ count: 'estimated' })
+      .or(`last_hit_at.lt.${cutoff},and(last_hit_at.is.null,created_at.lt.${cutoff})`);
+    results.ai_cache = error ? `error: ${error.message}` : (count ?? 0);
+  } catch (e) {
+    results.ai_cache = `exception: ${(e as Error).message}`;
+  }
+
   return NextResponse.json({
     ok: true,
     deleted: results,

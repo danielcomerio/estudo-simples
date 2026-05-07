@@ -31,6 +31,12 @@ export type StreamRequest = {
   apiKey: string;
   prompt: string;
   model?: string;
+  /**
+   * Quando true, server faz lookup/store em ai_response_cache. Use SÓ
+   * pra prompts determinísticos (ex: explicação de questão). NUNCA pra
+   * conversas com histórico — cache key não captura turno anterior.
+   */
+  cacheable?: boolean;
 };
 
 export function streamAIChat(

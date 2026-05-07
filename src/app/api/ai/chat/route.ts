@@ -25,7 +25,9 @@
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { assertSameOrigin, rateLimit } from '@/lib/security';
+import { buildCacheKey } from '@/lib/ai-cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -62,6 +64,7 @@ export async function POST(req: Request) {
     prompt?: string;
     model?: string;
     stream?: boolean;
+    cacheable?: boolean;
   } = {};
   try {
     body = await req.json();
@@ -96,15 +99,41 @@ export async function POST(req: Request) {
   const apiKey = body.apiKey;
   const prompt = body.prompt;
   const wantStream = body.stream === true;
+  const cacheable = body.cacheable === true;
+
+  // Cache lookup (só quando user marcou cacheable=true).
+  // Cacheable é determinístico: prompt sem turn dinâmico (ex: "explica
+  // questão X" sim; "chat com histórico Y" não).
+  let cacheKey: string | null = null;
+  if (cacheable) {
+    cacheKey = await buildCacheKey(provider, model, prompt);
+    const sb = getSupabaseAdmin();
+    const { data } = await sb
+      .from('ai_response_cache')
+      .select('response')
+      .eq('cache_key', cacheKey)
+      .maybeSingle();
+    if (data?.response) {
+      // Hit — incrementa contador (best-effort, não bloqueia)
+      sb.rpc('ai_cache_record_hit', { p_cache_key: cacheKey }).then(() => {});
+      if (wantStream) {
+        return streamCached(data.response);
+      }
+      return NextResponse.json({ text: data.response, cached: true });
+    }
+  }
 
   if (wantStream) {
-    return streamResponse(provider, model, apiKey, prompt);
+    return streamResponse(provider, model, apiKey, prompt, cacheKey);
   }
 
   // Non-streaming: comportamento original (não-breaking pra clients atuais).
   try {
     const text = await callNonStream(provider, model, apiKey, prompt);
-    return NextResponse.json({ text });
+    if (cacheKey) {
+      void storeInCache(cacheKey, provider, model, text);
+    }
+    return NextResponse.json({ text, cached: false });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'erro';
     return NextResponse.json(
@@ -112,6 +141,60 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+async function storeInCache(
+  cacheKey: string,
+  provider: Provider,
+  model: string,
+  text: string
+): Promise<void> {
+  if (!text || text.length < 10) return; // não cacheia respostas vazias/lixo
+  try {
+    const sb = getSupabaseAdmin();
+    await sb.from('ai_response_cache').upsert(
+      {
+        cache_key: cacheKey,
+        provider,
+        model,
+        response: text,
+        tokens_estimated: Math.ceil(text.length / 4), // rough estimate
+      },
+      { onConflict: 'cache_key' }
+    );
+  } catch (e) {
+    console.warn('[ai-cache] store failed', e);
+  }
+}
+
+/**
+ * Stream uma resposta cacheada já completa (palavra por palavra com
+ * pequeno delay pra UX consistente — sem isso o cache fica visualmente
+ * brusco vs uma chamada real).
+ */
+function streamCached(cachedText: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Quebra em chunks de ~30 chars pra simular streaming sem ser muito lento
+      const CHUNK_SIZE = 30;
+      for (let i = 0; i < cachedText.length; i += CHUNK_SIZE) {
+        const piece = cachedText.slice(i, i + CHUNK_SIZE);
+        controller.enqueue(encoder.encode(`data: ${piece}\n\n`));
+        // Pequeno delay pra UX (não trava o usuário)
+        await new Promise((r) => setTimeout(r, 8));
+      }
+      controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Cache': 'HIT',
+    },
+  });
 }
 
 async function callNonStream(
@@ -180,14 +263,19 @@ function streamResponse(
   provider: Provider,
   model: string,
   apiKey: string,
-  prompt: string
+  prompt: string,
+  cacheKey: string | null = null
 ): Response {
   const encoder = new TextEncoder();
+  // Acumula chunks pra armazenar no cache quando finalizar
+  const accumulated: string[] = [];
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (chunk: string) =>
+      const send = (chunk: string) => {
+        accumulated.push(chunk);
         controller.enqueue(encoder.encode(`data: ${chunk}\n\n`));
+      };
       const error = (msg: string) =>
         controller.enqueue(
           encoder.encode(`event: error\ndata: ${msg}\n\n`)
@@ -201,7 +289,11 @@ function streamResponse(
         } else {
           await streamGemini(model, apiKey, prompt, send);
         }
-        send('[DONE]');
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        // Persiste no cache (não acumula no send pra evitar [DONE])
+        if (cacheKey && accumulated.length > 0) {
+          void storeInCache(cacheKey, provider, model, accumulated.join(''));
+        }
       } catch (e) {
         error(e instanceof Error ? e.message : 'erro de stream');
       } finally {

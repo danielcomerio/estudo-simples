@@ -95,7 +95,10 @@ export function AIExplainButton({
     }
     abortRef.current?.abort();
     abortRef.current = streamAIChat(
-      { provider, apiKey, prompt: buildPrompt() },
+      // cacheable: explicação de questão é determinística (mesma questão
+      // sempre tem mesma resposta correta + explicação). Cache compartilhado
+      // economiza tokens entre users.
+      { provider, apiKey, prompt: buildPrompt(), cacheable: true },
       {
         onChunk: (chunk) => setResponse((prev) => (prev ?? '') + chunk),
         onDone: () => setLoading(false),
