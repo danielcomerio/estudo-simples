@@ -36,6 +36,7 @@ import { SearchHistoryDropdown } from './SearchHistoryDropdown';
 import { saveSearchHistory } from '@/lib/search-history';
 import { BancoItemSkeleton } from './BancoItemSkeleton';
 import { ShareDeckButton } from './ShareDeckButton';
+import { AIGenerateButton } from './AIGenerateButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1836,6 +1837,7 @@ export function BancoList() {
         >
           + Nova
         </button>
+        <AIGenerateButton />
         <button
           type="button"
           onClick={() => setBrowsing(true)}
