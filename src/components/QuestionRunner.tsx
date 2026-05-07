@@ -35,6 +35,7 @@ import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
+import { TTSButton } from './TTSButton';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
@@ -1552,6 +1553,11 @@ function RunningView({
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderRichText(payload.enunciado) }}
         />
+
+        {/* TTS pra leitura em voz (a11y + estudo hands-free) */}
+        <div style={{ marginTop: 6 }}>
+          <TTSButton text={payload.enunciado} size="small" />
+        </div>
 
         <QuestionImages urls={payload.imagens} />
 
