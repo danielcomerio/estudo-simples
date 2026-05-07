@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMyPlan } from '@/lib/use-plan';
 import { canShareDecks } from '@/lib/billing';
 import { toast } from './Toast';
+import { Modal } from './Modal';
 import Link from 'next/link';
 
 /**
@@ -106,32 +107,7 @@ export function ShareDeckButton({
       </button>
 
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="share-dialog-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 200,
-            padding: 16,
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) close();
-          }}
-        >
-          <div
-            className="card"
-            style={{
-              maxWidth: 520,
-              width: '100%',
-              padding: 22,
-            }}
-          >
+        <Modal onClose={close} ariaLabel="Compartilhar banco" maxWidth={520}>
             <h2 id="share-dialog-title" style={{ margin: '0 0 8px' }}>
               🔗 Compartilhar banco
             </h2>
@@ -221,8 +197,7 @@ export function ShareDeckButton({
                 </p>
               </>
             )}
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

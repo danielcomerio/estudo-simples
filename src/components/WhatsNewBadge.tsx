@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { Modal } from './Modal';
 import {
   WHATS_NEW,
   hasUnseenChanges,
@@ -62,79 +62,40 @@ export function WhatsNewBadge() {
 }
 
 function WhatsNewModal({ onClose }: { onClose: () => void }) {
-  if (typeof document === 'undefined') return null;
-  // Portal pra document.body escapa o stacking context do Topbar
-  // (que tem backdrop-filter + position:sticky e prendia o modal).
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal
-      aria-label="Novidades"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.5)',
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        zIndex: 9999,
-        // Overlay rola se conteúdo > viewport (evita corte em mobile)
-        overflowY: 'auto',
-        // Respeita safe-area do iOS + Topbar (~64px)
-        paddingTop: 'max(72px, env(safe-area-inset-top, 20px))',
-        paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))',
-        paddingLeft: 16,
-        paddingRight: 16,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--bg)',
-          borderRadius: 'var(--radius)',
-          padding: 24,
-          maxWidth: 540,
-          width: '100%',
-          // Sem maxHeight — overlay rola, conteúdo flui
-          border: '1px solid var(--border)',
-          marginBottom: 'auto', // mantém perto do topo, deixa sobra embaixo
-        }}
-      >
-        <div className="row between" style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>🎁 Novidades</h2>
-          <button onClick={onClose} aria-label="Fechar">
-            ✕
-          </button>
-        </div>
-        {WHATS_NEW.map((entry) => (
-          <div key={entry.version} style={{ marginBottom: 18 }}>
-            <h3
-              style={{
-                margin: '0 0 4px',
-                fontSize: '0.95rem',
-                color: 'var(--primary)',
-              }}
-            >
-              {entry.version} · {entry.date}
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
-              {entry.highlights.map((h, i) => (
-                <li key={i} style={{ fontSize: '0.9rem' }}>
-                  {h}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-        <p
-          className="muted"
-          style={{ fontSize: '0.78rem', marginTop: 14, marginBottom: 0 }}
-        >
-          Histórico completo em CHANGELOG.md no repositório.
-        </p>
+  return (
+    <Modal onClose={onClose} ariaLabel="Novidades" maxWidth={540}>
+      <div className="row between" style={{ marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>🎁 Novidades</h2>
+        <button onClick={onClose} aria-label="Fechar">
+          ✕
+        </button>
       </div>
-    </div>,
-    document.body
+      {WHATS_NEW.map((entry) => (
+        <div key={entry.version} style={{ marginBottom: 18 }}>
+          <h3
+            style={{
+              margin: '0 0 4px',
+              fontSize: '0.95rem',
+              color: 'var(--primary)',
+            }}
+          >
+            {entry.version} · {entry.date}
+          </h3>
+          <ul style={{ margin: 0, paddingLeft: 20, lineHeight: 1.7 }}>
+            {entry.highlights.map((h, i) => (
+              <li key={i} style={{ fontSize: '0.9rem' }}>
+                {h}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      <p
+        className="muted"
+        style={{ fontSize: '0.78rem', marginTop: 14, marginBottom: 0 }}
+      >
+        Histórico completo em CHANGELOG.md no repositório.
+      </p>
+    </Modal>
   );
 }

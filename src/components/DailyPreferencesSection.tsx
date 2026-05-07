@@ -13,6 +13,15 @@ type Prefs = {
   notify_minute: number;
 };
 
+// Brasília é UTC-3 (sem horário de verão desde 2019).
+// DB armazena UTC (notify_hour 0-23). UI mostra BRT.
+function utcToBR(utc: number): number {
+  return (utc - 3 + 24) % 24;
+}
+function brToUTC(br: number): number {
+  return (br + 3) % 24;
+}
+
 const TYPES: Array<{ value: string; label: string }> = [
   { value: 'objetiva', label: 'Objetiva' },
   { value: 'discursiva', label: 'Discursiva' },
@@ -207,20 +216,21 @@ export function DailyPreferencesSection() {
         <label
           style={{ display: 'block', marginBottom: 4, fontSize: '0.9rem' }}
         >
-          Hora de notificação (UTC)
+          Hora de notificação (horário de Brasília)
         </label>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="number"
             min={0}
             max={23}
-            value={prefs.notify_hour}
-            onChange={(e) =>
-              update(
-                'notify_hour',
-                Math.max(0, Math.min(23, parseInt(e.target.value, 10) || 0))
-              )
-            }
+            value={utcToBR(prefs.notify_hour)}
+            onChange={(e) => {
+              const br = Math.max(
+                0,
+                Math.min(23, parseInt(e.target.value, 10) || 0)
+              );
+              update('notify_hour', brToUTC(br));
+            }}
             style={{ width: 60 }}
           />
           <span>:</span>
@@ -228,6 +238,7 @@ export function DailyPreferencesSection() {
             type="number"
             min={0}
             max={59}
+            step={5}
             value={prefs.notify_minute}
             onChange={(e) =>
               update(
@@ -238,7 +249,7 @@ export function DailyPreferencesSection() {
             style={{ width: 60 }}
           />
           <span className="muted" style={{ fontSize: '0.85rem' }}>
-            UTC (subtraia 3h pra horário de Brasília)
+            BRT (UTC-3)
           </span>
         </div>
       </div>
