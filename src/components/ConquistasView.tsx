@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useStore, selectActiveQuestions } from '@/lib/store';
 import { StreakCalendar } from './StreakCalendar';
 import { startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
+import { computeDailyStreak } from '@/lib/daily-streak';
 
 type Tier = {
   threshold: number;
@@ -24,6 +25,31 @@ type Category = {
 export function ConquistasView() {
   const hydrated = useStore((s) => s.hydrated);
   const questions = useStore(selectActiveQuestions);
+  const [dailyDates, setDailyDates] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/daily/history')
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((j: { items?: Array<{ set_date: string | null }> }) => {
+        if (cancelled) return;
+        const dates = (j.items ?? [])
+          .map((it) => it.set_date)
+          .filter((d): d is string => typeof d === 'string');
+        setDailyDates(dates);
+      })
+      .catch(() => {
+        if (!cancelled) setDailyDates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dailyStreak = useMemo(
+    () => computeDailyStreak(dailyDates ?? []),
+    [dailyDates]
+  );
 
   const data = useMemo(() => {
     let totalAttempts = 0;
@@ -113,6 +139,22 @@ export function ConquistasView() {
         { threshold: 14, label: '2 semanas', emoji: '🔥🔥' },
         { threshold: 30, label: '1 mês', emoji: '🔥🔥🔥' },
         { threshold: 60, label: '2 meses', emoji: '🔥🔥🔥' },
+        { threshold: 90, label: '3 meses', emoji: '🌟' },
+        { threshold: 180, label: '6 meses', emoji: '💎' },
+        { threshold: 365, label: '1 ano', emoji: '👑' },
+      ],
+    },
+    {
+      title: '📅 Streak diário (/diario)',
+      desc: `Sequência consecutiva de dias completando o desafio diário em /diario. Atual: ${dailyStreak.currentStreak} dia(s). Recorde: ${dailyStreak.bestStreak}.`,
+      current: dailyStreak.bestStreak,
+      unit: 'dias',
+      tiers: [
+        { threshold: 3, label: '3 dias', emoji: '📅' },
+        { threshold: 7, label: '1 semana', emoji: '📅' },
+        { threshold: 14, label: '2 semanas', emoji: '📅📅' },
+        { threshold: 30, label: '1 mês', emoji: '📅📅' },
+        { threshold: 60, label: '2 meses', emoji: '📅📅📅' },
         { threshold: 90, label: '3 meses', emoji: '🌟' },
         { threshold: 180, label: '6 meses', emoji: '💎' },
         { threshold: 365, label: '1 ano', emoji: '👑' },
