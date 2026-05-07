@@ -274,8 +274,14 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
   `count_due_per_user(p_due_before_ms)` agrupa contagem de questões
   SRS-vencendo por user. Usada pelo cron `/api/cron/srs-due` pra
   enviar push em batch.
+- `0017_public_decks_marketplace.sql` — Fase C4 (extensão de C2):
+  shared_decks ganha is_public boolean + title + description +
+  category + index parcial + RLS pública. Permite marketplace
+  comunitário. Endpoint `/api/decks-publicos` lista. UI em
+  `/decks-publicos` (PublicDecksMarketplace component). Owner
+  publica via SharedLinksSection (PATCH /api/share/[token]).
 
-**Próxima migration deve ser 0017.** Não editar 0001-0016.
+**Próxima migration deve ser 0018.** Não editar 0001-0017.
 
 ## Push notifications
 
@@ -317,7 +323,30 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
   plugin `@capacitor/push-notifications` na app (PushNotificationsSection
   já cobre Web Push via VAPID).
 
-## Sharing entre usuários (Fases C2/C3)
+## AI Tutor (BYO key)
+
+- `lib/ai-keys.ts`: gestão de chaves API por provider (openai/
+  anthropic/gemini) em localStorage. NÃO sincroniza — chave é
+  per-device.
+- `AIKeysSection` em /configuracoes: UI pra plugar/trocar/remover
+  chave. Validação básica de prefix (sk-, sk-ant-).
+- `AIExplainButton` no QuestionRunner (após responder): chama
+  `/api/ai/chat` proxy. Sem chave: mostra link discreto pra config.
+- `/api/ai/chat`: proxy stateless pro provider. NUNCA armazena chave
+  no server. Auth obrigatória + rate limit 30/min.
+- Modelos default: gpt-4o-mini, claude-haiku-4-5, gemini-2.0-flash-exp
+  (baratos/rápidos).
+
+## TTS (leitura em voz)
+
+- `TTSButton` usa Web Speech API native (sem dep externa).
+- Plugado em QuestionRunner, CardsRunner, DiscursivaRunner abaixo
+  do enunciado.
+- Auto-detecta voz pt-BR. Strip de markdown/LaTeX/code blocks antes
+  de falar.
+- iOS exige user gesture (já temos — clique do botão).
+
+## Sharing entre usuários (Fases C2/C3/C4)
 
 - **Fase C2 — Snapshot link** (`shared_decks` na 0012): usuário cria
   link com seleção de questões. Receptor importa cópias pra própria
