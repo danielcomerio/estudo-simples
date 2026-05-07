@@ -26,21 +26,11 @@ export const metadata: Metadata = {
   description: 'Repetição espaçada para concursos públicos.',
   applicationName: 'Estudo Simples',
   manifest: '/manifest.json',
-  icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-    ],
-    apple: [
-      { url: '/icon.svg', sizes: '180x180', type: 'image/svg+xml' },
-    ],
-    other: [
-      {
-        rel: 'mask-icon',
-        url: '/icon-maskable.svg',
-        color: '#22c55e',
-      },
-    ],
-  },
+  // icons: definidos via Next 14 convention em app/icon.svg + app/apple-icon.svg
+  // (Next gera <link> automático). Definir aqui também duplicava e em alguns
+  // browsers gerava conflito (favicon não aparecia em localhost).
+  // Mask-icon via tag manual no <head> mais abaixo (não há suporte direto
+  // no metadata.icons.other em todos versions do Next 14).
   appleWebApp: {
     capable: true,
     title: 'Estudo Simples',
