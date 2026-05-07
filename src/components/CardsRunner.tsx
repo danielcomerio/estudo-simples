@@ -35,6 +35,7 @@ import type {
   Question,
 } from '@/lib/types';
 import { QuestionImages } from './QuestionImages';
+import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 
 /**
  * Runner unificado pra Cloze e Flashcard. Ambos têm o mesmo fluxo:
@@ -729,6 +730,35 @@ function CardView({
       )}
 
       <QuestionImages urls={(q.payload as { imagens?: string[] }).imagens} />
+
+      {/* Badge de origem do gabarito — só aparece após revelar tudo
+          (fica em pé de igualdade com QuestionRunner que mostra junto
+          com gabarito). Pra cloze/flashcard, "gabarito" é a resposta
+          revelada; aviso quando IA-gerado. */}
+      {allRevealed && q.fonte?.gabarito_source && (
+        <div
+          style={{
+            margin: '8px 0',
+            padding: '8px 12px',
+            background: 'var(--bg-elev-2)',
+            borderRadius: 'var(--radius)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+            Origem da resposta:
+          </span>
+          <GabaritoSourceBadge source={q.fonte.gabarito_source} size="medium" />
+          {q.fonte.gabarito_source === 'ia' && (
+            <span className="muted" style={{ fontSize: '0.78rem' }}>
+              ⚠ Valide contra fonte oficial.
+            </span>
+          )}
+        </div>
+      )}
 
       {!allRevealed && (
         <div

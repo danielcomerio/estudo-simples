@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { calcularResultado, isFinishedAfterTimeUp } from '@/lib/simulado';
 import { renderRichText } from '@/lib/utils';
 import { QuestionImages } from './QuestionImages';
+import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { updateQuestionLocal } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { useAlgorithm } from '@/lib/settings';
@@ -444,13 +445,27 @@ function ErradaCard({
         marginBottom: 12,
       }}
     >
-      <div className="muted" style={{ fontSize: '0.82rem', marginBottom: 6 }}>
-        {question.disciplina_id ?? '(sem disciplina)'}
-        {question.banca_estilo && ` · ${question.banca_estilo}`}
+      <div
+        className="muted"
+        style={{
+          fontSize: '0.82rem',
+          marginBottom: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <span>
+          {question.disciplina_id ?? '(sem disciplina)'}
+          {question.banca_estilo && ` · ${question.banca_estilo}`}
+        </span>
+        {question.fonte?.gabarito_source && (
+          <GabaritoSourceBadge source={question.fonte.gabarito_source} />
+        )}
         {resultado.respondido_apos_tempo && (
           <span
             style={{
-              marginLeft: 8,
               padding: '2px 8px',
               background: 'var(--primary-soft)',
               borderRadius: 12,

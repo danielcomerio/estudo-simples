@@ -33,6 +33,7 @@ import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/li
 import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
+import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
@@ -1651,7 +1652,18 @@ function RunningView({
 
           {correctAlt && (
             <div className="feedback-block">
-              <strong>Gabarito: {correctAlt.letra}</strong>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <strong>Gabarito: {correctAlt.letra}</strong>
+                {q.fonte?.gabarito_source && (
+                  <GabaritoSourceBadge source={q.fonte.gabarito_source} size="medium" />
+                )}
+              </div>
+              {q.fonte?.gabarito_source === 'ia' && (
+                <div className="muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>
+                  ⚠ Esse gabarito foi gerado por IA — valide contra fonte
+                  oficial antes de memorizar.
+                </div>
+              )}
               {correctAlt.texto && (
                 <div
                   style={{ marginTop: 6 }}

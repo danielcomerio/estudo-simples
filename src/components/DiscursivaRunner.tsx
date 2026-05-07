@@ -21,6 +21,7 @@ import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
+import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
@@ -696,7 +697,18 @@ function DiscReveal({
 
       {payload.espelho_resposta && (
         <>
-          <h3>Espelho de resposta</h3>
+          <h3 style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            Espelho de resposta
+            {q.fonte?.gabarito_source && (
+              <GabaritoSourceBadge source={q.fonte.gabarito_source} size="small" />
+            )}
+          </h3>
+          {q.fonte?.gabarito_source === 'ia' && (
+            <p className="muted" style={{ fontSize: '0.82rem', marginTop: -6 }}>
+              ⚠ Espelho gerado por IA — valide contra fonte oficial antes
+              de adotar como gabarito.
+            </p>
+          )}
           <div
             className="espelho-block"
             dangerouslySetInnerHTML={{ __html: renderRichText(payload.espelho_resposta) }}
