@@ -82,6 +82,21 @@ export default async function RootLayout({
     }
   })();
 
+  // JSON-LD schema.org pra SEO. SoftwareApplication descreve o app em
+  // termos que Google/buscadores entendem. Não promete dados que não
+  // existem (rating, price). Educational categoria reflete o uso real.
+  const ldJson = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Estudo Simples',
+    applicationCategory: 'EducationalApplication',
+    operatingSystem: 'Web, iOS, Android',
+    description:
+      'Repetição espaçada (SRS) para concursos públicos brasileiros. Estude com SM-2 ou FSRS-6, importe questões reais, integre IA com sua chave (BYO).',
+    inLanguage: 'pt-BR',
+    url: 'https://app.estudosimples.com.br',
+  };
+
   return (
     <html lang="pt-BR">
       <head>
@@ -93,6 +108,10 @@ export default async function RootLayout({
         )}
         <link rel="preconnect" href="https://js.stripe.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.stripe.com" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ldJson) }}
+        />
       </head>
       <body>
         <ServiceWorkerRegister />
