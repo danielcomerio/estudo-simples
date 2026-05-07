@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildClozeFromTextPrompt,
   buildGenerationPrompt,
+  buildOCRPrompt,
   parseAndValidate,
   parseGeneratedJSON,
+  parseOCRResult,
   validateGeneratedItem,
 } from '../ai-generate';
 
@@ -212,5 +215,92 @@ describe('parseAndValidate (integration)', () => {
     });
     expect(r.items).toHaveLength(2);
     expect(r.discarded).toBe(0);
+  });
+});
+
+describe('buildClozeFromTextPrompt', () => {
+  it('inclui texto fonte + qtd', () => {
+    const p = buildClozeFromTextPrompt('A constituição prevê...', 5);
+    expect(p).toContain('A constituição prevê');
+    expect(p).toContain('5 card');
+    expect(p).toContain('{{c1::lacuna}}');
+  });
+
+  it('inclui disciplina quando informada', () => {
+    const p = buildClozeFromTextPrompt('texto', 3, 'Direito');
+    expect(p).toContain('Direito');
+  });
+});
+
+describe('buildOCRPrompt', () => {
+  it('schema objetiva + discursiva', () => {
+    const p = buildOCRPrompt();
+    expect(p).toContain('"type": "objetiva"');
+    expect(p).toContain('"type": "discursiva"');
+  });
+
+  it('hint de banca aparece no prompt', () => {
+    const p = buildOCRPrompt({ banca: 'FGV' });
+    expect(p).toContain('FGV');
+  });
+
+  it('inclui no_question_detected fallback', () => {
+    const p = buildOCRPrompt();
+    expect(p).toContain('no_question_detected');
+  });
+});
+
+describe('parseOCRResult', () => {
+  it('JSON objetiva válido → GeneratedQuestion', () => {
+    const raw = JSON.stringify({
+      type: 'objetiva',
+      enunciado: 'Q?',
+      alternativas: [
+        { letra: 'A', texto: 'a', correta: true },
+        { letra: 'B', texto: 'b', correta: false },
+      ],
+    });
+    const r = parseOCRResult(raw);
+    expect(r?.type).toBe('objetiva');
+  });
+
+  it('JSON discursiva válido', () => {
+    const raw = JSON.stringify({
+      type: 'discursiva',
+      enunciado: 'Disserte X',
+      espelho_resposta: 'X é Y',
+    });
+    const r = parseOCRResult(raw);
+    expect(r?.type).toBe('discursiva');
+  });
+
+  it('error: no_question_detected → null', () => {
+    const r = parseOCRResult(JSON.stringify({ error: 'no_question_detected' }));
+    expect(r).toBe(null);
+  });
+
+  it('type inválido → null', () => {
+    const r = parseOCRResult(
+      JSON.stringify({ type: 'cloze', texto: 'foo' })
+    );
+    expect(r).toBe(null);
+  });
+
+  it('JSON inválido → null', () => {
+    expect(parseOCRResult('not json')).toBe(null);
+  });
+
+  it('hint de banca passa pra GeneratedQuestion', () => {
+    const raw = JSON.stringify({
+      type: 'objetiva',
+      enunciado: 'Q?',
+      alternativas: [
+        { letra: 'A', texto: 'a', correta: true },
+        { letra: 'B', texto: 'b', correta: false },
+      ],
+    });
+    const r = parseOCRResult(raw, { banca: 'FGV', disciplina: 'Direito' });
+    expect(r?.banca_estilo).toBe('FGV');
+    expect(r?.disciplina_id).toBe('Direito');
   });
 });

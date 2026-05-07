@@ -67,6 +67,13 @@ export async function POST(req: Request) {
     stream?: boolean;
     cacheable?: boolean;
     kind?: string;
+    /**
+     * Imagens em base64 (sem prefixo `data:`). Quando presente, força
+     * uso de modelo vision-capable do provider e a chamada vai pelo
+     * caminho non-stream (vision tasks tipicamente retornam JSON
+     * estruturado, não conversacional).
+     */
+    images?: Array<{ base64: string; mediaType: string }>;
   } = {};
   try {
     body = await req.json();
@@ -97,12 +104,52 @@ export async function POST(req: Request) {
   }
 
   const provider = body.provider as Provider;
-  const model = body.model || DEFAULTS[provider];
   const apiKey = body.apiKey;
   const prompt = body.prompt;
   const wantStream = body.stream === true;
   const cacheable = body.cacheable === true;
   const kind = typeof body.kind === 'string' ? body.kind.slice(0, 32) : undefined;
+
+  // Validação de images (se presente)
+  const hasImages = Array.isArray(body.images) && body.images.length > 0;
+  if (hasImages) {
+    if (body.images!.length > 4) {
+      return NextResponse.json({ error: 'too_many_images' }, { status: 400 });
+    }
+    for (const img of body.images!) {
+      if (
+        typeof img?.base64 !== 'string' ||
+        img.base64.length < 100 ||
+        img.base64.length > 7_000_000 // ~5 MB em base64
+      ) {
+        return NextResponse.json(
+          { error: 'invalid_image' },
+          { status: 400 }
+        );
+      }
+      if (
+        typeof img?.mediaType !== 'string' ||
+        !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(
+          img.mediaType
+        )
+      ) {
+        return NextResponse.json(
+          { error: 'invalid_media_type' },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
+  // Modelos vision-capable por provider
+  const VISION_DEFAULTS: Record<Provider, string> = {
+    openai: 'gpt-4o-mini', // já vision-capable
+    anthropic: 'claude-haiku-4-5-20251001',
+    gemini: 'gemini-2.0-flash-exp', // multimodal nativo
+  };
+  const model =
+    body.model ||
+    (hasImages ? VISION_DEFAULTS[provider] : DEFAULTS[provider]);
 
   // Cache lookup (só quando user marcou cacheable=true).
   // Cacheable é determinístico: prompt sem turn dinâmico (ex: "explica
@@ -135,6 +182,35 @@ export async function POST(req: Request) {
     }
   }
 
+  // Vision: sempre non-stream (parsers esperam JSON completo)
+  if (hasImages) {
+    try {
+      const text = await callVision(
+        provider,
+        model,
+        apiKey,
+        prompt,
+        body.images!
+      );
+      void recordAIUsage({
+        userId: user.id,
+        provider,
+        model,
+        promptChars: prompt.length,
+        responseChars: text.length,
+        cached: false,
+        kind,
+      });
+      return NextResponse.json({ text, cached: false });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'erro';
+      return NextResponse.json(
+        { error: 'vision_failed', message: msg },
+        { status: 500 }
+      );
+    }
+  }
+
   if (wantStream) {
     return streamResponse(provider, model, apiKey, prompt, cacheKey, {
       userId: user.id,
@@ -142,7 +218,7 @@ export async function POST(req: Request) {
     });
   }
 
-  // Non-streaming: comportamento original (não-breaking pra clients atuais).
+  // Non-streaming text: comportamento original (não-breaking pra clients atuais).
   try {
     const text = await callNonStream(provider, model, apiKey, prompt);
     if (cacheKey) {
@@ -165,6 +241,99 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * Vision call: aceita imagens junto com prompt. Cada provider tem
+ * formato próprio.
+ */
+async function callVision(
+  provider: Provider,
+  model: string,
+  apiKey: string,
+  prompt: string,
+  images: Array<{ base64: string; mediaType: string }>
+): Promise<string> {
+  if (provider === 'openai') {
+    const content: unknown[] = [{ type: 'text', text: prompt }];
+    for (const img of images) {
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${img.mediaType};base64,${img.base64}`,
+        },
+      });
+    }
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content }],
+        max_tokens: 2048,
+      }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(j?.error?.message ?? `HTTP ${r.status}`);
+    return j?.choices?.[0]?.message?.content ?? '';
+  }
+
+  if (provider === 'anthropic') {
+    const content: unknown[] = [];
+    // Imagens vêm primeiro pra Anthropic seguir as recommendations
+    for (const img of images) {
+      content.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: img.mediaType,
+          data: img.base64,
+        },
+      });
+    }
+    content.push({ type: 'text', text: prompt });
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 2048,
+        messages: [{ role: 'user', content }],
+      }),
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) throw new Error(j?.error?.message ?? `HTTP ${r.status}`);
+    return j?.content?.[0]?.text ?? '';
+  }
+
+  // Gemini
+  const parts: unknown[] = [{ text: prompt }];
+  for (const img of images) {
+    parts.push({
+      inline_data: {
+        mime_type: img.mediaType,
+        data: img.base64,
+      },
+    });
+  }
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts }] }),
+    }
+  );
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(j?.error?.message ?? `HTTP ${r.status}`);
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
 async function storeInCache(

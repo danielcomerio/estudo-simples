@@ -37,6 +37,8 @@ import { saveSearchHistory } from '@/lib/search-history';
 import { BancoItemSkeleton } from './BancoItemSkeleton';
 import { ShareDeckButton } from './ShareDeckButton';
 import { AIGenerateButton } from './AIGenerateButton';
+import { AIClozeFromTextButton } from './AIClozeFromTextButton';
+import { AIOCRButton } from './AIOCRButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1838,6 +1840,8 @@ export function BancoList() {
           + Nova
         </button>
         <AIGenerateButton />
+        <AIClozeFromTextButton />
+        <AIOCRButton />
         <button
           type="button"
           onClick={() => setBrowsing(true)}

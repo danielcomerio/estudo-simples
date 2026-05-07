@@ -6,39 +6,27 @@ import { Modal } from './Modal';
 import { useStore } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import { saveGeneratedQuestions } from '@/lib/ai-save-generated';
-import { AIQuestionPreviewItem } from './AIQuestionPreviewItem';
 import {
   getAIKey,
   getDefaultProvider,
   PROVIDER_LABELS,
 } from '@/lib/ai-keys';
 import {
-  buildGenerationPrompt,
+  buildClozeFromTextPrompt,
   parseAndValidate,
-  type GenerateConfig,
   type GeneratedQuestion,
 } from '@/lib/ai-generate';
-import type { QuestionType } from '@/lib/types';
+import { AIQuestionPreviewItem } from './AIQuestionPreviewItem';
 import { toast } from './Toast';
 
 /**
- * Botão "🤖 Gerar com IA" no toolbar do BancoList.
+ * Botão "🤖 Cloze de texto" no toolbar do BancoList.
  *
- * Fluxo wizard:
- *  1. Step config: tema, qtd, tipo, banca, disciplina, dificuldade
- *  2. Step loading: chama /api/ai/chat (sem stream — JSON precisa fechar
- *     antes de validar)
- *  3. Step preview: lista com checkboxes; user revê, edita opcionalmente,
- *     aceita selecionadas → addQuestionLocal pra cada
- *
- * Sem chave configurada: link discreto pra /configuracoes (não bloqueia
- * outras ações do toolbar).
+ * User cola um texto (lei, doutrina, resumo, anotação) e IA gera
+ * N cards cloze marcando os termos-chave. Reusa wizard preview do
+ * AIGenerateButton.
  */
-export function AIGenerateButton({
-  defaultDisciplina,
-}: {
-  defaultDisciplina?: string;
-}) {
+export function AIClozeFromTextButton() {
   const [open, setOpen] = useState(false);
   const provider = getDefaultProvider();
 
@@ -46,7 +34,7 @@ export function AIGenerateButton({
     return (
       <Link
         href="/configuracoes"
-        title="Configure uma chave de IA pra gerar questões"
+        title="Configure uma chave de IA"
         style={{
           fontSize: '0.85rem',
           color: 'var(--muted)',
@@ -64,56 +52,42 @@ export function AIGenerateButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title={`Gerar questões via ${PROVIDER_LABELS[provider]}`}
+        title={`Gerar cloze de texto via ${PROVIDER_LABELS[provider]}`}
         style={{
-          background: 'var(--primary-soft)',
+          background: 'var(--bg-elev-2)',
           border: '1px solid var(--primary)',
           color: 'var(--primary)',
           fontWeight: 500,
         }}
       >
-        🤖 Gerar com IA
+        🃏 Cloze de texto
       </button>
-      {open && (
-        <AIGenerateWizard
-          onClose={() => setOpen(false)}
-          defaultDisciplina={defaultDisciplina}
-        />
-      )}
+      {open && <Wizard onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 type Step = 'config' | 'loading' | 'preview';
 
-function AIGenerateWizard({
-  onClose,
-  defaultDisciplina,
-}: {
-  onClose: () => void;
-  defaultDisciplina?: string;
-}) {
+function Wizard({ onClose }: { onClose: () => void }) {
   const provider = getDefaultProvider();
   const userId = useStore((s) => s.userId);
+
   const [step, setStep] = useState<Step>('config');
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<GeneratedQuestion[]>([]);
   const [discarded, setDiscarded] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
-  // Config inputs
-  const [topic, setTopic] = useState('');
+  const [text, setText] = useState('');
   const [qtd, setQtd] = useState(5);
-  const [type, setType] = useState<QuestionType>('objetiva');
-  const [banca, setBanca] = useState('FGV');
-  const [disciplina, setDisciplina] = useState(defaultDisciplina ?? '');
-  const [dificuldade, setDificuldade] = useState(3);
+  const [disciplina, setDisciplina] = useState('');
 
   if (!provider) return null;
 
   async function generate() {
-    if (!topic.trim()) {
-      setError('Informe um tema/comando');
+    if (text.trim().length < 50) {
+      setError('Cole pelo menos 50 caracteres de texto');
       return;
     }
     setError(null);
@@ -124,14 +98,6 @@ function AIGenerateWizard({
       setStep('config');
       return;
     }
-    const cfg: GenerateConfig = {
-      topic: topic.trim(),
-      qtd: Math.max(1, Math.min(20, qtd)),
-      type,
-      banca: banca.trim() || undefined,
-      disciplina: disciplina.trim() || undefined,
-      dificuldade,
-    };
     try {
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -139,10 +105,12 @@ function AIGenerateWizard({
         body: JSON.stringify({
           provider,
           apiKey,
-          prompt: buildGenerationPrompt(cfg),
+          prompt: buildClozeFromTextPrompt(
+            text.trim().slice(0, 8000),
+            Math.max(1, Math.min(20, qtd)),
+            disciplina.trim() || undefined
+          ),
           kind: 'generate',
-          // cacheable false — prompt criativo, mesma config gera coisas
-          // diferentes; cache atrapalharia
         }),
       });
       const json = await res.json().catch(() => null);
@@ -151,11 +119,15 @@ function AIGenerateWizard({
         setStep('config');
         return;
       }
-      const text = (json as { text: string }).text;
-      const result = parseAndValidate(text, cfg);
+      const result = parseAndValidate((json as { text: string }).text, {
+        topic: text.slice(0, 100),
+        qtd,
+        type: 'cloze',
+        disciplina: disciplina.trim() || undefined,
+      });
       if (result.items.length === 0) {
         setError(
-          `Nenhuma questão válida foi gerada (${result.discarded} descartadas). Tente reformular o tema.`
+          `Nenhum cloze válido foi gerado (${result.discarded} descartados). O texto pode ser muito curto ou sem termos claros.`
         );
         setStep('config');
         return;
@@ -179,7 +151,7 @@ function AIGenerateWizard({
     });
   }
 
-  async function accept() {
+  function accept() {
     if (!userId) {
       toast('Não autenticado', 'error');
       return;
@@ -188,30 +160,23 @@ function AIGenerateWizard({
     const { added } = saveGeneratedQuestions(toAdd, userId);
     if (added > 0) {
       scheduleSync(500);
-      toast(
-        `${added} questão(ões) adicionada(s) ao banco. Tag: gabarito-ia`,
-        'success'
-      );
+      toast(`${added} card(s) cloze adicionados ao banco.`, 'success');
       onClose();
     } else {
-      toast('Nenhuma questão foi adicionada', 'warn');
+      toast('Nenhum card foi adicionado', 'warn');
     }
   }
 
   return (
-    <Modal
-      onClose={onClose}
-      ariaLabel="Gerar questões via IA"
-      maxWidth={680}
-    >
-      <h2 style={{ margin: '0 0 6px' }}>🤖 Gerar questões via IA</h2>
+    <Modal onClose={onClose} ariaLabel="Cloze de texto via IA" maxWidth={680}>
+      <h2 style={{ margin: '0 0 6px' }}>🃏 Gerar cloze de texto</h2>
       <p
         className="muted"
         style={{ margin: '0 0 14px', fontSize: '0.85rem' }}
       >
-        Usando {PROVIDER_LABELS[provider]} (BYO key). Questões geradas vêm
-        com tag <code>gabarito-ia</code> e <code>verificacao=pendente</code> —
-        revise antes de confiar.
+        Cole um trecho (lei, doutrina, resumo, anotação) e a IA marca os
+        termos-chave como lacunas. Tag <code>gabarito-ia</code> + revisão
+        pendente.
       </p>
 
       {step === 'config' && (
@@ -219,14 +184,18 @@ function AIGenerateWizard({
           <div style={{ display: 'grid', gap: 10 }}>
             <label>
               <div style={{ fontSize: '0.85rem', marginBottom: 4 }}>
-                Tema / comando
+                Texto fonte ({text.length} chars)
               </div>
               <textarea
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                rows={3}
-                placeholder="Ex: Princípios da administração pública na CF/88, focando em legalidade e moralidade"
-                style={{ width: '100%', resize: 'vertical' }}
+                value={text}
+                onChange={(e) => setText(e.target.value.slice(0, 8000))}
+                rows={10}
+                placeholder="Cole aqui um trecho de doutrina, lei, resumo ou anotação. Mínimo 50 chars, máximo 8000."
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                }}
               />
             </label>
 
@@ -243,49 +212,6 @@ function AIGenerateWizard({
                   onChange={(e) =>
                     setQtd(parseInt(e.target.value, 10) || 1)
                   }
-                />
-              </label>
-
-              <label style={{ flex: '1 1 140px' }}>
-                <div style={{ fontSize: '0.85rem', marginBottom: 4 }}>Tipo</div>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as QuestionType)}
-                >
-                  <option value="objetiva">Objetiva</option>
-                  <option value="discursiva">Discursiva</option>
-                  <option value="cloze">Cloze</option>
-                  <option value="flashcard">Flashcard</option>
-                </select>
-              </label>
-
-              <label style={{ flex: '1 1 100px' }}>
-                <div style={{ fontSize: '0.85rem', marginBottom: 4 }}>
-                  Dificuldade
-                </div>
-                <select
-                  value={dificuldade}
-                  onChange={(e) => setDificuldade(parseInt(e.target.value, 10))}
-                >
-                  <option value={1}>1 — fácil</option>
-                  <option value={2}>2</option>
-                  <option value={3}>3 — média</option>
-                  <option value={4}>4</option>
-                  <option value={5}>5 — difícil</option>
-                </select>
-              </label>
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <label style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.85rem', marginBottom: 4 }}>
-                  Banca (estilo)
-                </div>
-                <input
-                  type="text"
-                  value={banca}
-                  onChange={(e) => setBanca(e.target.value)}
-                  placeholder="FGV, Cebraspe, FCC..."
                 />
               </label>
               <label style={{ flex: 1 }}>
@@ -328,12 +254,12 @@ function AIGenerateWizard({
       {step === 'loading' && (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div style={{ fontSize: '2rem', marginBottom: 12 }}>🤖</div>
-          <div>Gerando {qtd} questão(ões)…</div>
+          <div>Identificando termos-chave…</div>
           <div
             className="muted"
             style={{ fontSize: '0.82rem', marginTop: 8 }}
           >
-            Pode levar até ~30s
+            ~10-30s dependendo do tamanho
           </div>
         </div>
       )}
@@ -350,19 +276,16 @@ function AIGenerateWizard({
               borderRadius: 6,
             }}
           >
-            ✓ {items.length} válida(s){' '}
-            {discarded > 0 && `· ${discarded} descartada(s)`}. Selecione as
-            que quer adicionar ao banco.
+            ✓ {items.length} cloze(s) válido(s){' '}
+            {discarded > 0 && `· ${discarded} descartado(s)`}.
           </div>
 
           <div className="row gap" style={{ marginBottom: 10 }}>
             <button
               type="button"
-              onClick={() =>
-                setSelected(new Set(items.map((_, i) => i)))
-              }
+              onClick={() => setSelected(new Set(items.map((_, i) => i)))}
             >
-              Selecionar todas
+              Selecionar todos
             </button>
             <button type="button" onClick={() => setSelected(new Set())}>
               Limpar
@@ -404,4 +327,3 @@ function AIGenerateWizard({
     </Modal>
   );
 }
-

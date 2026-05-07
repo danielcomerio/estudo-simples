@@ -78,6 +78,102 @@ ${schemaExample}
 Comece direto com [`;
 }
 
+/**
+ * Prompt pra OCR de foto/print de questão. Vision model lê imagem e
+ * extrai a questão estruturada no schema do app.
+ */
+export function buildOCRPrompt(hint?: {
+  banca?: string;
+  disciplina?: string;
+}): string {
+  return `Você está vendo uma foto/print de uma questão de prova de concurso público brasileiro. Extraia a questão e retorne EXCLUSIVAMENTE em JSON estrito.
+
+REGRAS RÍGIDAS:
+1. Responda APENAS com JSON, sem texto antes/depois, sem markdown.
+2. Se for objetiva (com alternativas A-E), use schema:
+{
+  "type": "objetiva",
+  "enunciado": "texto completo do enunciado",
+  "alternativas": [
+    {"letra": "A", "texto": "...", "correta": false},
+    {"letra": "B", "texto": "...", "correta": true},
+    ...
+  ],
+  "gabarito_visivel": true,
+  "explicacao_geral": "se houver explicação visível"
+}
+3. Se NÃO houver indicação de gabarito na imagem, marque correta:false em todas e gabarito_visivel:false.
+4. Se for discursiva (sem alternativas), use:
+{
+  "type": "discursiva",
+  "enunciado": "texto completo do enunciado/comando",
+  "espelho_resposta": "se houver espelho visível, senão deixe vazio"
+}
+5. Preserve formatação importante (numeração de itens).
+6. NÃO INVENTE conteúdo que não está visível.
+7. Se a imagem não contiver questão clara, retorne: {"error": "no_question_detected"}
+${hint?.banca ? `\nDica: a banca provavelmente é ${hint.banca}.` : ''}${hint?.disciplina ? `\nDica: disciplina é ${hint.disciplina}.` : ''}
+
+Comece direto com {`;
+}
+
+/**
+ * Parser específico do output de OCR — único objeto, não array.
+ * Retorna null se inválido ou se IA reportou no_question_detected.
+ */
+export function parseOCRResult(
+  raw: string,
+  hint?: { banca?: string; disciplina?: string }
+): GeneratedQuestion | null {
+  const arr = parseGeneratedJSON(raw);
+  if (arr.length === 0) return null;
+  const obj = arr[0] as Record<string, unknown>;
+  if (obj.error === 'no_question_detected') return null;
+
+  const type = obj.type;
+  if (type !== 'objetiva' && type !== 'discursiva') return null;
+
+  return validateGeneratedItem(obj, {
+    topic: '(OCR)',
+    qtd: 1,
+    type,
+    banca: hint?.banca,
+    disciplina: hint?.disciplina,
+  });
+}
+
+/**
+ * Prompt pra gerar cards cloze a partir de um texto fonte (ex: trecho
+ * de doutrina, lei, resumo). IA identifica termos-chave e gera N cloze
+ * cards, um por conceito relevante.
+ */
+export function buildClozeFromTextPrompt(
+  sourceText: string,
+  qtd: number,
+  disciplina?: string
+): string {
+  const disc = disciplina ? ` (disciplina: ${disciplina})` : '';
+  return `Você é um professor de concurso público brasileiro${disc}. Leia o texto abaixo e crie ${qtd} card(s) tipo cloze, marcando os termos-chave que valem ser memorizados.
+
+Use a sintaxe {{c1::resposta}} {{c2::outra}} pra marcar lacunas. Cada card deve ter sentido SOZINHO (incluir contexto suficiente). Evite criar cards triviais ou redundantes.
+
+REGRAS RÍGIDAS:
+1. Responda APENAS com JSON válido — sem texto antes/depois, sem markdown.
+2. Estrutura: array de objetos no schema:
+{
+  "texto": "Frase com {{c1::lacuna}} pra completar.",
+  "explicacao": "contexto adicional opcional"
+}
+3. Cada texto deve ter PELO MENOS 1 lacuna {{cN::...}}.
+4. Linguagem em pt-BR formal.
+5. NÃO INVENTE leis/datas/jurisprudência além do que está no texto fonte.
+
+TEXTO FONTE:
+${sourceText}
+
+Comece direto com [`;
+}
+
 const SCHEMA_EXAMPLES: Record<QuestionType, string> = {
   objetiva: `{
   "enunciado": "string com a pergunta",

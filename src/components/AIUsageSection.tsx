@@ -31,6 +31,7 @@ const KIND_LABEL: Record<string, string> = {
   generate: 'Gerar questões',
   chat: 'Chat por questão',
   rewrite: 'Reescrever',
+  ocr: 'OCR de foto',
 };
 
 export function AIUsageSection() {
