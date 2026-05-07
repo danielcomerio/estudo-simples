@@ -226,7 +226,48 @@ PNG/JPEG/WEBP/GIF). 4 policies em `storage.objects`:
 
 Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 
-**Próxima migration deve ser 0005.** Não editar 0001-0004.
+### Migrations 0005–0014
+
+- `0005_billing.sql` — `profiles`, `stripe_events`, view `my_plan`,
+  triggers de enforce limit (free=500q/1concurso na época) + handler
+  `handle_new_user`.
+- `0006_analytics.sql` — `analytics_events` (privacy-first, sem PII)
+  + `newsletter_signups` (lead capture).
+- `0007_pricing_tiers.sql` — adiciona tier `estudante` no CHECK
+  profiles.plan + atualiza enforce funções (free=200/1, estudante=
+  2000/3, pro=ilimitado).
+- `0008_disciplinas_slug.sql` — Fase A organização: adiciona
+  `disciplinas.slug` (nullable) + index único parcial. App preenche
+  client-side.
+- `0009_master_tier.sql` — tier `master` no CHECK + funções enforce
+  ignoram master (sem limites) + trigger `protect_master_plan`
+  bloqueia rebaixamento via UPDATE comum (admin precisa
+  `set local app.allow_master_change='true'`).
+- `0010_questions_disciplina_uuid.sql` — Fase B organização:
+  `questions.disciplina_uuid uuid REFERENCES disciplinas(id, user_id)`
+  nullable. Backfill server por `lower(nome)` match. Dual-write em
+  vigor (Gotcha #13). Drop de `disciplina_id text` previsto pra 0015+.
+- `0011_question_concursos.sql` — Fase C1 organização: tabela join
+  N:N `question_concursos` (questão pode estar em múltiplos concursos).
+  RLS owner-only. Backfill from `questions.concurso_id` (1:1 legacy).
+- `0012_shared_decks.sql` — Fase C2 sharing: snapshot congelado via
+  link com token (ex: 32 hex chars). Default expira em 30d, mas
+  aceita `expires_at` até 100 anos. Função `shared_deck_increment_access`
+  pra contar acessos sem race. Acesso anon via service role no endpoint.
+- `0013_live_decks.sql` — Fase C3 sharing live: `live_decks`,
+  `live_deck_questions`, `live_deck_grants`. Pre-grant via email
+  resolvido pela trigger `resolve_pending_grants` (AFTER INSERT em
+  auth.users). Trigger `freeze_grant_on_revoke` cria entry em
+  `shared_decks` automaticamente quando owner revoga (decisão do
+  user: grantee mantém acesso readonly ao snapshot final).
+  RLS especial em `questions` (policy `questions_grantee_select`)
+  permite cross-user SELECT via JOIN com grants.
+- `0014_questions_unique_id_user.sql` — fix retroativo: 0001 nunca
+  declarou `UNIQUE (id, user_id)` em questions, fazendo as FKs
+  compostas das 0011/0013 falharem (erro 42830). Migration
+  idempotente que adiciona o constraint.
+
+**Próxima migration deve ser 0015.** Não editar 0001-0014.
 
 ## Auth
 
@@ -255,6 +296,35 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 - Enunciado com hint de imagem (`figura abaixo`, `tabela acima`...) →
   descartar
 - Tipo não suportado (`DISCURSIVA`, `CERTO_ERRADO`) → descartar
+
+### Origem do gabarito (`fonte.gabarito_source`)
+
+Adicionado pra distinguir gabarito **oficial** (banca confirmou) vs
+**IA-gerado** (pendente de oficialização). 3 caminhos:
+
+1. **JSON do import**: campo opcional `gabarito_source` (ou aliases
+   `gabaritoSource`/`gabarito_origem`) com valor `'ia' | 'oficial' |
+   'crowd'`. Se `'ia'`, parser **adiciona automaticamente a tag
+   `gabarito-ia`** ao array de tags.
+
+2. **Editor manual** (`QuestionEditDrawer`): select "Origem do
+   gabarito" na seção fonte. Quando user troca pra/de `'ia'`, tag
+   `gabarito-ia` é sincronizada (adicionada/removida) na hora do save
+   — caller de `updateQuestionLocal` recebe `tags` final.
+
+3. **Backfill SQL** (`supabase/manual/backfill_gabarito_ia.sql`):
+   inferência pra dados pré-existentes —
+   `origem='real' AND verificacao='pendente' AND gabarito não-vazio
+   AND fonte.gabarito_source IS NULL` recebe source='ia' + tag.
+   Idempotente. Preserva sources já definidos manualmente.
+
+NÃO há detecção automática a posteriori — o sinal é declarativo pelo
+caller. Caso de uso: marcar IA-pendentes em /banco com filtro
+"Origem do gabarito = IA" pra revisar e validar contra fonte oficial.
+
+`GabaritoSourceBadge` é o componente visual. Tag `gabarito-ia` é
+**derivada** de source — usar source como fonte de verdade; tag é
+só pra busca/export rápido.
 
 `parseImportBatch` (1 arquivo) e `parseImportBatchMulti` (N arquivos)
 agregam num único `BatchParseResult`. Cada um devolve, além de

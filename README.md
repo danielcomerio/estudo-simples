@@ -76,10 +76,16 @@ A importação aceita:
     { "letra": "B", "texto": "...", "correta": true,  "explicacao": "..." }
   ],
   "gabarito": "B",
+  "gabarito_source": "ia",
+  "tags": ["joins", "select"],
   "explicacao_geral": "Explicação macro do tema...",
   "pegadinhas": ["..."]
 }
 ```
+
+Campos opcionais relevantes:
+- **`tags`**: array de tags em kebab-case. Filtráveis em `/banco`.
+- **`gabarito_source`**: `"oficial"` | `"ia"` | `"crowd"`. Sinaliza origem do gabarito. Quando `"ia"`, app adiciona automaticamente a tag `gabarito-ia` e mostra badge 🤖 IA no card. Útil pra rastrear quais questões precisam validação contra fonte oficial. Veja `docs/MANUAL.md` pra workflow completo.
 
 ### Discursiva
 

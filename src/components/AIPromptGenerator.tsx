@@ -29,6 +29,7 @@ const SCHEMA_OBJETIVA = `{
   "tema": "<tema específico, opcional>",
   "dificuldade": 1-5,
   "tags": ["tag1", "tag2"],
+  "gabarito_source": "ia",
   "payload": {
     "enunciado": "<enunciado completo>",
     "alternativas": [
@@ -135,6 +136,7 @@ ${schema}
    - "disciplina_id": EXATAMENTE "${disciplina}" (mesma capitalização e acentos — não inventar variantes).
    - "tags": SEMPRE kebab-case ASCII (lowercase, sem acento, hífens entre palavras). Ex: ["art-5-cf", "controle-difuso", "banca-fgv"]. NUNCA "Art_5_CF" ou "Controle Difuso".
    - "tema": frase curta com capitalização e acentos normais (display).
+12. SEMPRE incluir "gabarito_source": "ia" — sinaliza pro app que esse gabarito veio de IA e precisa validação contra fonte oficial. Não invente outro valor; sempre "ia" pra questões geradas por você.
 
 RETORNE APENAS O JSON. NADA MAIS.`;
 }

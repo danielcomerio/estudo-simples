@@ -137,6 +137,43 @@ enunciado,alt_a,alt_b,alt_c,alt_d,alt_e,gabarito,disciplina,tema,dificuldade
 "Quem foi o primeiro presidente?",João,Pedro,...,A,Historia,Republica,2
 ```
 
+### Origem do gabarito (oficial vs IA)
+
+Quando você importa questão real (de banca), o app marca automaticamente como `verificacao=pendente` (você precisa confirmar). Mas há diferença entre:
+
+- **Gabarito oficial**: veio da banca, alta confiança.
+- **Gabarito IA**: você gerou via Claude/ChatGPT/etc — pode estar errado.
+
+Pra rastrear, há o campo `fonte.gabarito_source` em cada questão com 3 valores: `oficial` / `ia` / `crowd`.
+
+**3 jeitos de marcar:**
+
+1. **No JSON do import** (recomendado pra novas questões IA-geradas):
+   ```json
+   {
+     "materia": "...",
+     "enunciado": "...",
+     "gabarito": "B",
+     "gabarito_source": "ia"
+   }
+   ```
+   Aliases aceitos: `gabarito_source`, `gabaritoSource`, `gabarito_origem`.
+   Quando `"ia"`, o parser adiciona automaticamente a tag `gabarito-ia`.
+
+2. **Manual no editor**: `/banco` → clica na questão → seção fonte → select "Origem do gabarito". Tag `gabarito-ia` é sincronizada automaticamente quando você troca pra/de IA.
+
+3. **Bulk retroativo**: o script `supabase/manual/backfill_gabarito_ia.sql` marca em massa pelo critério `origem='real' + verificacao='pendente' + gabarito existe`. Útil quando você importou muitas questões IA-geradas antes de essa feature existir.
+
+**Visualmente**:
+- Badge no card do `/banco`: 🤖 IA (laranja), ✓ oficial (verde), 👥 crowd (cinza).
+- Filtro novo "Origem do gabarito" em `/banco` pra isolar só as IA.
+- Tag `gabarito-ia` aparece nos chips de tags da questão.
+
+**Workflow recomendado** pra IA-gerados:
+1. Importa com `gabarito_source: "ia"`.
+2. Em algum momento, valida contra fonte oficial.
+3. No editor da questão, troca pra `oficial` + marca `verificacao=verificada`. Tag `gabarito-ia` é removida.
+
 Variações em português aceitas (pergunta, materia, resposta, etc).
 Auto-detecção: se o primeiro caractere parece CSV (≥4 vírgulas + palavra-chave),
 converte automaticamente pra JSON e segue pelo wizard normal.
