@@ -26,6 +26,7 @@ import type {
 } from '@/lib/types';
 import { toast } from './Toast';
 import { QuestionTimeline } from './QuestionTimeline';
+import { QuestionComments } from './QuestionComments';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -963,6 +964,24 @@ export function QuestionEditDrawer({
           <div style={{ marginBottom: 14 }}>
             <QuestionTimeline question={question} />
           </div>
+        )}
+
+        {/* Comentários da comunidade — visível só pra questão já salva */}
+        {question.id && !question.id.startsWith('local-') && (
+          <details
+            style={{
+              marginBottom: 14,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '8px 12px',
+              background: 'var(--bg-elev-2)',
+            }}
+          >
+            <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+              💬 Comentários
+            </summary>
+            <QuestionComments questionId={question.id} />
+          </details>
         )}
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
