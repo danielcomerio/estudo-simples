@@ -10,15 +10,26 @@
  * acessou, mostra fallback minimalista.
  */
 
-const CACHE_VERSION = 'es-v1';
+const CACHE_VERSION = 'es-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
+const IMAGE_CACHE = `${CACHE_VERSION}-images`;
 
 const STATIC_ASSETS = [
   '/',
+  '/banco',
+  '/estudar',
+  '/discursivas',
+  '/cards',
+  '/simulado',
+  '/stats',
+  '/diario',
   '/icon.svg',
   '/manifest.json',
 ];
+
+// Limit per-cache pra evitar disk explosion em quem importa muitas imagens
+const IMAGE_CACHE_MAX = 200;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -50,7 +61,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Não toca em chamadas externas (Supabase, Stripe, IAs)
+  // Cacheia imagens de Supabase Storage (bucket público, paths UUID).
+  // Permite ler questões com imagens em modo offline depois de já ter visto.
+  if (
+    url.hostname.endsWith('.supabase.co') &&
+    url.pathname.includes('/storage/v1/object/public/questions-images/')
+  ) {
+    event.respondWith(cacheFirstWithLimit(req, IMAGE_CACHE, IMAGE_CACHE_MAX));
+    return;
+  }
+
+  // Não toca em outras chamadas externas (Supabase Auth/PostgREST, Stripe, IAs)
   if (url.origin !== self.location.origin) return;
 
   // Não cacheia API routes — sempre fresh
@@ -119,6 +140,33 @@ async function networkFirst(req, cacheName) {
       if (shell) return shell;
     }
     return new Response('Offline', { status: 503 });
+  }
+}
+
+async function cacheFirstWithLimit(req, cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+  try {
+    const res = await fetch(req);
+    if (res.ok) {
+      cache.put(req, res.clone()).catch(() => {});
+      // Trim assíncrono
+      trimCache(cacheName, maxEntries).catch(() => {});
+    }
+    return res;
+  } catch {
+    return new Response('Offline', { status: 503 });
+  }
+}
+
+async function trimCache(cacheName, maxEntries) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length <= maxEntries) return;
+  const toDelete = keys.length - maxEntries;
+  for (let i = 0; i < toDelete; i++) {
+    await cache.delete(keys[i]);
   }
 }
 
