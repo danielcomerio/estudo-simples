@@ -115,6 +115,68 @@ server-side de daily activity (não existe ainda).
 Lead capture pré-signup. Body `{ email, source? }`.
 RLS permite anon insert. Sem retorno de dados sensíveis.
 
+### IA (BYO key)
+
+#### `POST /api/ai/chat`
+Proxy stateless pra OpenAI/Anthropic/Gemini.
+- Body: `{ provider, apiKey, prompt, model? }`
+- Auth obrigatória + CSRF + rate limit 30/min.
+- NUNCA armazena chave no server.
+- Defaults: gpt-4o-mini, claude-haiku-4-5, gemini-2.0-flash-exp
+
+### Telegram
+
+#### `POST /api/telegram/bind`
+Gera token + deeplink one-shot (TTL 1h).
+
+#### `GET /api/telegram/bind`
+Status do binding atual.
+
+#### `DELETE /api/telegram/bind`
+Desvincula tudo.
+
+#### `POST /api/telegram/webhook`
+Receptor do Telegram Bot API. Confirma binding via `/start TOKEN`.
+Auth via header `x-telegram-bot-api-secret-token` (opcional).
+
+### Marketplace público
+
+#### `GET /api/decks-publicos?q=`
+Lista decks `is_public=true` com filtro busca opcional.
+Auth obrigatória (anti-scraping). Limit 50.
+
+#### `PATCH /api/share/[token]`
+Owner atualiza metadata (is_public, title, description, category).
+
+### Daily challenge
+
+#### `GET /api/daily/set`
+Set comunitário do dia + status do user.
+
+#### `POST /api/daily/attempt`
+Body: `{ set_id, score_pct, correct_count, total_questions, duration_s }`.
+UPSERT.
+
+#### `GET /api/daily/ranking?set_id=`
+Top 50 ordenado por score+duration. Display anônimo.
+
+### Question ratings
+
+#### `POST /api/question-rating`
+Body: `{ question_id, rating: 1 | -1, comment? }`. UPSERT.
+
+#### `GET /api/question-rating?question_id=`
+Retorna `{ ups, downs, my }`.
+
+#### `DELETE /api/question-rating?question_id=`
+Remove próprio rating.
+
+### Logging client-side
+
+#### `POST /api/log`
+ErrorLogger (sample 10%) posta erros JS pra analytics_events.
+Body: `{ event, props? }`. Rate limit 30/min.
+
 ## Rate limits
 
 | Endpoint | Limit | Janela |
