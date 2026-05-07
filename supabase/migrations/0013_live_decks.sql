@@ -1,6 +1,9 @@
 -- =====================================================================
 -- Migration 0013 — live_decks (Fase C3: sharing live com permissão)
 -- =====================================================================
+-- DEPENDÊNCIA: 0014 (questions_id_user_unique) deve ser aplicada antes,
+-- senão a FK composta abaixo falha com erro 42830.
+-- =====================================================================
 -- Modelo A: usuário cria um "deck" (subset persistente de questões dele)
 -- e concede acesso live a outros emails. Grantee vê as questões do
 -- owner em tempo real (via JOIN cross-user com policy especial).

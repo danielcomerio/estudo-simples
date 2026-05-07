@@ -1,6 +1,9 @@
 -- =====================================================================
 -- Migration 0011 — N:N entre questões e concursos
 -- =====================================================================
+-- DEPENDÊNCIA: 0014 (questions_id_user_unique) deve ser aplicada antes,
+-- senão a FK composta abaixo falha com erro 42830.
+-- =====================================================================
 -- Hoje questions.concurso_id é 1:1 (questão pertence a 0 ou 1 concurso).
 -- Limitação: questão "Direito Penal art 121" cabe em vários concursos
 -- (TJ-SP, MP-RJ, OAB) e teria que ser duplicada.
