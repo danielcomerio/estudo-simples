@@ -2,10 +2,33 @@
 
 App de repetição espaçada para concursos públicos. Next.js 14 + Supabase + Vercel.
 
-- **Auth**: email/senha (Supabase Auth).
-- **Dados**: tabela única `questions` com RLS por usuário.
-- **Offline-first**: tudo é lido do `localStorage`, sincronia em background com Supabase.
-- **SRS**: SM-2 melhorado (Anki-like) — 4 botões (De novo / Difícil / Bom / Fácil).
+- **Auth**: email/senha (Supabase Auth) + tier `master` pra admin.
+- **Dados**: hierarquia (concursos/disciplinas/tópicos) + tabela
+  `questions` com RLS por usuário. Sharing entre users via tokens
+  (Fase C2) ou live grants (Fase C3).
+- **Offline-first**: IndexedDB com fallback localStorage comprimido.
+  Sync resiliente com Supabase em background.
+- **SRS**: SM-2 (default) ou FSRS-6 (opt-in) — 4 botões (De novo /
+  Difícil / Bom / Fácil).
+- **Tipos**: objetiva, discursiva, cloze, flashcard.
+- **Sharing**: snapshot links (`/import/[token]`) e live decks
+  compartilhados (`/decks`) com freeze automático ao revogar.
+- **Mobile**: Capacitor wrap pronto pra Android/iOS — ver
+  `docs/CAPACITOR_SETUP.md`.
+- **Push**: Web Push via VAPID + cron diário pra revisões — ver
+  `docs/PUSH_SETUP.md`.
+- **Origem do gabarito**: rastreio oficial/IA/crowd com badge visual
+  + bulk action pra validar em massa.
+
+Documentação:
+- `docs/MANUAL.md` — manual do usuário (concurseiro)
+- `docs/API.md` — endpoints REST
+- `docs/CAPACITOR_SETUP.md` — publicar nas lojas
+- `docs/PUSH_SETUP.md` — ativar notificações
+- `docs/PERFORMANCE.md` — bundle sizes
+- `docs/MOBILE_ANALYSIS.md` — análise técnica mobile
+- `CLAUDE.md` — briefing pra futuras sessões de Claude
+- `CHANGELOG.md` — releases recentes
 
 ---
 

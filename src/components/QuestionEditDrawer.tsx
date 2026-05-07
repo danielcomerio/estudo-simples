@@ -516,6 +516,7 @@ export function QuestionEditDrawer({
     <dialog
       ref={dlgRef}
       onClose={() => close(false)}
+      aria-labelledby="edit-drawer-title"
       style={{
         maxWidth: 760,
         width: '95vw',
@@ -528,7 +529,7 @@ export function QuestionEditDrawer({
     >
       <form onSubmit={save} style={{ padding: 22 }}>
         <div className="row between" style={{ marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>
+          <h2 id="edit-drawer-title" style={{ margin: 0 }}>
             Editar questão{' '}
             <span className="muted" style={{ fontSize: '0.85rem' }}>
               ({question.type})

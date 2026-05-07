@@ -339,6 +339,7 @@ export function QuestionCreateDrawer({
     <dialog
       ref={dlgRef}
       onClose={close}
+      aria-labelledby="create-drawer-title"
       style={{
         maxWidth: 760,
         width: '95vw',
@@ -351,7 +352,7 @@ export function QuestionCreateDrawer({
     >
       <form onSubmit={save} style={{ padding: 22 }}>
         <div className="row between" style={{ marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>
+          <h2 id="create-drawer-title" style={{ margin: 0 }}>
             Criar questão{' '}
             <span className="muted" style={{ fontSize: '0.85rem' }}>
               ({kind})
