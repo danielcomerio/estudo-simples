@@ -76,24 +76,13 @@ export function BillingSection() {
         <div>
           <div style={{ fontSize: '0.92rem' }}>
             Plano atual:{' '}
-            <strong
-              style={{
-                color: paid ? 'var(--primary)' : undefined,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                verticalAlign: 'middle',
-              }}
-            >
+            <strong style={{ color: paid ? 'var(--primary)' : undefined }}>
               {/* Master ignora subscription_status (histórico Stripe não
                   é fonte de verdade pra master). Pro/Estudante mostra
-                  badge de trial se aplicável. Emoji em span próprio com
-                  line-height 1 pra alinhar com baseline do texto. */}
-              <PlanBadge label={
-                !master && plan?.subscription_status === 'trialing'
-                  ? `🎁 ${planName} (trial)`
-                  : planName
-              } />
+                  badge de trial se aplicável. */}
+              {!master && plan?.subscription_status === 'trialing'
+                ? `🎁 ${planName} (trial)`
+                : planName}
             </strong>
           </div>
           {/* Bloco de status: SÓ pra Pro/Estudante. Master tem campos
@@ -131,7 +120,7 @@ export function BillingSection() {
                 textAlign: 'right',
               }}
             >
-              Acesso vitalício · sem limites em nenhum recurso
+              Conta operacional · sem cobrança
             </span>
           )}
           {!master && canManage && (
@@ -170,33 +159,3 @@ export function BillingSection() {
   );
 }
 
-/**
- * Renderiza um label de plano (ex: "👑 Master") separando o emoji do
- * texto. Emoji recebe line-height 1 + vertical-align 'middle' pra
- * alinhar com baseline do texto regular dentro de <strong>.
- *
- * Sem isso, browsers renderizam emoji com baseline ligeiramente diferente
- * do texto, causando desalinhamento visível em planos como "👑 Master".
- */
-function PlanBadge({ label }: { label: string }) {
-  // Detecta se começa com emoji (qualquer char fora do range ASCII básico
-  // seguido de espaço). Cobre 👑, ✨, 🎓, 🎁 que usamos em planLabel.
-  const match = label.match(/^([^\w\s]+)\s+(.+)$/u);
-  if (!match) return <>{label}</>;
-  const [, emoji, rest] = match;
-  return (
-    <>
-      <span
-        aria-hidden
-        style={{
-          fontSize: '1.05em',
-          lineHeight: 1,
-          display: 'inline-block',
-        }}
-      >
-        {emoji}
-      </span>
-      <span>{rest}</span>
-    </>
-  );
-}
