@@ -8,13 +8,14 @@ import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import { startOfDay } from '@/lib/utils';
 import {
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
   useAllConcursoDisciplinas,
   useConcursoDisciplinas,
   useConcursos,
   useDisciplinas,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import { useActiveConcursoId } from '@/lib/settings';
 import { useSimuladosForUser } from '@/lib/simulado-store';
 import { calcularResultado } from '@/lib/simulado';
@@ -77,14 +78,21 @@ export function StatsView() {
       .filter((n): n is string => !!n);
   }, [effectiveConcursoId, allDisciplinas, allVinculos]);
 
+  const questionLinks = useQuestionConcursoLinks();
+
   const questions = useMemo(
     () =>
-      scopeDiscNomes === null
+      !effectiveConcursoId
         ? allQuestions
         : allQuestions.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, scopeDiscNomes)
+            matchActiveConcursoFull(
+              q,
+              effectiveConcursoId,
+              scopeDiscNomes,
+              questionLinks
+            )
           ),
-    [allQuestions, scopeDiscNomes]
+    [allQuestions, effectiveConcursoId, scopeDiscNomes, questionLinks]
   );
 
   const byDisc: Record<
@@ -577,12 +585,23 @@ function OrigemDistSection({
     cloze: 0,
     flashcard: 0,
   };
+  const gabSource: Record<string, number> = {
+    oficial: 0,
+    ia: 0,
+    crowd: 0,
+    indef: 0,
+  };
   for (const q of questions) {
     if (q.origem === 'real') origem.real += 1;
     else if (q.origem === 'autoral') origem.autoral += 1;
     else if (q.origem === 'adaptada') origem.adaptada += 1;
     else origem.legado += 1;
     tipos[q.type] = (tipos[q.type] ?? 0) + 1;
+    const gs = q.fonte?.gabarito_source ?? null;
+    if (gs === 'oficial') gabSource.oficial += 1;
+    else if (gs === 'ia') gabSource.ia += 1;
+    else if (gs === 'crowd') gabSource.crowd += 1;
+    else gabSource.indef += 1;
   }
 
   const colors: Record<string, string> = {
@@ -594,6 +613,10 @@ function OrigemDistSection({
     discursiva: '#a855f7',
     cloze: '#ec4899',
     flashcard: '#06b6d4',
+    oficial: 'var(--primary)',
+    ia: 'var(--warn, #d97706)',
+    crowd: '#06b6d4',
+    indef: 'var(--muted)',
   };
 
   const labels: Record<string, string> = {
@@ -605,6 +628,10 @@ function OrigemDistSection({
     discursiva: 'Discursiva',
     cloze: 'Cloze',
     flashcard: 'Flashcard',
+    oficial: '✓ Oficial',
+    ia: '🤖 IA',
+    crowd: '👥 Crowd',
+    indef: '— Indefinido',
   };
 
   return (
@@ -616,6 +643,16 @@ function OrigemDistSection({
 
       <h3 style={{ fontSize: '0.95rem', margin: '18px 0 6px' }}>Por tipo</h3>
       <SegmentedBar buckets={tipos} colors={colors} labels={labels} total={total} />
+
+      <h3 style={{ fontSize: '0.95rem', margin: '18px 0 6px' }}>
+        Por origem do gabarito
+      </h3>
+      <SegmentedBar
+        buckets={gabSource}
+        colors={colors}
+        labels={labels}
+        total={total}
+      />
     </div>
   );
 }
