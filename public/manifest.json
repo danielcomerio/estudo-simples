@@ -1,12 +1,17 @@
 {
-  "name": "Estudo Simples",
+  "id": "estudo-simples-app",
+  "name": "Estudo Simples — Concursos Públicos",
   "short_name": "Estudo Simples",
-  "description": "App de repetição espaçada para concursos públicos",
-  "start_url": "/",
+  "description": "Repetição espaçada (SRS) para concursos públicos. SM-2 + FSRS-6, simulado, discursivas, cloze e flashcards. Offline-first.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#0b1220",
   "theme_color": "#22c55e",
+  "dir": "ltr",
+  "lang": "pt-BR",
   "icons": [
     {
       "src": "/icon.svg",
@@ -21,8 +26,7 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["education", "productivity"],
-  "lang": "pt-BR",
+  "categories": ["education", "productivity", "books"],
   "share_target": {
     "action": "/share-target",
     "method": "GET",
@@ -61,5 +65,9 @@
       "url": "/stats",
       "icons": [{ "src": "/icon.svg", "sizes": "any" }]
     }
-  ]
+  ],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 480
+  }
 }
