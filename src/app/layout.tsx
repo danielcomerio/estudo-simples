@@ -13,7 +13,9 @@ import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { ConfettiHost } from '@/components/ConfettiHost';
 import { XPToast } from '@/components/XPToast';
+import { AchievementToast } from '@/components/AchievementToast';
 import { BadgingHost } from '@/components/BadgingHost';
+import { AchievementDetector } from '@/components/AchievementDetector';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';
@@ -119,6 +121,7 @@ export default async function RootLayout({
         <ServiceWorkerRegister />
         <ConfettiHost />
         <XPToast />
+        <AchievementToast />
         <NavigationProgress />
         <BFCacheGuard />
         <ErrorLogger />
@@ -133,6 +136,7 @@ export default async function RootLayout({
             </a>
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
             <BadgingHost />
+            <AchievementDetector />
             <OfflineBanner />
             <GlobalDropZone />
             <PomodoroTimer />
