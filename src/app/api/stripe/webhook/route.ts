@@ -87,21 +87,34 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     return;
   }
 
+  // Master nunca tem o plan rebaixado por webhook. A trigger
+  // protect_master_plan no DB também bloqueia, mas pular aqui evita
+  // o exception ruidoso e mantém os outros campos (subscription_status,
+  // current_period_end) atualizáveis caso master também tenha um
+  // customer Stripe pra teste.
+  const { data: existing } = await sb
+    .from('profiles')
+    .select('plan')
+    .eq('user_id', row.user_id)
+    .maybeSingle();
+  const isMasterAccount = (existing as { plan?: string } | null)?.plan === 'master';
+
   const customerId =
     typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
   const plan = planFor(sub);
 
-  await sb
-    .from('profiles')
-    .update({
-      plan,
-      subscription_status: sub.status,
-      stripe_customer_id: customerId,
-      stripe_subscription_id: sub.id,
-      current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-      cancel_at_period_end: sub.cancel_at_period_end,
-    })
-    .eq('user_id', row.user_id);
+  const update: Record<string, unknown> = {
+    subscription_status: sub.status,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: sub.id,
+    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    cancel_at_period_end: sub.cancel_at_period_end,
+  };
+  if (!isMasterAccount) {
+    update.plan = plan;
+  }
+
+  await sb.from('profiles').update(update).eq('user_id', row.user_id);
 }
 
 async function handleCheckoutCompleted(
@@ -133,14 +146,23 @@ async function handleSubscriptionDeleted(
   const sb = getSupabaseAdmin();
   const customerId =
     typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+
+  // Master fica blindado contra rebaixamento (trigger DB também impede).
+  // Atualiza só metadados de subscription.
   await sb
     .from('profiles')
     .update({
-      plan: 'free',
+      // plan: 'free' setado SÓ se não for master (filtrado abaixo)
       subscription_status: 'canceled',
       cancel_at_period_end: false,
     })
     .eq('stripe_customer_id', customerId);
+
+  await sb
+    .from('profiles')
+    .update({ plan: 'free' })
+    .eq('stripe_customer_id', customerId)
+    .neq('plan', 'master');
 }
 
 export async function POST(req: Request) {

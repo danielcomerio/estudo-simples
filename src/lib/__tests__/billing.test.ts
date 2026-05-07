@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   PLAN_LIMITS,
+  canManageSubscription,
+  isMaster,
   isPro,
   isPaid,
+  isProOrMaster,
   isActiveSubscription,
   planLabel,
   type MyPlan,
@@ -106,6 +109,77 @@ describe('billing', () => {
     it('null/undefined retorna false', () => {
       expect(isActiveSubscription(null)).toBe(false);
       expect(isActiveSubscription(undefined)).toBe(false);
+    });
+
+    it('master é SEMPRE ativo (sem subscription Stripe)', () => {
+      expect(
+        isActiveSubscription(
+          mockPlan({ plan: 'master', subscription_status: null })
+        )
+      ).toBe(true);
+    });
+  });
+
+  describe('master tier', () => {
+    it('isMaster detecta só master', () => {
+      expect(isMaster(mockPlan({ plan: 'master' }))).toBe(true);
+      expect(isMaster(mockPlan({ plan: 'pro' }))).toBe(false);
+      expect(isMaster(null)).toBe(false);
+    });
+
+    it('isProOrMaster cobre ambos', () => {
+      expect(isProOrMaster(mockPlan({ plan: 'master' }))).toBe(true);
+      expect(isProOrMaster(mockPlan({ plan: 'pro' }))).toBe(true);
+      expect(isProOrMaster(mockPlan({ plan: 'estudante' }))).toBe(false);
+      expect(isProOrMaster(mockPlan({ plan: 'free' }))).toBe(false);
+    });
+
+    it('isPaid inclui master', () => {
+      expect(isPaid(mockPlan({ plan: 'master' }))).toBe(true);
+    });
+
+    it('PLAN_LIMITS.master é ilimitado', () => {
+      expect(PLAN_LIMITS.master.questions).toBe(Infinity);
+      expect(PLAN_LIMITS.master.concursos).toBe(Infinity);
+    });
+
+    it('planLabel master tem coroa', () => {
+      expect(planLabel('master')).toBe('👑 Master');
+    });
+  });
+
+  describe('canManageSubscription', () => {
+    it('master NÃO pode gerenciar via Stripe portal', () => {
+      // Master não tem assinatura Stripe — gerencia manualmente.
+      expect(
+        canManageSubscription(
+          mockPlan({ plan: 'master', subscription_status: null })
+        )
+      ).toBe(false);
+    });
+
+    it('pro com customer Stripe pode', () => {
+      expect(
+        canManageSubscription(
+          mockPlan({ plan: 'pro', subscription_status: 'active' })
+        )
+      ).toBe(true);
+    });
+
+    it('pro sem subscription_status (sem customer Stripe ainda) NÃO pode', () => {
+      // Caso: webhook ainda não rolou. UI pode mostrar Pro mas portal
+      // falha — bloqueia pra evitar a mensagem contraditória.
+      expect(
+        canManageSubscription(
+          mockPlan({ plan: 'pro', subscription_status: null })
+        )
+      ).toBe(false);
+    });
+
+    it('estudante e free não podem', () => {
+      expect(canManageSubscription(mockPlan({ plan: 'estudante' }))).toBe(false);
+      expect(canManageSubscription(mockPlan({ plan: 'free' }))).toBe(false);
+      expect(canManageSubscription(null)).toBe(false);
     });
   });
 });
