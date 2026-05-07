@@ -320,6 +320,21 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 
 **Próxima migration deve ser 0026.** Não editar 0001-0025.
 
+## Roadmap & escopo
+
+Duas stacks separadas em `docs/`:
+
+- **`docs/ROADMAP_CURRENT.md`**: tasks que agregam ao app **sem mudar o
+  positioning**. Concurso continua o produto principal. Executar livre.
+- **`docs/ROADMAP_PIVOT_FROZEN.md`**: tasks que só fazem sentido se o app
+  pivotar pra "study OS genérico" (calendar multi-contexto, agentes não
+  vinculados a concurso, EAD, etc). **NÃO EXECUTAR** sem pedido explícito
+  do owner — processo definido no próprio arquivo.
+
+Ao receber pedido de feature nova, classificar: encaixa em CURRENT? ou exige
+abstração genérica e cai em PIVOT? Se PIVOT, recusar/diferir até alinhamento
+explícito.
+
 ## Engagement diário (Questões do Dia)
 
 - `/diario` page mostra set comunitário + ranking top 50.
