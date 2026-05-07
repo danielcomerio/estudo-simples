@@ -141,6 +141,18 @@ export async function PATCH(
     );
   }
 
+  if (typeof body.is_public === 'boolean') {
+    const { audit } = await import('@/lib/audit');
+    void audit({
+      userId: user.id,
+      action: body.is_public
+        ? 'sharing.public_enabled'
+        : 'sharing.public_disabled',
+      meta: { token: params.token },
+      req,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }
 
