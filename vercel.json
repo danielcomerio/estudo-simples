@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/streak-risk",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/daily-set",
+      "schedule": "0 5 * * *"
     }
   ]
 }
