@@ -277,6 +277,11 @@ export default async function AdminPage() {
         />
       </section>
 
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>
+        🔁 Retenção (cohort proxy)
+      </h2>
+      <RetentionSection admin={admin} now={now} />
+
       <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>📊 Atividade</h2>
       <section
         style={{
@@ -362,6 +367,90 @@ export default async function AdminPage() {
         </ul>
       </section>
     </main>
+  );
+}
+
+/**
+ * Retenção D1/D7/D30: % dos users que signaram up há N dias e
+ * tiveram qualquer evento no dia "alvo" (D-1..D+1 janela tolerante).
+ *
+ * Proxy simples (não cohort fielmente). Pra precisão usar materialized
+ * view + cron diário. Suficiente pra signal de tendência.
+ */
+async function RetentionSection({
+  admin,
+  now,
+}: {
+  admin: ReturnType<typeof getSupabaseAdmin>;
+  now: number;
+}) {
+  const day = 86_400_000;
+  const periods: Array<{ label: string; days: number }> = [
+    { label: 'D1', days: 1 },
+    { label: 'D7', days: 7 },
+    { label: 'D30', days: 30 },
+  ];
+
+  const results = await Promise.all(
+    periods.map(async ({ label, days }) => {
+      const cohortStart = new Date(
+        now - (days + 1) * day
+      ).toISOString();
+      const cohortEnd = new Date(now - days * day).toISOString();
+      const targetStart = new Date(now - 1 * day).toISOString();
+      const targetEnd = new Date(now).toISOString();
+
+      // Cohort: users criados entre N-1 e N dias atrás
+      const { data: cohort } = await admin
+        .from('profiles')
+        .select('user_id')
+        .gte('created_at', cohortStart)
+        .lt('created_at', cohortEnd);
+
+      const cohortSize = cohort?.length ?? 0;
+      if (!cohort || cohortSize === 0) {
+        return { label, days, total: 0, retained: 0, pct: 0 };
+      }
+
+      const ids = cohort.map((c) => c.user_id);
+      const { data: events } = await admin
+        .from('analytics_events')
+        .select('user_id')
+        .in('user_id', ids)
+        .gte('created_at', targetStart)
+        .lt('created_at', targetEnd);
+
+      const retainedSet = new Set((events ?? []).map((e) => e.user_id));
+      const retained = retainedSet.size;
+      return {
+        label,
+        days,
+        total: cohortSize,
+        retained,
+        pct: cohortSize > 0 ? (retained / cohortSize) * 100 : 0,
+      };
+    })
+  );
+
+  return (
+    <section
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 12,
+        marginBottom: 24,
+      }}
+    >
+      {results.map((r) => (
+        <Kpi
+          key={r.label}
+          label={`Retenção ${r.label}`}
+          value={`${r.pct.toFixed(1)}%`}
+          accent={r.pct < 30 ? 'warn' : 'primary'}
+          hint={`${r.retained} de ${r.total} signups há ${r.days}d`}
+        />
+      ))}
+    </section>
   );
 }
 
