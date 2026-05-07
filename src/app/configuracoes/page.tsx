@@ -72,6 +72,9 @@ export default async function ConfiguracoesPage() {
           <Link href="/decks" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
             Decks compartilhados →
           </Link>
+          <Link href="/decks-publicos" className="ghost" style={{ padding: '6px 12px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            📚 Marketplace público →
+          </Link>
         </div>
       </div>
 

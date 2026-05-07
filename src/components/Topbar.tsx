@@ -232,6 +232,14 @@ export function Topbar({
                 <span>Manual</span>
               </Link>
               <Link
+                href="/decks-publicos"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
+              >
+                <span aria-hidden>📚</span>
+                <span>Decks públicos</span>
+              </Link>
+              <Link
                 href="/sobre"
                 onClick={() => setMobileOpen(false)}
                 className="drawer-link"
