@@ -1789,9 +1789,16 @@ export function BancoList() {
           onExportSelected={exportSelectedJSON}
         />
         {(() => {
-          const pendentesCount = questions.filter(
-            (q) => q.type === 'objetiva' && q.verificacao === 'pendente'
-          ).length;
+          // Conta só questões REALMENTE sem gabarito (alvo do /revisar).
+          // Questões com gabarito + verificacao=pendente (oficialização)
+          // não entram aqui — usuário valida pelo editor.
+          const pendentesCount = questions.filter((q) => {
+            if (q.type !== 'objetiva') return false;
+            if (q.verificacao !== 'pendente') return false;
+            const p = q.payload as { gabarito?: string };
+            const g = (p.gabarito ?? '').trim();
+            return !g || g === '?' || g.toUpperCase() === 'NULL';
+          }).length;
           if (pendentesCount === 0) return null;
           return (
             <Link
@@ -1803,8 +1810,9 @@ export function BancoList() {
                 border: '1px solid var(--border)',
                 fontSize: '0.88rem',
               }}
+              title="Questões sem gabarito — preencher via IA"
             >
-              ⏳ Revisar {pendentesCount} pendente(s)
+              ⏳ Preencher {pendentesCount} gabarito(s)
             </Link>
           );
         })()}

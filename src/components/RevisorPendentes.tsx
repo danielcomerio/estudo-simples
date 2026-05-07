@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   selectActiveQuestions,
@@ -40,14 +41,41 @@ export function RevisorPendentes() {
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
 
-  // Pendentes filtradas por concurso ativo (se houver)
+  // Pendentes filtradas por concurso ativo (se houver).
+  //
+  // Critério restrito: só incluir questões que REALMENTE precisam de
+  // gabarito — isto é, com gabarito vazio, '?' ou 'null'. Antes pegava
+  // tudo verificacao='pendente' inclusive questões com gabarito (caso
+  // típico: importadas com gabarito gerado por IA mas verificacao
+  // ainda 'pendente' = aguardando oficialização). Essas questões NÃO
+  // precisam passar por bulk-fill — o gabarito já existe; basta
+  // confirmar manualmente que bate com fonte oficial e mudar
+  // verificacao pra 'verificada' no editor da questão.
   const pendentes = useMemo(() => {
-    return allQuestions.filter(
-      (q) =>
-        q.type === 'objetiva' &&
-        q.verificacao === 'pendente' &&
-        matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
-    );
+    return allQuestions.filter((q) => {
+      if (q.type !== 'objetiva') return false;
+      if (q.verificacao !== 'pendente') return false;
+      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
+      const p = q.payload as ObjetivaPayload;
+      const g = (p.gabarito ?? '').trim();
+      // Gabarito ausente = precisa ser preenchido por IA aqui.
+      return !g || g === '?' || g.toUpperCase() === 'NULL';
+    });
+  }, [allQuestions, concursoDiscNomes]);
+
+  // Questões com verificacao='pendente' MAS com gabarito existente —
+  // são candidatas a "oficializar" (validar contra fonte oficial).
+  // Mostradas apenas como contador informativo na tela; não entram no
+  // workflow de bulk-fill. User confirma uma a uma no editor.
+  const pendentesOficializacao = useMemo(() => {
+    return allQuestions.filter((q) => {
+      if (q.type !== 'objetiva') return false;
+      if (q.verificacao !== 'pendente') return false;
+      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
+      const p = q.payload as ObjetivaPayload;
+      const g = (p.gabarito ?? '').trim();
+      return !!g && g !== '?' && g.toUpperCase() !== 'NULL';
+    }).length;
   }, [allQuestions, concursoDiscNomes]);
 
   const disciplinasUnicas = useMemo(() => {
@@ -143,10 +171,11 @@ export function RevisorPendentes() {
   return (
     <>
       <div className="card">
-        <h1 style={{ margin: '0 0 8px' }}>Revisar pendentes</h1>
+        <h1 style={{ margin: '0 0 8px' }}>Revisar gabaritos pendentes</h1>
         <p className="muted" style={{ margin: 0 }}>
-          Bulk-fill de gabarito. Pra cada lote: gere o prompt, cole na
-          IA, traga a resposta de volta e aplique. Questões com gabarito
+          Bulk-fill de gabarito pra questões SEM gabarito (ou com{' '}
+          <code>?</code>). Pra cada lote: gere o prompt, cole na IA,
+          traga a resposta de volta e aplique. Questões com gabarito
           ficam <code>verificada</code>.
           {activeConcurso && (
             <>
@@ -155,6 +184,27 @@ export function RevisorPendentes() {
             </>
           )}
         </p>
+        {pendentesOficializacao > 0 && (
+          <p
+            className="muted"
+            style={{
+              margin: '10px 0 0',
+              fontSize: '0.82rem',
+              padding: '8px 12px',
+              background: 'var(--bg-elev-2)',
+              borderRadius: 'var(--radius)',
+              borderLeft: '3px solid var(--primary)',
+            }}
+          >
+            <strong>{pendentesOficializacao}</strong> questão(ões) com
+            gabarito mas <code>verificacao=pendente</code> não aparecem
+            aqui — elas têm gabarito (gerado por IA, por exemplo) e
+            precisam só de <strong>confirmação manual</strong> contra
+            fonte oficial. Filtre por <code>verificacao:pendente</code>{' '}
+            em <Link href="/banco" style={{ color: 'var(--primary)' }}>/banco</Link>{' '}
+            e marque como <code>verificada</code> no editor de cada uma.
+          </p>
+        )}
       </div>
 
       <div className="card">

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { BrandLogo } from './BrandLogo';
 
 /**
  * Header compartilhado entre páginas públicas. Logo sempre clicável
@@ -57,14 +58,8 @@ export async function PublicHeader() {
             color: 'inherit',
           }}
         >
-          <img
-            src="/icon.svg"
-            alt=""
-            aria-hidden
-            width={28}
-            height={28}
-            style={{ display: 'block', flexShrink: 0 }}
-          />
+          {/* SVG inline — evita quadrado vazio em localhost (cache). */}
+          <BrandLogo size={28} idPrefix="es-ph" />
           <strong style={{ fontSize: '1rem', letterSpacing: '-0.01em' }}>
             Estudo Simples
           </strong>
