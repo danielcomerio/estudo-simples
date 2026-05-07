@@ -816,6 +816,8 @@ export function Dashboard() {
         );
       })()}
 
+      <DailyChallengeCard />
+
       <div className="card">
         <h2>Comece agora</h2>
         <div className="action-grid">
@@ -1938,6 +1940,86 @@ function PeriodGoalBar({
           }}
         />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Card destacado pro Daily Challenge no Dashboard. Carrega lazy via
+ * fetch (sem bloquear render do dashboard se API tá lenta). Aparece
+ * sempre que há set publicado pro dia.
+ */
+function DailyChallengeCard() {
+  const [data, setData] = useState<{
+    available: boolean;
+    set?: { id: string; title: string | null; questions: unknown[] };
+    attempt?: { score_pct: number; correct_count: number; total_questions: number } | null;
+  } | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/daily/set');
+        if (!res.ok) return;
+        const json = await res.json();
+        setData(json);
+      } catch {}
+    })();
+  }, []);
+
+  if (!data?.available || !data.set) return null;
+
+  const done = !!data.attempt;
+  return (
+    <div
+      className="card"
+      style={{
+        borderLeft: `3px solid ${done ? 'var(--primary)' : 'var(--warn, #d97706)'}`,
+      }}
+    >
+      <h2 style={{ margin: '0 0 6px' }}>
+        📅 Desafio do Dia
+        {done && (
+          <span
+            style={{
+              marginLeft: 8,
+              fontSize: '0.78rem',
+              padding: '2px 8px',
+              background: 'var(--primary-soft)',
+              color: 'var(--primary)',
+              borderRadius: 999,
+              fontWeight: 600,
+            }}
+          >
+            ✓ Concluído
+          </span>
+        )}
+      </h2>
+      <p
+        className="muted"
+        style={{ margin: '0 0 10px', fontSize: '0.9rem' }}
+      >
+        {done && data.attempt ? (
+          <>
+            Você acertou{' '}
+            <strong>
+              {data.attempt.correct_count}/{data.attempt.total_questions}
+            </strong>{' '}
+            ({data.attempt.score_pct}%) — veja como ficou no ranking.
+          </>
+        ) : (
+          <>
+            <strong>{data.set.questions.length}</strong> questões pra
+            competir hoje. Top 50 entram no ranking. Faça antes que o
+            dia termine!
+          </>
+        )}
+      </p>
+      <Link href="/diario">
+        <button type="button" className={done ? '' : 'primary'}>
+          {done ? 'Ver ranking →' : '▶ Começar desafio'}
+        </button>
+      </Link>
     </div>
   );
 }

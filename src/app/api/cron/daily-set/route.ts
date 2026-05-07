@@ -14,6 +14,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { notifyUser } from '@/lib/notify';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -84,9 +85,33 @@ export async function GET(req: Request) {
     );
   }
 
+  // Notifica users que querem receber community daily.
+  // Best-effort, não bloqueia retorno.
+  const { data: prefs } = await sb
+    .from('daily_preferences')
+    .select('user_id')
+    .eq('community_enabled', true);
+
+  let notified = 0;
+  let notifyFailed = 0;
+  if (prefs && prefs.length > 0) {
+    for (const p of prefs as Array<{ user_id: string }>) {
+      const r = await notifyUser(p.user_id, {
+        title: '📅 Desafio do dia disponível!',
+        body: `${picked.length} questões pra você competir. Top 50 entram no ranking.`,
+        url: '/diario',
+        tag: 'daily-set',
+      });
+      if (r.success) notified++;
+      else notifyFailed++;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     date: today,
     count: picked.length,
+    notified,
+    notify_failed: notifyFailed,
   });
 }
