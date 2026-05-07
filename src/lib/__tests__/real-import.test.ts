@@ -458,6 +458,55 @@ describe('suggestDisciplinaMapping', () => {
   });
 });
 
+describe('gabarito_source no JSON real (Fase IA)', () => {
+  it('aceita gabarito_source="ia" e adiciona tag gabarito-ia', () => {
+    const r = parseRealItem({ ...REAL_OK, gabarito_source: 'ia' });
+    expect(r.decision).toBe('importar');
+    expect(r.normalized?.fonte?.gabarito_source).toBe('ia');
+    expect(r.normalized?.tags).toContain('gabarito-ia');
+  });
+
+  it('aceita alias gabaritoSource (camelCase)', () => {
+    const r = parseRealItem({ ...REAL_OK, gabaritoSource: 'oficial' });
+    expect(r.decision).toBe('importar');
+    expect(r.normalized?.fonte?.gabarito_source).toBe('oficial');
+    // Oficial NÃO adiciona tag gabarito-ia
+    expect(r.normalized?.tags ?? []).not.toContain('gabarito-ia');
+  });
+
+  it('aceita alias gabarito_origem (snake_case alternativo)', () => {
+    const r = parseRealItem({ ...REAL_OK, gabarito_origem: 'crowd' });
+    expect(r.decision).toBe('importar');
+    expect(r.normalized?.fonte?.gabarito_source).toBe('crowd');
+  });
+
+  it('valor inválido (ex: "humano") cai pra null sem quebrar', () => {
+    const r = parseRealItem({ ...REAL_OK, gabarito_source: 'humano' });
+    expect(r.decision).toBe('importar');
+    expect(r.normalized?.fonte?.gabarito_source).toBeUndefined();
+    expect(r.normalized?.tags ?? []).not.toContain('gabarito-ia');
+  });
+
+  it('sem gabarito_source: fica null (sem tag)', () => {
+    const r = parseRealItem(REAL_OK);
+    expect(r.decision).toBe('importar');
+    expect(r.normalized?.fonte?.gabarito_source).toBeUndefined();
+  });
+
+  it('com tags pré-existentes + ia: combina sem duplicar', () => {
+    const r = parseRealItem({
+      ...REAL_OK,
+      gabarito_source: 'ia',
+      tags: ['concurso-x', 'gabarito-ia'],
+    });
+    expect(r.decision).toBe('importar');
+    const tags = r.normalized?.tags ?? [];
+    expect(tags).toContain('gabarito-ia');
+    expect(tags.filter((t) => t === 'gabarito-ia')).toHaveLength(1);
+    expect(tags).toContain('concurso-x');
+  });
+});
+
 describe('harmonização de disciplina por slug', () => {
   it('reusa display canônico do banco quando slug bate', () => {
     const existing = [
