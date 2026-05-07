@@ -109,6 +109,36 @@ export default async function AdminPage() {
       .gte('created_at', week0),
   ]);
 
+  // Quality KPIs: gabarito_source breakdown
+  const [
+    { count: questionsIa },
+    { count: questionsOficial },
+    { count: questionsCrowd },
+    { count: questionsRealPendentes },
+  ] = await Promise.all([
+    admin
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('fonte->>gabarito_source', 'ia')
+      .is('deleted_at', null),
+    admin
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('fonte->>gabarito_source', 'oficial')
+      .is('deleted_at', null),
+    admin
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('fonte->>gabarito_source', 'crowd')
+      .is('deleted_at', null),
+    admin
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('origem', 'real')
+      .eq('verificacao', 'pendente')
+      .is('deleted_at', null),
+  ]);
+
   // Métricas financeiras
   const mrr =
     (estudanteActive ?? 0) * PRICE_ESTUDANTE + (proActive ?? 0) * PRICE_PRO;
@@ -265,6 +295,39 @@ export default async function AdminPage() {
           label="Eventos 30d"
           value={events30d ?? 0}
           hint="analytics_events"
+        />
+      </section>
+
+      <h2 style={{ margin: '0 0 10px', fontSize: '1.05rem' }}>
+        🎯 Qualidade do banco
+      </h2>
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <Kpi
+          label="Gabarito oficial"
+          value={questionsOficial ?? 0}
+          hint="banca confirmada"
+        />
+        <Kpi
+          label="Gabarito IA"
+          value={questionsIa ?? 0}
+          hint="pendente validação"
+        />
+        <Kpi
+          label="Gabarito crowd"
+          value={questionsCrowd ?? 0}
+          hint="validação coletiva"
+        />
+        <Kpi
+          label="Real pendentes"
+          value={questionsRealPendentes ?? 0}
+          hint="origem=real, verif=pendente"
         />
       </section>
 

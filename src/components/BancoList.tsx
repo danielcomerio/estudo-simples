@@ -2016,11 +2016,68 @@ export function BancoList() {
         ) : filtered.length === 0 ? (
           <div className="empty">
             <div className="big">∅</div>
-            <p>
-              {questions.length === 0
-                ? 'Nenhuma questão. Importe um JSON acima para começar.'
-                : 'Nenhuma questão corresponde aos filtros.'}
-            </p>
+            {questions.length === 0 ? (
+              <>
+                <p style={{ fontSize: '1rem', marginBottom: 6 }}>
+                  Sua base ainda está vazia.
+                </p>
+                <p
+                  className="muted"
+                  style={{ fontSize: '0.9rem', marginTop: 0, marginBottom: 18 }}
+                >
+                  3 caminhos pra popular:
+                </p>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: 12,
+                    maxWidth: 720,
+                    margin: '0 auto',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setCreating(true)}
+                    style={{ padding: 16, fontSize: '0.92rem' }}
+                  >
+                    ✏️ Criar manualmente
+                    <div style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: 4, fontWeight: 400 }}>
+                      Drawer com campos guiados
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dz = document.querySelector('.dropzone') as HTMLElement | null;
+                      dz?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    style={{ padding: 16, fontSize: '0.92rem' }}
+                  >
+                    📤 Importar JSON / CSV
+                    <div style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: 4, fontWeight: 400 }}>
+                      Cole na área acima ou arraste arquivo
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ai = document.querySelector('[data-ai-prompt-trigger]') as HTMLElement | null;
+                      ai?.click();
+                    }}
+                    style={{ padding: 16, fontSize: '0.92rem' }}
+                  >
+                    🤖 Gerar com IA
+                    <div style={{ fontSize: '0.78rem', opacity: 0.85, marginTop: 4, fontWeight: 400 }}>
+                      Prompt pra Claude/ChatGPT/Gemini
+                    </div>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p>Nenhuma questão corresponde aos filtros.</p>
+            )}
           </div>
         ) : (
           sorted.slice(0, visibleCount).map((q, i) => {
