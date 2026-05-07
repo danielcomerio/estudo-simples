@@ -14,6 +14,7 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { ConfettiHost } from '@/components/ConfettiHost';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
+import { BFCacheGuard } from '@/components/BFCacheGuard';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -106,6 +107,7 @@ export default async function RootLayout({
         <ServiceWorkerRegister />
         <ConfettiHost />
         <NavigationProgress />
+        <BFCacheGuard />
         {effectiveUserId ? (
           <StoreProvider
             userId={effectiveUserId}
