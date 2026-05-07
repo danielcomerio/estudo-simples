@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDiscordText,
   buildTelegramText,
   escapeTelegramHtml,
   shouldFallbackToTelegram,
@@ -81,6 +82,30 @@ describe('buildTelegramText', () => {
   it('payload com title vazio não quebra', () => {
     const out = buildTelegramText({ title: '', body: 'msg' });
     expect(out).toContain('<b></b>');
+  });
+});
+
+describe('buildDiscordText', () => {
+  it('formata title bold + body sem url', () => {
+    const out = buildDiscordText({ title: 'T', body: 'B' });
+    expect(out).toContain('**T**');
+    expect(out).toContain('B');
+    expect(out).not.toContain('http');
+  });
+
+  it('inclui URL completa quando presente', () => {
+    const out = buildDiscordText({ title: 't', body: 'b', url: '/x' });
+    expect(out).toContain('https://app.estudosimples.com.br/x');
+  });
+
+  it('separação \\n entre title/body/url', () => {
+    const out = buildDiscordText({ title: 'T', body: 'B', url: '/y' });
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('**T**');
+    expect(lines[1]).toBe('');
+    expect(lines[2]).toBe('B');
+    expect(lines[3]).toBe('');
+    expect(lines[4]).toContain('/y');
   });
 });
 

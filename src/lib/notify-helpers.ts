@@ -43,3 +43,19 @@ export function buildTelegramText(payload: PushPayload): string {
 export function shouldFallbackToTelegram(pushSent: number): boolean {
   return pushSent === 0;
 }
+
+/**
+ * Formata payload pra mensagem Discord. Markdown simples (**bold**).
+ * Discord não suporta HTML; usamos markdown nativo deles.
+ *
+ * Sem escape — o conteúdo vem da app, não do user (não é input
+ * arbitrário). Se algum dia title/body vierem de input livre, escapar
+ * `*`, `_`, `~`, `` ` `` e `|`.
+ */
+export function buildDiscordText(payload: PushPayload): string {
+  const parts = [`**${payload.title}**`, '', payload.body];
+  if (payload.url) {
+    parts.push('', `${APP_BASE_URL}${payload.url}`);
+  }
+  return parts.join('\n');
+}

@@ -16,11 +16,16 @@
 import { getSupabaseAdmin } from './supabase/admin';
 import { sendPushToUser } from './push-server';
 import { sendTelegramMessage } from './telegram';
+import { sendDiscordMessage } from './discord';
 import type { PushPayload } from './push';
-import { buildTelegramText, shouldFallbackToTelegram } from './notify-helpers';
+import {
+  buildTelegramText,
+  buildDiscordText,
+  shouldFallbackToTelegram,
+} from './notify-helpers';
 
 export type NotifyResult = {
-  channel: 'push' | 'telegram' | 'none';
+  channel: 'push' | 'telegram' | 'discord' | 'none';
   success: boolean;
   details?: string;
 };
@@ -62,8 +67,34 @@ export async function notifyUser(
         details: `chat ${tg.chat_id}`,
       };
     }
+    // Cai pra Discord se Telegram falhar
+  }
+
+  // Fallback: Discord webhook
+  const { data: dc } = await sb
+    .from('discord_webhooks')
+    .select('webhook_url')
+    .eq('user_id', userId)
+    .eq('enabled', true)
+    .maybeSingle();
+
+  if (dc?.webhook_url) {
+    const text = buildDiscordText(payload);
+    const r = await sendDiscordMessage(dc.webhook_url, text);
+    if (r.ok) {
+      // Atualiza last_used_at (best-effort)
+      sb.from('discord_webhooks')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .then(() => {});
+      return {
+        channel: 'discord',
+        success: true,
+        details: 'webhook',
+      };
+    }
     return {
-      channel: 'telegram',
+      channel: 'discord',
       success: false,
       details: r.error,
     };
