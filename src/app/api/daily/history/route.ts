@@ -23,10 +23,10 @@ export async function GET() {
   const { data, error } = await supabase
     .from('daily_question_attempts')
     .select(
-      'set_id, score_pct, correct_count, total_questions, created_at, daily_question_sets!inner(set_date)'
+      'set_id, score_pct, correct_count, total_questions, completed_at, daily_question_sets!inner(date)'
     )
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+    .order('completed_at', { ascending: false })
     .limit(365);
 
   if (error) {
@@ -38,10 +38,10 @@ export async function GET() {
 
   const items = (data ?? []).map((row) => {
     const sets = row.daily_question_sets as
-      | { set_date: string }
-      | { set_date: string }[]
+      | { date: string }
+      | { date: string }[]
       | null;
-    const setDate = Array.isArray(sets) ? sets[0]?.set_date : sets?.set_date;
+    const setDate = Array.isArray(sets) ? sets[0]?.date : sets?.date;
     return {
       set_id: row.set_id,
       set_date: setDate ?? null,

@@ -7,6 +7,7 @@ import { NotificationsSection } from '@/components/NotificationsSection';
 import { PushNotificationsSection } from '@/components/PushNotificationsSection';
 import { AIKeysSection } from '@/components/AIKeysSection';
 import { TelegramSection } from '@/components/TelegramSection';
+import { DailyPreferencesSection } from '@/components/DailyPreferencesSection';
 import { AccessibilitySection } from '@/components/AccessibilitySection';
 import { SoundsSection } from '@/components/SoundsSection';
 import { SettingsBackupSection } from '@/components/SettingsBackupSection';
@@ -50,6 +51,8 @@ export default async function ConfiguracoesPage() {
       <TelegramSection />
 
       <AIKeysSection />
+
+      <DailyPreferencesSection />
 
       <SoundsSection />
 
