@@ -33,6 +33,7 @@ import { BookmarkButton } from './BookmarkButton';
 import { SearchHistoryDropdown } from './SearchHistoryDropdown';
 import { saveSearchHistory } from '@/lib/search-history';
 import { BancoItemSkeleton } from './BancoItemSkeleton';
+import { ShareDeckButton } from './ShareDeckButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1736,6 +1737,7 @@ export function BancoList() {
           disabled={selected.size === 0}
           onPick={bulkSetConcurso}
         />
+        <ShareDeckButton selectedIds={selected} />
         <button
           type="button"
           disabled={selected.size === 0}
