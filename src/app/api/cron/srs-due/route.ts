@@ -12,7 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
-import { sendPushToUser } from '@/lib/push-server';
+import { notifyUser } from '@/lib/notify';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
   for (const u of users) {
     if (u.due_count === 0) continue;
     results.processed++;
-    const r = await sendPushToUser(u.user_id, {
+    const r = await notifyUser(u.user_id, {
       title: '⏰ Estudo Simples',
       body:
         u.due_count === 1
@@ -76,8 +76,8 @@ export async function GET(req: Request) {
       url: '/estudar?modo=srs',
       tag: 'srs-due',
     });
-    results.sent += r.sent;
-    results.failed += r.failed;
+    if (r.success) results.sent++;
+    else results.failed++;
   }
 
   return NextResponse.json({ ok: true, ...results });
