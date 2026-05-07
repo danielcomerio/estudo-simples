@@ -37,6 +37,7 @@ import type {
 } from '@/lib/types';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
+import { TTSButton } from './TTSButton';
 
 /**
  * Runner unificado pra Cloze e Flashcard. Ambos têm o mesmo fluxo:
@@ -735,6 +736,18 @@ function CardView({
           revealed={allRevealed}
         />
       )}
+
+      {/* TTS: lê a frente (cloze: texto cru; flashcard: frente) */}
+      <div style={{ marginTop: 6 }}>
+        <TTSButton
+          text={
+            q.type === 'cloze'
+              ? (q.payload as ClozePayload).texto ?? ''
+              : (q.payload as FlashcardPayload).frente ?? ''
+          }
+          size="small"
+        />
+      </div>
 
       <QuestionImages urls={(q.payload as { imagens?: string[] }).imagens} />
 

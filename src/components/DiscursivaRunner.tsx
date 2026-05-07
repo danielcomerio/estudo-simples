@@ -23,6 +23,7 @@ import { appendSession } from '@/lib/sessions-log';
 import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
+import { TTSButton } from './TTSButton';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
@@ -584,6 +585,10 @@ function DiscRunningView({
           className="enunciado"
           dangerouslySetInnerHTML={{ __html: renderRichText(enun) }}
         />
+
+        <div style={{ marginTop: 6 }}>
+          <TTSButton text={enun} size="small" />
+        </div>
 
         <QuestionImages urls={payload.imagens} />
 
