@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   let query = supabase
     .from('shared_decks')
     .select(
-      'token, owner_display, title, description, category, question_count, created_at, access_count'
+      'id, token, owner_display, title, description, category, question_count, created_at, access_count'
     )
     .eq('is_public', true)
     .is('revoked_at', null)

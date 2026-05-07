@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { toast } from './Toast';
 
 type PublicDeck = {
+  id: string;
   token: string;
   owner_display: string;
   title: string | null;
@@ -26,6 +27,46 @@ export function PublicDecksMarketplace() {
   const [decks, setDecks] = useState<PublicDeck[] | null>(null);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch('/api/deck-favorites')
+      .then((r) => r.json())
+      .then((j: { items: Array<{ deck_id: string }> }) => {
+        setFavorites(new Set((j.items ?? []).map((i) => i.deck_id)));
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }, []);
+
+  async function toggleFav(deckId: string) {
+    const isFav = favorites.has(deckId);
+    try {
+      if (isFav) {
+        const res = await fetch(
+          `/api/deck-favorites?deck_id=${encodeURIComponent(deckId)}`,
+          { method: 'DELETE' }
+        );
+        if (!res.ok) throw new Error('falha');
+        const next = new Set(favorites);
+        next.delete(deckId);
+        setFavorites(next);
+      } else {
+        const res = await fetch('/api/deck-favorites', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deck_id: deckId }),
+        });
+        if (!res.ok) throw new Error('falha');
+        const next = new Set(favorites);
+        next.add(deckId);
+        setFavorites(next);
+      }
+    } catch (e) {
+      toast(`Falha: ${(e as Error).message}`, 'error');
+    }
+  }
 
   const reload = async (search: string) => {
     setLoading(true);
@@ -151,9 +192,31 @@ export function PublicDecksMarketplace() {
                     )}
                   </div>
                 </div>
-                <Link href={`/import/${deck.token}`}>
-                  <button type="button">📥 Ver e importar</button>
-                </Link>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => void toggleFav(deck.id)}
+                    title={
+                      favorites.has(deck.id)
+                        ? 'Remover dos favoritos'
+                        : 'Favoritar'
+                    }
+                    aria-label={
+                      favorites.has(deck.id) ? 'Desfavoritar' : 'Favoritar'
+                    }
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--border)',
+                      padding: '6px 10px',
+                      fontSize: '1.1rem',
+                    }}
+                  >
+                    {favorites.has(deck.id) ? '⭐' : '☆'}
+                  </button>
+                  <Link href={`/import/${deck.token}`}>
+                    <button type="button">📥 Ver e importar</button>
+                  </Link>
+                </div>
               </div>
             </li>
           ))}
