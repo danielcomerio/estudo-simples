@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   getAIKey,
   getDefaultProvider,
   PROVIDER_LABELS,
 } from '@/lib/ai-keys';
+import { streamAIChat } from '@/lib/ai-stream';
 import { toast } from './Toast';
 
 /**
@@ -51,22 +52,26 @@ export function AIDiscursivaEvaluator({
     return null;
   }
 
-  const ask = async () => {
+  const abortRef = useRef<AbortController | null>(null);
+
+  const ask = () => {
+    if (!provider) return;
     setLoading(true);
-    setResult(null);
-    try {
-      const apiKey = getAIKey(provider);
-      if (!apiKey) {
-        toast('Chave não configurada', 'error');
-        setLoading(false);
-        return;
-      }
-      const rubricaTxt =
-        rubrica && rubrica.length > 0
-          ? '\n\nCRITÉRIOS DE AVALIAÇÃO:\n' +
-            rubrica.map((r, i) => `${i + 1}. ${r.criterio} (peso ${r.pontos})`).join('\n')
-          : '';
-      const prompt = `Você é um corretor experiente de discursivas de concurso público brasileiro. Avalie de forma rigorosa e didática a resposta do candidato.
+    setResult('');
+    const apiKey = getAIKey(provider);
+    if (!apiKey) {
+      toast('Chave não configurada', 'error');
+      setLoading(false);
+      return;
+    }
+    const rubricaTxt =
+      rubrica && rubrica.length > 0
+        ? '\n\nCRITÉRIOS DE AVALIAÇÃO:\n' +
+          rubrica
+            .map((r, i) => `${i + 1}. ${r.criterio} (peso ${r.pontos})`)
+            .join('\n')
+        : '';
+    const prompt = `Você é um corretor experiente de discursivas de concurso público brasileiro. Avalie de forma rigorosa e didática a resposta do candidato.
 
 ENUNCIADO:
 ${enunciado}
@@ -86,23 +91,24 @@ Estrutura sua avaliação assim:
 
 Seja específico e útil. Em pt-BR. Max 400 palavras.`;
 
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey, prompt }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast(json.message ?? 'Erro do provider', 'error');
-        setLoading(false);
-        return;
+    abortRef.current?.abort();
+    abortRef.current = streamAIChat(
+      { provider, apiKey, prompt },
+      {
+        onChunk: (chunk) => setResult((prev) => (prev ?? '') + chunk),
+        onDone: () => setLoading(false),
+        onError: (msg) => {
+          toast(msg, 'error');
+          setLoading(false);
+        },
       }
-      setResult(json.text);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Erro', 'error');
-    } finally {
-      setLoading(false);
-    }
+    );
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
   };
 
   return (
@@ -117,6 +123,16 @@ Seja específico e útil. Em pt-BR. Max 400 palavras.`;
           {loading
             ? 'Avaliando…'
             : `🤖 Pedir avaliação via ${provider === 'anthropic' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : 'Gemini'}`}
+        </button>
+      )}
+      {loading && result && (
+        <button
+          type="button"
+          onClick={stop}
+          className="ghost"
+          style={{ padding: '4px 10px', fontSize: '0.78rem', marginLeft: 6 }}
+        >
+          ⏹ Parar
         </button>
       )}
       {result && (

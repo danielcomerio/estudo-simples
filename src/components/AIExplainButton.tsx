@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   getAIKey,
   getDefaultProvider,
   PROVIDER_LABELS,
-  type AIProvider,
 } from '@/lib/ai-keys';
-import { toast } from './Toast';
+import { streamAIChat } from '@/lib/ai-stream';
 
 /**
  * Botão "🤖 Explicar" — só aparece se user configurou ao menos uma
@@ -81,40 +80,37 @@ export function AIExplainButton({
     return parts.join('\n');
   };
 
-  const ask = async () => {
+  const abortRef = useRef<AbortController | null>(null);
+
+  const ask = () => {
+    if (!provider) return;
     setLoading(true);
     setError(null);
-    setResponse(null);
-    try {
-      const apiKey = getAIKey(provider);
-      if (!apiKey) {
-        setError('Chave não encontrada. Configure em /configuracoes.');
-        setLoading(false);
-        return;
-      }
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider,
-          apiKey,
-          prompt: buildPrompt(),
-        }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok) {
-        setError(
-          (json as { message?: string } | null)?.message ?? 'Erro do provider'
-        );
-        setLoading(false);
-        return;
-      }
-      setResponse((json as { text: string }).text);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro de rede');
-    } finally {
+    setResponse('');
+    const apiKey = getAIKey(provider);
+    if (!apiKey) {
+      setError('Chave não encontrada. Configure em /configuracoes.');
       setLoading(false);
+      return;
     }
+    abortRef.current?.abort();
+    abortRef.current = streamAIChat(
+      { provider, apiKey, prompt: buildPrompt() },
+      {
+        onChunk: (chunk) => setResponse((prev) => (prev ?? '') + chunk),
+        onDone: () => setLoading(false),
+        onError: (msg) => {
+          setError(msg);
+          setLoading(false);
+        },
+      }
+    );
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
   };
 
   return (
@@ -130,6 +126,16 @@ export function AIExplainButton({
           {loading
             ? 'Pensando…'
             : `🤖 Explicar via ${provider === 'anthropic' ? 'Claude' : provider === 'openai' ? 'ChatGPT' : 'Gemini'}`}
+        </button>
+      )}
+      {loading && response && (
+        <button
+          type="button"
+          onClick={stop}
+          className="ghost"
+          style={{ padding: '4px 10px', fontSize: '0.78rem', marginLeft: 6 }}
+        >
+          ⏹ Parar
         </button>
       )}
       {error && (
