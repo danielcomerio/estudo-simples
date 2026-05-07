@@ -10,6 +10,7 @@ import { SettingsBackupSection } from '@/components/SettingsBackupSection';
 import { PlatformSeedSection } from '@/components/PlatformSeedSection';
 import { StorageInfo } from '@/components/StorageInfo';
 import { BillingSection } from '@/components/BillingSection';
+import { SharedLinksSection } from '@/components/SharedLinksSection';
 import { DeleteAccountSection } from '@/components/DeleteAccountSection';
 import { createClient } from '@/lib/supabase/server';
 
@@ -30,6 +31,8 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <BillingSection />
+
+      <SharedLinksSection />
 
       <AlgorithmSection />
 
