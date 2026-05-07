@@ -9,9 +9,10 @@ import {
 } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
 import {
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import {
   applyAnswer,
   formatBatchForAI,
@@ -40,6 +41,7 @@ export function RevisorPendentes() {
   const allQuestions = useStore(selectActiveQuestions);
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   // Pendentes filtradas por concurso ativo (se houver).
   //
@@ -55,13 +57,21 @@ export function RevisorPendentes() {
     return allQuestions.filter((q) => {
       if (q.type !== 'objetiva') return false;
       if (q.verificacao !== 'pendente') return false;
-      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
+      if (
+        !matchActiveConcursoFull(
+          q,
+          activeConcurso?.id ?? null,
+          concursoDiscNomes,
+          questionLinks
+        )
+      )
+        return false;
       const p = q.payload as ObjetivaPayload;
       const g = (p.gabarito ?? '').trim();
       // Gabarito ausente = precisa ser preenchido por IA aqui.
       return !g || g === '?' || g.toUpperCase() === 'NULL';
     });
-  }, [allQuestions, concursoDiscNomes]);
+  }, [allQuestions, activeConcurso, concursoDiscNomes, questionLinks]);
 
   // Questões com verificacao='pendente' MAS com gabarito existente —
   // são candidatas a "oficializar" (validar contra fonte oficial).
@@ -71,12 +81,20 @@ export function RevisorPendentes() {
     return allQuestions.filter((q) => {
       if (q.type !== 'objetiva') return false;
       if (q.verificacao !== 'pendente') return false;
-      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
+      if (
+        !matchActiveConcursoFull(
+          q,
+          activeConcurso?.id ?? null,
+          concursoDiscNomes,
+          questionLinks
+        )
+      )
+        return false;
       const p = q.payload as ObjetivaPayload;
       const g = (p.gabarito ?? '').trim();
       return !!g && g !== '?' && g.toUpperCase() !== 'NULL';
     }).length;
-  }, [allQuestions, concursoDiscNomes]);
+  }, [allQuestions, activeConcurso, concursoDiscNomes, questionLinks]);
 
   const disciplinasUnicas = useMemo(() => {
     const set = new Set<string>();

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 /**
  * Camada de acesso à tabela question_concursos (Fase C1 - migration 0011).
  * Permite N:N entre questões e concursos: uma questão pode aparecer em
@@ -153,4 +155,51 @@ export function questionMatchesConcurso(
   if (question.concurso_id === concursoId) return true;
   const links = allLinks.get(question.id);
   return links?.has(concursoId) ?? false;
+}
+
+// Cache em memória pra evitar refetch a cada mount de componente
+let _cache: Map<string, Set<string>> | null = null;
+let _loading = false;
+let _listeners = new Set<() => void>();
+
+function notify() {
+  for (const l of _listeners) l();
+}
+
+async function ensureLoaded(): Promise<void> {
+  if (_cache !== null || _loading) return;
+  _loading = true;
+  try {
+    _cache = await loadAllLinks();
+  } catch {
+    _cache = new Map();
+  } finally {
+    _loading = false;
+    notify();
+  }
+}
+
+/** Invalida cache (útil após link/unlink/setQuestionConcursos). */
+export function invalidateLinkCache(): void {
+  _cache = null;
+  notify();
+  void ensureLoaded();
+}
+
+/**
+ * Hook reativo: retorna o mapa de links (ou Map vazio enquanto carrega).
+ * Compartilha cache entre todos os componentes que filtram por concurso
+ * — evita N fetches.
+ */
+export function useQuestionConcursoLinks(): Map<string, Set<string>> {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    void ensureLoaded();
+    const fn = () => setTick((t) => t + 1);
+    _listeners.add(fn);
+    return () => {
+      _listeners.delete(fn);
+    };
+  }, []);
+  return _cache ?? new Map();
 }

@@ -1300,3 +1300,27 @@ export function matchActiveConcurso(
   const target = questionDisciplinaId.toLowerCase();
   return disciplinaNomes.some((n) => n.toLowerCase() === target);
 }
+
+/**
+ * Versão completa do match: questão pertence ao concurso ativo se UM
+ * dos casos é verdadeiro:
+ *   1. questions.concurso_id === activeConcursoId (1:1 legacy)
+ *   2. question_concursos tem (question_id, activeConcursoId) (Fase C1)
+ *   3. q.disciplina_id matches alguma disciplina vinculada ao concurso
+ *      (legado pré-C1 — questão sem concurso_id mas disciplina vinculada)
+ *
+ * Usa-se quando há filtro de concurso ativo. Sem filtro
+ * (activeConcursoId=null), sempre true.
+ */
+export function matchActiveConcursoFull(
+  question: { id: string; disciplina_id: string | null; concurso_id?: string | null },
+  activeConcursoId: string | null,
+  disciplinaNomes: string[] | null,
+  questionLinks: Map<string, Set<string>>
+): boolean {
+  if (!activeConcursoId) return true;
+  if (question.concurso_id === activeConcursoId) return true;
+  const links = questionLinks.get(question.id);
+  if (links?.has(activeConcursoId)) return true;
+  return matchActiveConcurso(question.disciplina_id, disciplinaNomes);
+}

@@ -14,9 +14,10 @@ import { applyReview } from '@/lib/srs-fsrs';
 import { useAlgorithm, setActiveConcursoId } from '@/lib/settings';
 import {
   filterDisciplinaIdsByActiveConcurso,
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { clearQueue as clearStudyQueue, readQueue as readStudyQueue } from '@/lib/study-queue';
@@ -93,15 +94,21 @@ export function CardsRunner() {
   const disciplinasRaw = useStore(selectDisciplinas);
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   const all = useMemo(
     () =>
-      concursoDiscNomes === null
+      !activeConcurso
         ? allRaw
         : allRaw.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+            matchActiveConcursoFull(
+              q,
+              activeConcurso.id,
+              concursoDiscNomes,
+              questionLinks
+            )
           ),
-    [allRaw, concursoDiscNomes]
+    [allRaw, activeConcurso, concursoDiscNomes, questionLinks]
   );
   const disciplinas = useMemo(
     () => filterDisciplinaIdsByActiveConcurso(disciplinasRaw, concursoDiscNomes),

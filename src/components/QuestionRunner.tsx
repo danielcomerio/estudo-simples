@@ -14,9 +14,10 @@ import { applyReview } from '@/lib/srs-fsrs';
 import { useAlgorithm, setActiveConcursoId } from '@/lib/settings';
 import {
   filterDisciplinaIdsByActiveConcurso,
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import { interleaveByGroup, mixDifficulty, renderRichText, shuffle, startOfDay } from '@/lib/utils';
 import { DAY_MS } from '@/lib/srs';
 import { haptic } from '@/lib/haptic';
@@ -206,17 +207,23 @@ export function QuestionRunner() {
   const disciplinasRaw = useStore(selectDisciplinas);
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   // Filtra ANTES de chegar nos selects/picker — pra usuário não selecionar
   // disciplinas que serão excluídas pelo concurso ativo.
   const all = useMemo(
     () =>
-      concursoDiscNomes === null
+      !activeConcurso
         ? allRaw
         : allRaw.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+            matchActiveConcursoFull(
+              q,
+              activeConcurso.id,
+              concursoDiscNomes,
+              questionLinks
+            )
           ),
-    [allRaw, concursoDiscNomes]
+    [allRaw, activeConcurso, concursoDiscNomes, questionLinks]
   );
   const disciplinas = useMemo(
     () => filterDisciplinaIdsByActiveConcurso(disciplinasRaw, concursoDiscNomes),

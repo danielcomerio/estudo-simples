@@ -13,9 +13,10 @@ import { useAlgorithm } from '@/lib/settings';
 import { scheduleSync } from '@/lib/sync';
 import {
   filterDisciplinaIdsByActiveConcurso,
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import { interleaveByGroup, renderRichText, shuffle } from '@/lib/utils';
 import { clearSession, readSession, saveSession } from '@/lib/session-store';
 import { appendSession } from '@/lib/sessions-log';
@@ -63,16 +64,23 @@ export function DiscursivaRunner() {
   const userId = useStore((s) => s.userId);
   const allRaw = useStore(selectActiveQuestions);
   const disciplinasRaw = useStore(selectDisciplinas);
-  const { disciplinaNomes: concursoDiscNomes } = useActiveConcursoFilter();
+  const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
+    useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   const all = useMemo(
     () =>
-      concursoDiscNomes === null
+      !activeConcurso
         ? allRaw
         : allRaw.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+            matchActiveConcursoFull(
+              q,
+              activeConcurso.id,
+              concursoDiscNomes,
+              questionLinks
+            )
           ),
-    [allRaw, concursoDiscNomes]
+    [allRaw, activeConcurso, concursoDiscNomes, questionLinks]
   );
   const disciplinas = useMemo(
     () => filterDisciplinaIdsByActiveConcurso(disciplinasRaw, concursoDiscNomes),

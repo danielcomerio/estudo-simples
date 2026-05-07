@@ -15,12 +15,13 @@ import { fmtRelative } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
 import { hasMath, startOfDay } from '@/lib/utils';
 import {
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
   useConcursos,
   useDisciplinas,
   useTopicos,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import { setActiveConcursoId } from '@/lib/settings';
 import { saveQueue } from '@/lib/study-queue';
 import { PlanLimitBanner } from './PlanLimitBanner';
@@ -349,6 +350,7 @@ export function BancoList() {
 
   const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
     useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   // Reset paginação + foco quando filtros mudam
   const filtersKey = `${search}|${disc}|${tipo}|${origem}|${verif}|${srsFilter}|${imgFilter}|${notasFilter}|${latexFilter}|${tempoFilter}|${favFilter}`;
@@ -388,7 +390,15 @@ export function BancoList() {
     const tomorrow = startOfDay(now) + DAY_MS;
     const sevenDaysAgo = now - 7 * DAY_MS;
     return questions.filter((q) => {
-      if (!matchActiveConcurso(q.disciplina_id, concursoDiscNomes)) return false;
+      if (
+        !matchActiveConcursoFull(
+          q,
+          activeConcurso?.id ?? null,
+          concursoDiscNomes,
+          questionLinks
+        )
+      )
+        return false;
       if (disc && q.disciplina_id !== disc) return false;
       if (tipo && q.type !== tipo) return false;
       if (onlyBookmarked) {
@@ -533,7 +543,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, gabSourceFilter, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, concursoDiscNomes]);
+  }, [questions, search, disc, tipo, origem, verif, gabSourceFilter, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, activeConcurso, concursoDiscNomes, questionLinks]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
