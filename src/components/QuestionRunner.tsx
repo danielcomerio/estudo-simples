@@ -37,6 +37,7 @@ import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
 import { AIExplainButton } from './AIExplainButton';
+import { QuestionRatingButtons } from './QuestionRatingButtons';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
@@ -1730,6 +1731,9 @@ function RunningView({
               correctAlt?.explicacao ?? payload.explicacao_geral ?? null
             }
           />
+
+          {/* Rating de qualidade — comunidade ajuda a curar. */}
+          <QuestionRatingButtons questionId={q.id} />
 
           {Array.isArray(payload.pegadinhas) && payload.pegadinhas.length > 0 && (
             <div className="feedback-block">
