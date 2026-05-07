@@ -102,6 +102,7 @@ export default function Planos() {
           <Row3 label="Backup completo" free="✓" est="✓" pro="✓" />
           <Row3 label="Imagens em questões" free="—" est="—" pro="✓" />
           <Row3 label="Mnemônicos / dicas" free="—" est="—" pro="✓" />
+          <Row3 label="Compartilhar bancos com colegas" free="—" est="—" pro="✓" />
           <Row3 label="Suporte prioritário" free="—" est="—" pro="✓" />
           <Row3 label="Acesso antecipado a novidades" free="—" est="—" pro="✓" />
         </div>

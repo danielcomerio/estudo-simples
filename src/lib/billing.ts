@@ -125,6 +125,18 @@ export function canManageSubscription(
 }
 
 /**
+ * Pode compartilhar bancos de questões com outros usuários (Fase C2/C3)?
+ * Feature paga — limitada a tier 'pro' e 'master'. Estudante e Free
+ * vêem upsell.
+ *
+ * Usado em UI (esconde/desabilita botão Compartilhar) e API
+ * (/api/share rejeita 403 se !canShareDecks).
+ */
+export function canShareDecks(plan: MyPlan | null | undefined): boolean {
+  return isProOrMaster(plan);
+}
+
+/**
  * Status de subscription que bloqueiam a criação de NOVA subscription
  * (duplo checkout). Usuário com qualquer um destes deve passar pelo
  * portal pra mudar/cancelar — proration automática do Stripe cuida da

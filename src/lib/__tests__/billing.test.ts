@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PLAN_LIMITS,
   canManageSubscription,
+  canShareDecks,
   isMaster,
   isPro,
   isPaid,
@@ -239,6 +240,25 @@ describe('billing', () => {
           stripe_subscription_id: null,
         })
       ).toEqual({ blocked: false, reason: null });
+    });
+  });
+
+  describe('canShareDecks (Fase C — sharing)', () => {
+    it('pro pode', () => {
+      expect(canShareDecks(mockPlan({ plan: 'pro' }))).toBe(true);
+    });
+    it('master pode', () => {
+      expect(canShareDecks(mockPlan({ plan: 'master' }))).toBe(true);
+    });
+    it('estudante NÃO pode (upsell)', () => {
+      expect(canShareDecks(mockPlan({ plan: 'estudante' }))).toBe(false);
+    });
+    it('free NÃO pode', () => {
+      expect(canShareDecks(mockPlan({ plan: 'free' }))).toBe(false);
+    });
+    it('null/undefined: false', () => {
+      expect(canShareDecks(null)).toBe(false);
+      expect(canShareDecks(undefined)).toBe(false);
     });
   });
 
