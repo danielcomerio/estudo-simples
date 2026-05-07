@@ -2024,9 +2024,47 @@ label.check-row input {
   .offline-banner,
   button,
   .banco-filters,
+  .banco-search,
+  .banco-pagination,
+  .banco-bulk-actions,
+  .banco-toolbar,
+  .banco-presets,
+  .pomodoro-timer-anchor,
+  .mobile-fab,
   nav,
   form {
     display: none !important;
+  }
+  /* Banco em listagem print: cada item compacto, sem hover, com keep-together */
+  .banco-list {
+    display: block !important;
+  }
+  .banco-item {
+    page-break-inside: avoid;
+    border: 1px solid #888 !important;
+    background: #fff !important;
+    color: #000 !important;
+    margin-bottom: 8pt !important;
+    padding: 8pt !important;
+  }
+  .banco-item input[type='checkbox'] {
+    display: none !important;
+  }
+  .banco-item .preview {
+    color: #000 !important;
+    font-size: 10pt !important;
+  }
+  .banco-item .meta span {
+    font-size: 8pt !important;
+    color: #444 !important;
+  }
+  /* Espaço pro user escrever respostas em material físico */
+  .banco-item:after {
+    content: '________________________________________________';
+    display: block;
+    color: #ccc;
+    margin-top: 6pt;
+    font-size: 10pt;
   }
   body {
     background: white !important;
