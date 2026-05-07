@@ -24,6 +24,7 @@ import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
+import { AIDiscursivaEvaluator } from './AIDiscursivaEvaluator';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
@@ -646,6 +647,8 @@ function DiscRunningView({
             rated={rated}
             rate={rate}
             onNext={onNext}
+            enun={enun}
+            resposta={resposta}
           />
         )}
       </article>
@@ -671,6 +674,8 @@ function DiscReveal({
   rated,
   rate,
   onNext,
+  enun,
+  resposta,
 }: {
   q: Question;
   algorithm: 'sm2' | 'fsrs';
@@ -683,6 +688,8 @@ function DiscReveal({
   rated: boolean;
   rate: (q: number) => void;
   onNext: () => void;
+  enun: string;
+  resposta: string;
 }) {
   return (
     <div>
@@ -725,6 +732,17 @@ function DiscReveal({
           <div
             className="espelho-block"
             dangerouslySetInnerHTML={{ __html: renderRichText(payload.espelho_resposta) }}
+          />
+
+          {/* AI evaluator: avalia a resposta do user contra o espelho. */}
+          <AIDiscursivaEvaluator
+            enunciado={enun}
+            espelho={payload.espelho_resposta ?? ''}
+            resposta={resposta}
+            rubrica={payload.rubrica?.map((r) => ({
+              criterio: r.criterio ?? '',
+              pontos: r.pontos ?? 1,
+            }))}
           />
         </>
       )}
