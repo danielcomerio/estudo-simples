@@ -100,6 +100,22 @@ Vercel cron já está configurado em `vercel.json`:
 Verifica execução em Vercel Dashboard → Project → Logs → filter
 "cron".
 
+⚠️ **Vercel Cron Jobs requer Pro plan** ($20/mês). Hobby tem limite
+de 1 cron diário. Alternativa free: cron externo (GitHub Actions
+schedule, cron-job.org) que faz GET no endpoint:
+
+```yaml
+# .github/workflows/cron-srs-due.yml
+on: { schedule: [{ cron: "0 12 * * *" }] }
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -X GET https://app.estudosimples.com.br/api/cron/srs-due \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+```
+
 ## 8. Troubleshooting
 
 ### "VAPID keys ausentes"
