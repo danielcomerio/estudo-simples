@@ -15,6 +15,7 @@ import { ConfettiHost } from '@/components/ConfettiHost';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';
+import { ErrorLogger } from '@/components/ErrorLogger';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -108,6 +109,7 @@ export default async function RootLayout({
         <ConfettiHost />
         <NavigationProgress />
         <BFCacheGuard />
+        <ErrorLogger />
         {effectiveUserId ? (
           <StoreProvider
             userId={effectiveUserId}

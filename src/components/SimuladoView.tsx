@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, selectActiveQuestions } from '@/lib/store';
 import {
-  matchActiveConcurso,
+  matchActiveConcursoFull,
   useActiveConcursoFilter,
 } from '@/lib/hierarchy';
+import { useQuestionConcursoLinks } from '@/lib/question-concursos';
 import {
   getSimuladoEmAndamento,
   saveSimulado,
@@ -29,18 +30,25 @@ type Phase = 'list' | 'config' | 'running' | 'report';
 export function SimuladoView() {
   const userId = useStore((s) => s.userId);
   const allRaw = useStore(selectActiveQuestions);
-  const { disciplinaNomes: concursoDiscNomes } = useActiveConcursoFilter();
+  const { concurso: activeConcurso, disciplinaNomes: concursoDiscNomes } =
+    useActiveConcursoFilter();
+  const questionLinks = useQuestionConcursoLinks();
 
   // Filtra antes do pool — config form só vê questões/disciplinas do concurso
   // ativo. Simulado em andamento NÃO é refiltrado (já foi montado).
   const all = useMemo(
     () =>
-      concursoDiscNomes === null
+      !activeConcurso
         ? allRaw
         : allRaw.filter((q) =>
-            matchActiveConcurso(q.disciplina_id, concursoDiscNomes)
+            matchActiveConcursoFull(
+              q,
+              activeConcurso.id,
+              concursoDiscNomes,
+              questionLinks
+            )
           ),
-    [allRaw, concursoDiscNomes]
+    [allRaw, activeConcurso, concursoDiscNomes, questionLinks]
   );
 
   // Render-time `all` é filtrado, mas o questions usado em running/report
