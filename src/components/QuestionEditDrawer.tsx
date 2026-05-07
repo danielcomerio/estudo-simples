@@ -27,6 +27,7 @@ import type {
 import { toast } from './Toast';
 import { QuestionTimeline } from './QuestionTimeline';
 import { QuestionComments } from './QuestionComments';
+import { QuestionChatPanel } from './QuestionChatPanel';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -966,6 +967,28 @@ export function QuestionEditDrawer({
           </div>
         )}
 
+        {/* Chat com IA sobre a questão — opt-in (collapsed). Histórico
+            persistido por device em localStorage. */}
+        {question.id && !question.id.startsWith('local-') && (
+          <details
+            style={{
+              marginBottom: 14,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '8px 12px',
+              background: 'var(--bg-elev-2)',
+            }}
+          >
+            <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+              🤖 Chat com IA sobre essa questão
+            </summary>
+            <QuestionChatPanel
+              questionId={question.id}
+              questionContext={buildQuestionContext(question)}
+            />
+          </details>
+        )}
+
         {/* Comentários da comunidade — visível só pra questão já salva */}
         {question.id && !question.id.startsWith('local-') && (
           <details
@@ -1325,4 +1348,41 @@ function extractEnunciado(q: Question): string {
   }
   const p = q.payload as DiscursivaPayload;
   return p.enunciado_completo ?? p.enunciado ?? p.comando ?? '';
+}
+
+/**
+ * Monta string de contexto pra IA entender a questão. Inclui enunciado +
+ * (objetiva) alternativas com gabarito + explicação oficial se houver.
+ * Cap em ~3000 chars pra não estourar prompt.
+ */
+function buildQuestionContext(q: Question): string {
+  const parts: string[] = [];
+  const enun = extractEnunciado(q);
+  if (enun) parts.push(`Enunciado: ${enun}`);
+
+  if (q.type === 'objetiva') {
+    const p = q.payload as ObjetivaPayload;
+    if (Array.isArray(p.alternativas)) {
+      const alts = p.alternativas
+        .map(
+          (a) =>
+            `${a.letra}) ${a.texto}${a.correta ? ' ← GABARITO' : ''}`
+        )
+        .join('\n');
+      parts.push(`Alternativas:\n${alts}`);
+    }
+    if (p.explicacao_geral) {
+      parts.push(`Explicação oficial: ${p.explicacao_geral}`);
+    }
+  } else if (q.type === 'discursiva') {
+    const p = q.payload as DiscursivaPayload;
+    if (p.espelho_resposta) {
+      parts.push(`Espelho de resposta: ${p.espelho_resposta}`);
+    }
+  }
+
+  if (q.disciplina_id) parts.push(`Disciplina: ${q.disciplina_id}`);
+  if (q.banca_estilo) parts.push(`Banca: ${q.banca_estilo}`);
+
+  return parts.join('\n\n').slice(0, 3000);
 }
