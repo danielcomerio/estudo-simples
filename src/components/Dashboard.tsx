@@ -16,6 +16,7 @@ import { WelcomeBackBanner } from './WelcomeBackBanner';
 import { PrimeirosPassos } from './PrimeirosPassos';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
+import { ShareProgressButton } from './ShareProgressButton';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -648,6 +649,35 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Compartilhar progresso (só faz sentido com algum histórico) */}
+      {totalAttempts >= 10 && (
+        <div
+          className="card"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+            flexWrap: 'wrap',
+            padding: '10px 14px',
+          }}
+        >
+          <span style={{ fontSize: '0.88rem' }}>
+            📤 Mostre seu progresso pros amigos
+          </span>
+          <ShareProgressButton
+            streak={streak}
+            total={totalAttempts}
+            acerto={
+              totalAttempts > 0
+                ? Math.round((100 * totalCorrect) / totalAttempts)
+                : 0
+            }
+            dominadas={dominadas}
+          />
+        </div>
+      )}
 
       {/* Contagem regressiva pra prova (só com concurso ativo + data) */}
       {diasParaProva !== null && diasParaProva >= 0 && (

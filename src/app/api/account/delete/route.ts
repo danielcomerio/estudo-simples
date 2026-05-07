@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe-server';
 import { assertSameOrigin, rateLimit } from '@/lib/security';
+import { audit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,14 @@ export async function POST(req: Request) {
   } catch (e) {
     console.warn('[account-delete] profile lookup failed', e);
   }
+
+  // Audit antes do delete (depois user_id seria SET NULL pelo cascade)
+  await audit({
+    userId: user.id,
+    action: 'account.deleted',
+    meta: { email: user.email ?? null },
+    req,
+  });
 
   // 2. Apaga auth.users (cascade derruba profiles, questions, etc.)
   const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id);

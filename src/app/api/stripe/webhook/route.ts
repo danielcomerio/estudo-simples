@@ -112,6 +112,8 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
   const plan = planFor(sub);
 
+  const previousPlan = (existing as { plan?: string } | null)?.plan ?? null;
+
   await sb
     .from('profiles')
     .update({
@@ -123,6 +125,20 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
       cancel_at_period_end: sub.cancel_at_period_end,
     })
     .eq('user_id', row.user_id);
+
+  // Audit se plan mudou (não loga toda renovação periódica)
+  if (previousPlan && previousPlan !== plan) {
+    const { audit } = await import('@/lib/audit');
+    void audit({
+      userId: row.user_id,
+      action: 'plan.changed',
+      meta: {
+        from: previousPlan,
+        to: plan,
+        subscription_id: sub.id,
+      },
+    });
+  }
 }
 
 async function handleCheckoutCompleted(
@@ -157,6 +173,12 @@ async function handleSubscriptionDeleted(
 
   // Master: skipa COMPLETAMENTE — não atualiza nem subscription_status
   // (que estava criando lixo na UI: "Status: canceled" pra um master).
+  const { data: rows } = await sb
+    .from('profiles')
+    .select('user_id, plan')
+    .eq('stripe_customer_id', customerId)
+    .neq('plan', 'master');
+
   await sb
     .from('profiles')
     .update({
@@ -166,6 +188,15 @@ async function handleSubscriptionDeleted(
     })
     .eq('stripe_customer_id', customerId)
     .neq('plan', 'master');
+
+  for (const r of rows ?? []) {
+    const { audit } = await import('@/lib/audit');
+    void audit({
+      userId: r.user_id,
+      action: 'plan.canceled',
+      meta: { from: r.plan, subscription_id: sub.id },
+    });
+  }
 }
 
 export async function POST(req: Request) {
