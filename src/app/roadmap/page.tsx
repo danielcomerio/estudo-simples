@@ -30,24 +30,38 @@ const SHIPPED = [
 const IN_PROGRESS = [
   'Coletar feedback de primeiros usuários',
   'Curadoria do banco de questões público',
+  'Anki .apkg export/import',
 ];
 
 const NEXT = [
   'Email de boas-vindas + reminders de estudo',
-  'Importação de Anki .apkg',
   'Pix anual à vista (Stripe BR recurring é só cartão hoje)',
   'Integração Telegram pra revisões diárias',
   'Modo "concurso x" — landing dedicada por banca/cargo',
-  'OCR pra capturar questão por foto',
+  'OCR pra capturar questão por foto (Tesseract.js)',
   'Comparativo entre seus simulados ao longo do tempo',
-  'Compartilhamento opcional de banco (com permissão)',
+  'Marketplace público de decks compartilhados',
+  'Importação Quizlet',
 ];
 
 const CONSIDERING = [
-  'App nativo iOS/Android (PWA hoje cobre 90%)',
-  'Áudio: leitura de questão (acessibilidade)',
-  'Correção automatizada de discursivas via IA (opt-in)',
+  'Live study rooms (estudo síncrono em grupo)',
+  'Correção automatizada de discursivas via IA (opt-in, BYO key)',
+  'Notion sync (export questões pra Notion DB)',
   'Plano "estudo grupo" (compartilhar progresso entre colegas)',
+  'White-label pra cursinhos',
+];
+
+const RECENTLY_SHIPPED = [
+  '✅ Sharing C2/C3 — snapshot links + live decks',
+  '✅ Origem do gabarito (oficial/IA/crowd) com badge visual',
+  '✅ AI Tutor BYO key (OpenAI/Anthropic/Gemini)',
+  '✅ Mobile via Capacitor (config pronta)',
+  '✅ Web Push notifications + cron diário',
+  '✅ TTS leitura de enunciados (Web Speech API)',
+  '✅ Concurso countdown global na Topbar',
+  '✅ Conta Master (admin/dono permanente)',
+  '✅ Tier Estudante (R$ 9,90/mês)',
 ];
 
 const NOT_PLANNED = [
@@ -80,7 +94,14 @@ export default function Roadmap() {
         </header>
 
         <Section
-          title="✅ Pronto"
+          title="🆕 Lançado recentemente (2026-05)"
+          color="var(--primary)"
+          items={RECENTLY_SHIPPED}
+          subtitle="Últimas features adicionadas."
+        />
+
+        <Section
+          title="✅ Pronto (geral)"
           color="#22c55e"
           items={SHIPPED}
           subtitle="Já está no app, em produção."
