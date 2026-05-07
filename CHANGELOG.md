@@ -6,7 +6,38 @@ de tipo, ou tweaks de a11y minor — esses ficam só no git log).
 Datas em ISO. Versões semver-ish (não publicado em registry — release
 contínua na Vercel).
 
-## [2026-05] — Sharing + Mobile + Push
+## [2026-05 — onda 2] — IA + Engagement + Curadoria
+
+### Novo
+
+- **🤖 AI Tutor BYO key**: explica questões erradas usando sua própria
+  chave OpenAI/Anthropic/Gemini. Sem custo pro app.
+- **🤖 Avaliador de discursivas via IA**: nota 0-10 + feedback
+  estruturado contra espelho. BYO key.
+- **📅 Questões do Dia**: /diario com set comunitário curado +
+  ranking competitivo top 50.
+- **📲 Telegram**: vincule sua conta pra receber lembretes via bot.
+  Fallback automático quando push não chega.
+- **👍/👎 Rating de questões**: comunidade curadoria. Útil pra
+  marketplace.
+- **🎴 Anki TSV export**: backup/migração universal.
+- **🔊 TTS**: leitura de enunciados em voz (Web Speech API).
+- **📚 Marketplace público de decks**: descoberta via /decks-publicos.
+- **📅 Concurso countdown** no Topbar com cores por urgência.
+
+### Mudanças
+
+- Mobile drawer: scroll lock + z-index 9999.
+- Logo SVG inline em todo lugar (consistência).
+
+### Migrations
+
+- 0017 marketplace público
+- 0018 telegram bindings
+- 0019 questões do dia
+- 0020 question ratings
+
+## [2026-05 — onda 1] — Sharing + Mobile + Push
 
 ### Novo
 
