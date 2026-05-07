@@ -27,7 +27,11 @@ create table if not exists public.applied_migrations (
 comment on table public.applied_migrations is
   'Tracking de migrations aplicadas via SQL Editor manual. Cada migration nova deve fazer INSERT idempotente no fim.';
 
--- Sem RLS — só admin via service role lê. Public não precisa ver.
+-- RLS habilitado SEM policies = bloqueio total pra anon/authenticated.
+-- Só service role lê/escreve (script check:migrations + INSERT manual no
+-- SQL Editor que roda como postgres superuser). User comum não tem motivo
+-- pra ver metadata de migrations.
+alter table public.applied_migrations enable row level security;
 
 -- Backfill: marca 0001-0024 como aplicadas (presunção razoável — quem
 -- está rodando isso já aplicou as anteriores; usuário pode ajustar
