@@ -104,6 +104,11 @@ export default async function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
+        {/* Favicon explícito — Next 14 deveria gerar via app/icon.svg
+            convention, mas em dev mode às vezes não serve. Link manual
+            garante visual consistente entre localhost e produção. */}
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="mask-icon" href="/icon.svg" color="#22c55e" />
         {supabaseHost && (
           <>
             <link rel="preconnect" href={supabaseHost} crossOrigin="anonymous" />

@@ -120,7 +120,7 @@ export function BillingSection() {
                 textAlign: 'right',
               }}
             >
-              Conta operacional · sem cobrança
+              👑 Acesso vitalício · todos os recursos liberados
             </span>
           )}
           {!master && canManage && (

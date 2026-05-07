@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   WHATS_NEW,
   hasUnseenChanges,
@@ -61,7 +62,10 @@ export function WhatsNewBadge() {
 }
 
 function WhatsNewModal({ onClose }: { onClose: () => void }) {
-  return (
+  if (typeof document === 'undefined') return null;
+  // Portal pra document.body escapa o stacking context do Topbar
+  // (que tem backdrop-filter + position:sticky e prendia o modal).
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -130,6 +134,7 @@ function WhatsNewModal({ onClose }: { onClose: () => void }) {
           Histórico completo em CHANGELOG.md no repositório.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -240,9 +240,12 @@ body {
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Defesa contra overflow horizontal: nada deve vazar pra fora.
-     Se algum filho tem `width: ...px` largo, fica scroll-clipped em
-     vez de criar barra horizontal. */
+}
+
+/* Defesa contra overflow horizontal só no html (viewport). Aplicar em
+   body quebrava `position: sticky` da Topbar — o body virava containing
+   block e o sticky perdia a referência do viewport. */
+html {
   overflow-x: hidden;
   max-width: 100vw;
 }
@@ -347,7 +350,9 @@ h4 {
 /* Logo + nome wrapper clicável (volta pra home). Cursor pointer
    indica clicabilidade; sem hover visual ou underline pra não
    competir com tabs ativas. focus-visible só pra teclado (a11y). */
-.topbar-brand-link {
+.topbar-brand-link,
+.topbar-brand-link:hover,
+.topbar-brand-link:focus {
   display: inline-flex;
   align-items: center;
   gap: 10px;
