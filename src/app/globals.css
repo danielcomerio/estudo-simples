@@ -477,7 +477,29 @@ h4 {
 .topbar .right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+/* Uniformiza altura visual dos itens da topbar-right (streak,
+   theme toggle, shortcuts, sync-pill, install, concurso selector).
+   Antes: heights divergiam (button.icon 6px+1rem font ≈ 30px;
+   streak-badge 4px+0.78rem font ≈ 22px; sync-pill idem). Resultado:
+   linha desalinhada visualmente, sensação de "items pendurados".
+   min-height uniforme + align-items center resolve sem mudar paddings
+   individuais. */
+.topbar .right > * {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+}
+/* Separador visual sutil entre grupos (streak | utility | account)
+   marcado por classe-vazia .topbar-sep. */
+.topbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  display: inline-block;
+  margin: 0 2px;
+  align-self: center;
 }
 .sync-pill {
   display: inline-flex;

@@ -285,34 +285,39 @@ export function Topbar({
       </nav>
 
       <div className="right">
-        {/* Streak primeiro — informação importante destacada à esquerda
-            do bloco de ícones de utility */}
+        {/* Grupo 1: streak (info pessoal de progresso) */}
         <StreakBadge />
 
+        <span className="topbar-sep topbar-desktop-only" aria-hidden />
+
+        {/* Grupo 2: utility icons (install, tema, atalhos) */}
         <span className="topbar-desktop-only">
           <InstallPWAButton />
         </span>
 
         <ThemeToggleQuick />
 
-        {/* Atalhos depois do tema — antes ficava entre Install e Streak,
-            o que separava streak dos outros badges */}
         <span className="topbar-desktop-only">
           <ShortcutsHelp />
         </span>
 
+        <span className="topbar-sep topbar-desktop-only" aria-hidden />
+
+        {/* Grupo 3: contexto (concurso ativo) */}
         <span className="topbar-desktop-only">
           <ActiveConcursoSelector />
         </span>
 
+        {/* Grupo 4: status de sync (info técnica) */}
         {!isGuest && (
           <button
             type="button"
             className={'sync-pill ' + syncStatus}
             onClick={() => void syncNow()}
             title={syncError || 'Sincronizar agora'}
+            aria-label={syncError || 'Sincronizar agora'}
           >
-            <span className="dot" />
+            <span className="dot" aria-hidden />
             <span className="sync-label">{syncLabel}</span>
           </button>
         )}
