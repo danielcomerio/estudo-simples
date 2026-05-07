@@ -269,10 +269,42 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 - `0015_push_devices.sql` — registro de device tokens pra push
   notifications (FCM/APNS/Web Push). RLS owner-only. UPSERT por
   (user_id, token) — re-register substitui. Endpoint
-  POST /api/push/register valida + grava. Disparos server-side
-  ainda não implementados (próximo passo: lib/push-server.ts).
+  POST /api/push/register valida + grava.
+- `0016_count_due_rpc.sql` — RPC SECURITY DEFINER
+  `count_due_per_user(p_due_before_ms)` agrupa contagem de questões
+  SRS-vencendo por user. Usada pelo cron `/api/cron/srs-due` pra
+  enviar push em batch.
 
-**Próxima migration deve ser 0016.** Não editar 0001-0015.
+**Próxima migration deve ser 0017.** Não editar 0001-0016.
+
+## Push notifications
+
+- `lib/push.ts` (puro): validatePushPayload, inferDeviceLabel,
+  detectPlatform. Tests cobrem edge cases.
+- `lib/push-server.ts` (server-only): sendPushToUser(userId, payload)
+  pega devices ativos, envia Web Push, marca disabled em 410 Gone.
+  MVP sem encryption — pra produção pesada usar `web-push` lib com
+  VAPID JWT signing.
+- `PushNotificationsSection` em /configuracoes: UI pra ativar Web Push
+  (5 estados: unsupported/denied/default/granted-not-registered/granted-
+  registered).
+- Cron Vercel: `/api/cron/srs-due` (12h UTC), `/api/cron/streak-risk`
+  (22h UTC stub). Auth via header `Bearer ${CRON_SECRET}`.
+- Setup VAPID detalhado em `docs/PUSH_SETUP.md`.
+
+## Segurança e observability
+
+- Headers de segurança aplicados pelo middleware: CSP (permissivo pra
+  Stripe + Supabase), X-Content-Type-Options nosniff, Referrer-Policy,
+  Permissions-Policy, X-Frame-Options DENY.
+- `/api/health`: reporta status DB ping (latency), config booleans
+  (Supabase/Stripe/VAPID/cron_secret), git_sha. Sempre 200 — uptime
+  monitor decide alerta baseado em body.status ('ok'|'degraded').
+- `ErrorLogger` (client): captura window.onerror + unhandledrejection
+  com sample 10%, posta pra /api/log que grava em analytics_events
+  (event='client.error'). Roda só em produção.
+- SQL helpers em `supabase/manual/debug_*.sql` pra investigação
+  manual (list users, count per user, find orphans, active subscriptions).
 
 ## Mobile (Capacitor)
 
