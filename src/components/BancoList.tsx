@@ -801,6 +801,46 @@ export function BancoList() {
     toast(`${selected.size} marcada(s) como ${label}.`, 'success');
   };
 
+  /**
+   * Bulk action otimizado pra "validar gabarito como oficial". Faz 3
+   * mudanças atômicas em cada questão selecionada:
+   *  1. fonte.gabarito_source = 'oficial'
+   *  2. verificacao = 'verificada'
+   *  3. tags: remove 'gabarito-ia' se presente (sincronia com source)
+   *
+   * Atalho pro workflow: importou IA → validou contra fonte oficial →
+   * agora confirma que está certo. Sem esse bulk seria 3 cliques por
+   * questão no editor, pra centenas de questões.
+   */
+  const bulkMarkGabaritoOficial = async () => {
+    if (selected.size === 0) {
+      toast('Nada selecionado.', 'warn');
+      return;
+    }
+    const ok = await confirmDialog({
+      title: 'Marcar como gabarito oficial',
+      message: `Marcar ${selected.size} questão(ões) como gabarito oficial verificado? Isso significa que você validou contra a fonte oficial e o gabarito está correto.`,
+    });
+    if (!ok) return;
+    for (const id of selected) {
+      const q = questions.find((qq) => qq.id === id);
+      if (!q) continue;
+      const newTags = (q.tags ?? []).filter((t) => t !== 'gabarito-ia');
+      const newFonte = {
+        ...(q.fonte ?? {}),
+        gabarito_source: 'oficial' as const,
+      };
+      updateQuestionLocal(id, {
+        verificacao: 'verificada',
+        fonte: newFonte,
+        tags: newTags,
+      });
+    }
+    setSelected(new Set());
+    scheduleSync(500);
+    toast(`${selected.size} marcada(s) como oficiais.`, 'success');
+  };
+
   const bulkSetBookmark = async (bookmarked: boolean) => {
     if (selected.size === 0) {
       toast('Nada selecionado.', 'warn');
@@ -1842,6 +1882,15 @@ export function BancoList() {
           disabled={selected.size === 0}
           onPick={bulkSetConcurso}
         />
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => void bulkMarkGabaritoOficial()}
+          title="Marcar selecionadas como gabarito oficial verificado (atalho IA→Oficial)"
+          aria-label="Marcar como gabarito oficial"
+        >
+          ✓ Marcar oficial
+        </button>
         <button
           type="button"
           disabled={selected.size === 0}
