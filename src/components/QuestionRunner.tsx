@@ -36,6 +36,7 @@ import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
+import { AIExplainButton } from './AIExplainButton';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
@@ -1717,6 +1718,18 @@ function RunningView({
               />
             </div>
           )}
+
+          {/* AI Tutor BYO key — só aparece se user configurou chave em
+              /configuracoes. Não-Pro pode usar sem custo (pague direto
+              no provider). */}
+          <AIExplainButton
+            enunciado={payload.enunciado}
+            alternativaCorreta={correctAlt?.letra ?? null}
+            alternativaEscolhida={chosenAlt?.letra ?? null}
+            explicacaoOficial={
+              correctAlt?.explicacao ?? payload.explicacao_geral ?? null
+            }
+          />
 
           {Array.isArray(payload.pegadinhas) && payload.pegadinhas.length > 0 && (
             <div className="feedback-block">

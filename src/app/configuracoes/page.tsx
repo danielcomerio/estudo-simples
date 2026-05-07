@@ -5,6 +5,7 @@ import { ThemeSection } from '@/components/ThemeSection';
 import { DailyGoalSection } from '@/components/DailyGoalSection';
 import { NotificationsSection } from '@/components/NotificationsSection';
 import { PushNotificationsSection } from '@/components/PushNotificationsSection';
+import { AIKeysSection } from '@/components/AIKeysSection';
 import { AccessibilitySection } from '@/components/AccessibilitySection';
 import { SoundsSection } from '@/components/SoundsSection';
 import { SettingsBackupSection } from '@/components/SettingsBackupSection';
@@ -44,6 +45,8 @@ export default async function ConfiguracoesPage() {
       <NotificationsSection />
 
       <PushNotificationsSection />
+
+      <AIKeysSection />
 
       <SoundsSection />
 
