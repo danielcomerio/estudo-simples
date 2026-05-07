@@ -344,26 +344,21 @@ h4 {
   font-size: 1rem;
   letter-spacing: -0.01em;
 }
-/* Logo + nome wrapper clicável (volta pra home). Sem decoração de
-   link nem hover de cor — comportamento de "área de clique discreta"
-   pra não competir visualmente com tabs/sync-pill. */
+/* Logo + nome wrapper clicável (volta pra home). Cursor pointer
+   indica clicabilidade; sem hover visual ou underline pra não
+   competir com tabs ativas. focus-visible só pra teclado (a11y). */
 .topbar-brand-link {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   color: inherit;
   text-decoration: none;
-  border-radius: var(--radius);
-  padding: 2px 4px;
-  margin: -2px -4px;
-  transition: background 120ms;
-}
-.topbar-brand-link:hover {
-  background: var(--bg-elev-2);
+  cursor: pointer;
 }
 .topbar-brand-link:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 .logo {
   width: 24px;

@@ -121,20 +121,16 @@ export function Topbar({
         >
           {mobileOpen ? '✕' : '☰'}
         </button>
-        {/* Logo + nome clicáveis voltam pra home (convenção UX). */}
+        {/* Logo + nome clicáveis voltam pra home (convenção UX). SVG
+            inline (não <img src=...>) pra evitar problema de cache
+            stale/SW interceptando em localhost — render é instantâneo
+            e independente de network. */}
         <Link
           href="/"
           className="topbar-brand-link"
           aria-label="Estudo Simples — voltar para o painel"
         >
-          <img
-            src="/icon.svg"
-            alt=""
-            aria-hidden
-            width={26}
-            height={26}
-            className="topbar-logo"
-          />
+          <BrandLogo />
           <h1 className="topbar-brand-text">Estudo Simples</h1>
         </Link>
       </div>
@@ -398,6 +394,63 @@ export function Topbar({
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * Logo inline do Estudo Simples — checkmark verde dentro de circle
+ * em fundo escuro. Inlined (não <img src="/icon.svg">) pra evitar
+ * problemas de cache em dev (browser/SW podem servir versão stale
+ * ou nem responder em localhost) e pra eliminar 1 round-trip de rede.
+ *
+ * Mantém o exato mesmo SVG do public/icon.svg pra manifesto/favicon
+ * continuarem coerentes visualmente.
+ */
+function BrandLogo() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label="Estudo Simples"
+      width={26}
+      height={26}
+      className="topbar-logo"
+      style={{ flexShrink: 0 }}
+    >
+      <defs>
+        <linearGradient id="es-tb-g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#16a34a" />
+        </linearGradient>
+        <linearGradient id="es-tb-g2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#34d399" />
+          <stop offset="100%" stopColor="#059669" />
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="14" fill="#0b1220" />
+      <circle
+        cx="32"
+        cy="32"
+        r="25"
+        stroke="#22c55e"
+        strokeWidth="2"
+        fill="none"
+        strokeDasharray="3 4"
+        opacity="0.42"
+        strokeLinecap="round"
+      />
+      <circle cx="32" cy="32" r="19" fill="url(#es-tb-g)" />
+      <circle cx="32" cy="32" r="19" fill="url(#es-tb-g2)" opacity="0.18" />
+      <path
+        d="M 22 33 L 29 40 L 43 26"
+        stroke="#062013"
+        strokeWidth="4.5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 

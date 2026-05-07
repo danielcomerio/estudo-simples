@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Header compartilhado entre páginas públicas. Logo sempre clicável
@@ -7,8 +8,23 @@ import Link from 'next/link';
  *
  * Em mobile, nav vira menu hambúrguer simples (só Login/Signup
  * visíveis). Sem JS — usa <details>/<summary> nativo.
+ *
+ * Auto-detecta usuário logado: se logged, não renderiza nada (o
+ * RootLayout já mostra Topbar do app). Antes essas páginas tinham
+ * 2 barras quando user logado entrava pra ver /planos, /sobre etc.
+ *
+ * Async porque lê cookies via supabase server client.
  */
-export function PublicHeader() {
+export async function PublicHeader() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    // Logged: Topbar do RootLayout cobre. Sem header próprio.
+    return null;
+  }
+
   return (
     <header
       style={{
