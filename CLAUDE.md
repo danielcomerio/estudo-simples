@@ -226,7 +226,7 @@ PNG/JPEG/WEBP/GIF). 4 policies em `storage.objects`:
 
 Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 
-### Migrations 0005–0014
+### Migrations 0005–0015
 
 - `0005_billing.sql` — `profiles`, `stripe_events`, view `my_plan`,
   triggers de enforce limit (free=500q/1concurso na época) + handler
@@ -266,8 +266,60 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
   declarou `UNIQUE (id, user_id)` em questions, fazendo as FKs
   compostas das 0011/0013 falharem (erro 42830). Migration
   idempotente que adiciona o constraint.
+- `0015_push_devices.sql` — registro de device tokens pra push
+  notifications (FCM/APNS/Web Push). RLS owner-only. UPSERT por
+  (user_id, token) — re-register substitui. Endpoint
+  POST /api/push/register valida + grava. Disparos server-side
+  ainda não implementados (próximo passo: lib/push-server.ts).
 
-**Próxima migration deve ser 0015.** Não editar 0001-0014.
+**Próxima migration deve ser 0016.** Não editar 0001-0015.
+
+## Mobile (Capacitor)
+
+- `capacitor.config.ts` na raiz: appId `com.estudosimples.app`,
+  `server.url` apontando pra produção. Modelo "shell + URL".
+- `docs/CAPACITOR_SETUP.md`: passo-a-passo de setup completo
+  (instalação, ícones, build local, submission Play/App Store).
+- `android/` e `ios/` no `.gitignore` (gerados por `npx cap add`).
+- Push notifications: ver migration 0015. Ainda falta integrar
+  plugin `@capacitor/push-notifications` na app (PushNotificationsSection
+  já cobre Web Push via VAPID).
+
+## Sharing entre usuários (Fases C2/C3)
+
+- **Fase C2 — Snapshot link** (`shared_decks` na 0012): usuário cria
+  link com seleção de questões. Receptor importa cópias pra própria
+  conta (origem='compartilhada', `fonte.shared_from`). Snapshot
+  congelado: alterações do owner depois NÃO afetam receptores.
+  - UI owner: ShareDeckButton em `/banco` (toolbar bulk).
+  - UI receptor: `/import/[token]` page (preview + botão importar,
+    aceita anon mas exige login pra importar).
+  - UI owner gestão: SharedLinksSection em `/configuracoes` (lista,
+    copiar URL, revogar).
+- **Fase C3 — Live deck** (`live_decks` + grants na 0013): owner
+  cria deck nominal, concede acesso por email (pre-grant funciona —
+  ativa quando user faz signup). Read-only no MVP. Quando revoga,
+  trigger `freeze_grant_on_revoke` gera shared_deck snapshot
+  automático pra grantee continuar com acesso readonly.
+  - UI: `/decks` page (DecksManager) lista próprios + recebidos,
+    DeckGrantsManager inline pra cada deck próprio (conceder por
+    email, revogar com freeze automático).
+  - Gate Pro/Master via `canShareDecks` em `lib/billing.ts`.
+
+## Filtros por concurso ativo
+
+- `useActiveConcursoFilter()` retorna `{ concurso, disciplinaNomes }`.
+- `useQuestionConcursoLinks()` (em `lib/question-concursos.ts`)
+  retorna mapa `Map<question_id, Set<concurso_id>>` cacheado em
+  memória (compartilhado entre componentes — sem refetch por mount).
+- `matchActiveConcursoFull(question, activeConcursoId, disciplinaNomes,
+  questionLinks)` é a lógica unificada — questão pertence ao concurso
+  ativo se UM dos: `concurso_id` direto, link N:N em
+  `question_concursos`, ou `disciplina_id` matches alguma disciplina
+  vinculada ao concurso (legado).
+- 5 componentes usam o helper (BancoList, CardsRunner, DiscursivaRunner,
+  QuestionRunner, RevisorPendentes). NÃO use `matchActiveConcurso` direto
+  em código novo — sempre `matchActiveConcursoFull`.
 
 ## Auth
 
