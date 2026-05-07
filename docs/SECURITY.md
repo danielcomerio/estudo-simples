@@ -92,6 +92,19 @@ User não consegue listar pasta de outro pq Supabase Storage só lista por path 
 
 `npm audit` reporta 5 high/moderate em dev-dependencies (eslint-config-next/glob CLI, postcss XSS build-time). Não exploráveis em runtime de produção. Subir Next 15 resolveria — pendente decisão.
 
+## Reporting de vulnerabilidades
+
+Encontrou problema de segurança? Reporte de forma responsável **sem
+disclosure público**:
+
+- **Email**: contato@estudosimples.com.br (assunto `[SECURITY]`)
+- Acuse de recebimento em ≤48h
+- Resolução proporcional ao impacto
+- Crédito público se você aceitar (Hall of Fame)
+
+**Não faça**: DDoS, acessar dados de outros usuários (mesmo se
+conseguir), persistência. Sem bug bounty monetário no momento.
+
 ## Próximos passos
 
 - [ ] Adicionar `report-uri` no CSP pra coletar violations em produção.
