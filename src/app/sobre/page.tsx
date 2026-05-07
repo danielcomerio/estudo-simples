@@ -13,6 +13,16 @@ export const metadata = {
       'Construído por concurseiro, pra concurseiros. Repetição espaçada baseada em ciência.',
     type: 'article',
     locale: 'pt_BR',
+    siteName: 'Estudo Simples',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sobre — Estudo Simples',
+    description:
+      'Construído por concurseiro, pra concurseiros. Repetição espaçada baseada em ciência.',
+  },
+  alternates: {
+    canonical: '/sobre',
   },
 };
 

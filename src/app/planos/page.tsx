@@ -12,13 +12,24 @@ import { PublicHeader } from '@/components/PublicHeader';
 export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'Planos — Estudo Simples',
-  description: 'Plano grátis ou Pro com tudo liberado. Cancele a qualquer momento.',
+  description:
+    'Grátis com 200 questões, Estudante R$ 9,90/mês ou Pro ilimitado R$ 19,90/mês. Trial 14 dias sem cartão.',
   openGraph: {
     title: 'Planos — Estudo Simples',
     description:
-      'Grátis com 500 questões, ou Pro ilimitado a partir de R$ 19,90/mês. Cancela quando quiser.',
+      'Grátis com 200 questões, Estudante R$ 9,90 ou Pro ilimitado R$ 19,90. Trial 14 dias sem cartão.',
     type: 'website',
     locale: 'pt_BR',
+    siteName: 'Estudo Simples',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Planos — Estudo Simples',
+    description:
+      'Grátis com 200 questões, Estudante R$ 9,90 ou Pro ilimitado R$ 19,90. Trial 14 dias sem cartão.',
+  },
+  alternates: {
+    canonical: '/planos',
   },
 };
 
