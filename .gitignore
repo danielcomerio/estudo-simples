@@ -44,3 +44,7 @@ next-env.d.ts
 # supabase
 .branches
 supabase/.temp
+
+# Capacitor (gerado via npx cap add — opcional commitar)
+android/
+ios/
