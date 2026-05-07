@@ -50,8 +50,13 @@ export function VimNav() {
     };
 
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // Guard adicional: contentEditable (rich textareas), role="textbox"
+      // (custom inputs via aria), e elementos focados em modo edição.
+      if (target?.isContentEditable) return;
+      if (target?.getAttribute('role') === 'textbox') return;
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
       if (e.key === 'g' || e.key === 'G') {

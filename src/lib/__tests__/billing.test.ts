@@ -122,6 +122,37 @@ describe('billing', () => {
     });
   });
 
+  describe('PLAN_LIMITS — todos os tiers', () => {
+    it('cobertura completa: 4 tiers presentes', () => {
+      expect(Object.keys(PLAN_LIMITS).sort()).toEqual([
+        'estudante',
+        'free',
+        'master',
+        'pro',
+      ]);
+    });
+
+    it('progressão de limites questões: free < estudante < pro/master', () => {
+      expect(PLAN_LIMITS.free.questions).toBeLessThan(
+        PLAN_LIMITS.estudante.questions
+      );
+      expect(PLAN_LIMITS.estudante.questions).toBeLessThan(
+        PLAN_LIMITS.pro.questions
+      );
+      expect(PLAN_LIMITS.master.questions).toBe(PLAN_LIMITS.pro.questions);
+    });
+
+    it('progressão de limites concursos: free < estudante < pro/master', () => {
+      expect(PLAN_LIMITS.free.concursos).toBeLessThan(
+        PLAN_LIMITS.estudante.concursos
+      );
+      expect(PLAN_LIMITS.estudante.concursos).toBeLessThan(
+        PLAN_LIMITS.pro.concursos
+      );
+      expect(PLAN_LIMITS.master.concursos).toBe(PLAN_LIMITS.pro.concursos);
+    });
+  });
+
   describe('master tier', () => {
     it('isMaster detecta só master', () => {
       expect(isMaster(mockPlan({ plan: 'master' }))).toBe(true);
