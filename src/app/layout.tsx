@@ -13,6 +13,7 @@ import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { ConfettiHost } from '@/components/ConfettiHost';
 import { XPToast } from '@/components/XPToast';
+import { BadgingHost } from '@/components/BadgingHost';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';
@@ -131,6 +132,7 @@ export default async function RootLayout({
               Pular para o conteúdo
             </a>
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
+            <BadgingHost />
             <OfflineBanner />
             <GlobalDropZone />
             <PomodoroTimer />
