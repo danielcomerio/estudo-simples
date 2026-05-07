@@ -74,6 +74,76 @@ export async function GET(
   });
 }
 
+/**
+ * PATCH — owner atualiza metadata do deck (incl. is_public + title/desc
+ * pra marketplace).
+ */
+export async function PATCH(
+  req: Request,
+  { params }: { params: { token: string } }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+
+  let body: {
+    is_public?: boolean;
+    title?: string | null;
+    description?: string | null;
+    category?: string | null;
+  } = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid_body' }, { status: 400 });
+  }
+
+  // Validação leve
+  const update: Record<string, unknown> = {};
+  if (typeof body.is_public === 'boolean') update.is_public = body.is_public;
+  if (typeof body.title === 'string' || body.title === null) {
+    if (typeof body.title === 'string' && body.title.length > 200) {
+      return NextResponse.json({ error: 'title_too_long' }, { status: 400 });
+    }
+    update.title = body.title;
+  }
+  if (typeof body.description === 'string' || body.description === null) {
+    if (typeof body.description === 'string' && body.description.length > 2000) {
+      return NextResponse.json(
+        { error: 'description_too_long' },
+        { status: 400 }
+      );
+    }
+    update.description = body.description;
+  }
+  if (typeof body.category === 'string' || body.category === null) {
+    update.category = body.category;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: 'no_updates' }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from('shared_decks')
+    .update(update)
+    .eq('token', params.token)
+    .eq('owner_user_id', user.id);
+
+  if (error) {
+    return NextResponse.json(
+      { error: 'update_failed', message: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(
   _req: Request,
   { params }: { params: { token: string } }

@@ -25,6 +25,9 @@ type SharedLink = {
   expires_at: string;
   access_count: number;
   revoked_at: string | null;
+  is_public?: boolean;
+  title?: string | null;
+  description?: string | null;
 };
 
 export function SharedLinksSection() {
@@ -161,6 +164,40 @@ function LinkItem({
   link: SharedLink;
   onRevoked: () => void;
 }) {
+  const [editingPublic, setEditingPublic] = useState(false);
+  const [title, setTitle] = useState(link.title ?? '');
+  const [description, setDescription] = useState(link.description ?? '');
+  const [savingPublic, setSavingPublic] = useState(false);
+
+  const togglePublic = async (newPublic: boolean) => {
+    setSavingPublic(true);
+    try {
+      const res = await fetch(`/api/share/${link.token}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          is_public: newPublic,
+          ...(newPublic ? { title: title.trim() || null, description: description.trim() || null } : {}),
+        }),
+      });
+      if (!res.ok) {
+        toast('Erro ao atualizar', 'error');
+        return;
+      }
+      toast(
+        newPublic
+          ? 'Deck publicado no marketplace.'
+          : 'Deck removido do marketplace.',
+        'success'
+      );
+      setEditingPublic(false);
+      onRevoked(); // reload list
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro', 'error');
+    } finally {
+      setSavingPublic(false);
+    }
+  };
   const url =
     typeof window !== 'undefined'
       ? `${window.location.origin}/import/${link.token}`
@@ -277,6 +314,116 @@ function LinkItem({
       >
         {url}
       </code>
+
+      {/* Toggle marketplace público */}
+      <div style={{ marginTop: 4, fontSize: '0.82rem' }}>
+        {!editingPublic && (
+          <>
+            {link.is_public ? (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span
+                  style={{
+                    padding: '2px 8px',
+                    background: 'var(--primary-soft)',
+                    color: 'var(--primary)',
+                    borderRadius: 999,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  📚 Público
+                </span>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setEditingPublic(true)}
+                  style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => void togglePublic(false)}
+                  disabled={savingPublic}
+                  style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+                >
+                  Tornar privado
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setEditingPublic(true)}
+                style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+              >
+                📚 Publicar no marketplace
+              </button>
+            )}
+          </>
+        )}
+        {editingPublic && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: 10,
+              background: 'var(--bg-elev-2)',
+              borderRadius: 'var(--radius)',
+            }}
+          >
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Título do deck (ex: TJ-SP — Direito Civil)"
+              maxLength={200}
+              aria-label="Título do deck público"
+              style={{ width: '100%', marginBottom: 6, fontSize: '0.85rem' }}
+            />
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descrição (opcional, max 2000 chars)"
+              maxLength={2000}
+              aria-label="Descrição"
+              style={{
+                width: '100%',
+                marginBottom: 6,
+                fontSize: '0.85rem',
+                resize: 'vertical',
+                minHeight: 60,
+              }}
+            />
+            <div className="row gap" style={{ alignItems: 'center' }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => void togglePublic(true)}
+                disabled={savingPublic || !title.trim()}
+                style={{ padding: '4px 12px', fontSize: '0.82rem' }}
+              >
+                {savingPublic ? 'Salvando…' : 'Publicar'}
+              </button>
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => setEditingPublic(false)}
+                style={{ padding: '4px 8px', fontSize: '0.82rem' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </li>
   );
 }

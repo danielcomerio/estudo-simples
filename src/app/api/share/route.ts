@@ -164,7 +164,9 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('shared_decks')
-    .select('id, token, question_count, created_at, expires_at, access_count, revoked_at')
+    .select(
+      'id, token, question_count, created_at, expires_at, access_count, revoked_at, is_public, title, description'
+    )
     .eq('owner_user_id', user.id)
     .order('created_at', { ascending: false });
 
