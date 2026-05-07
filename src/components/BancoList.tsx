@@ -1183,6 +1183,35 @@ export function BancoList() {
     );
   };
 
+  /**
+   * Export pra TSV compatível com Anki (File > Import). Cobre objetiva,
+   * cloze, flashcard, discursiva. Tags: disciplina + tema + banca + tags
+   * (separadas por _ porque Anki não aceita espaço em tag).
+   */
+  const exportSelectedAnki = () => {
+    const qs =
+      selected.size > 0
+        ? questions.filter((q) => selected.has(q.id))
+        : sorted;
+    if (qs.length === 0) {
+      toast('Nada pra exportar.', 'warn');
+      return;
+    }
+    void import('@/lib/anki-export').then(
+      ({ questionsToAnkiCsv, downloadAnkiCsv }) => {
+        const csv = questionsToAnkiCsv(qs);
+        downloadAnkiCsv(
+          csv,
+          `estudo-simples-anki-${qs.length}q-${new Date().toISOString().slice(0, 10)}.csv`
+        );
+        toast(
+          `${qs.length} questão(ões) exportada(s) em formato Anki.`,
+          'success'
+        );
+      }
+    );
+  };
+
   return (
     <div className="card">
       {activeConcurso && (
@@ -1967,6 +1996,18 @@ export function BancoList() {
           onExportFiltered={exportFilteredJSON}
           onExportSelected={exportSelectedJSON}
         />
+        <button
+          type="button"
+          onClick={exportSelectedAnki}
+          title={
+            selected.size > 0
+              ? `Exportar ${selected.size} selecionadas pra Anki (TSV)`
+              : `Exportar ${sorted.length} filtradas pra Anki (TSV)`
+          }
+          aria-label="Exportar pra Anki"
+        >
+          🎴 Exportar Anki
+        </button>
         {(() => {
           // Conta só questões REALMENTE sem gabarito (alvo do /revisar).
           // Questões com gabarito + verificacao=pendente (oficialização)
