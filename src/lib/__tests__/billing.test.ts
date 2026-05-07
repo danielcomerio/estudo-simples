@@ -8,6 +8,7 @@ import {
   isProOrMaster,
   isActiveSubscription,
   planLabel,
+  shouldBlockNewCheckout,
   type MyPlan,
 } from '../billing';
 
@@ -145,6 +146,99 @@ describe('billing', () => {
 
     it('planLabel master tem coroa', () => {
       expect(planLabel('master')).toBe('👑 Master');
+    });
+  });
+
+  describe('shouldBlockNewCheckout', () => {
+    it('null/undefined: permite (sem profile)', () => {
+      expect(shouldBlockNewCheckout(null)).toEqual({
+        blocked: false,
+        reason: null,
+      });
+      expect(shouldBlockNewCheckout(undefined)).toEqual({
+        blocked: false,
+        reason: null,
+      });
+    });
+
+    it('master: bloqueia com reason=master', () => {
+      expect(shouldBlockNewCheckout({ plan: 'master' })).toEqual({
+        blocked: true,
+        reason: 'master',
+      });
+    });
+
+    it('subscription active: bloqueia com reason=already_subscribed', () => {
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'pro',
+          subscription_status: 'active',
+          stripe_subscription_id: 'sub_xxx',
+        })
+      ).toEqual({ blocked: true, reason: 'already_subscribed' });
+    });
+
+    it('todos os status que contam como ativos bloqueiam', () => {
+      const blocking = ['active', 'trialing', 'past_due', 'unpaid', 'paused'];
+      for (const status of blocking) {
+        expect(
+          shouldBlockNewCheckout({
+            plan: 'pro',
+            subscription_status: status,
+            stripe_subscription_id: 'sub_xxx',
+          }).blocked
+        ).toBe(true);
+      }
+    });
+
+    it('canceled: NÃO bloqueia (user pode reassinar)', () => {
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'free',
+          subscription_status: 'canceled',
+          stripe_subscription_id: 'sub_xxx',
+        })
+      ).toEqual({ blocked: false, reason: null });
+    });
+
+    it('incomplete: NÃO bloqueia (checkout falhou — pode tentar de novo)', () => {
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'free',
+          subscription_status: 'incomplete',
+          stripe_subscription_id: 'sub_xxx',
+        })
+      ).toEqual({ blocked: false, reason: null });
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'free',
+          subscription_status: 'incomplete_expired',
+          stripe_subscription_id: 'sub_xxx',
+        })
+      ).toEqual({ blocked: false, reason: null });
+    });
+
+    it('subscription_status active mas SEM subscription_id: permite (estado inválido)', () => {
+      // Se webhook nunca rolou, status não deveria estar ativo, mas se
+      // de alguma forma estiver, sem subscription_id Stripe, deixa o
+      // user comprar — é o comportamento mais útil.
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'free',
+          subscription_status: 'active',
+          stripe_subscription_id: null,
+        })
+      ).toEqual({ blocked: false, reason: null });
+    });
+
+    it('free user comum: permite', () => {
+      expect(
+        shouldBlockNewCheckout({
+          plan: 'free',
+          subscription_status: null,
+          stripe_subscription_id: null,
+        })
+      ).toEqual({ blocked: false, reason: null });
     });
   });
 

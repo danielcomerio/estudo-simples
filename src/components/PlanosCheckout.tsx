@@ -4,16 +4,61 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { toast } from './Toast';
 import { track } from '@/lib/analytics';
+import { useMyPlan } from '@/lib/use-plan';
+import {
+  isActiveSubscription,
+  isMaster,
+  type Plan,
+} from '@/lib/billing';
 
 /**
  * Cards de planos (3 tiers) + botão Checkout. Cliente nunca passa
  * price_id — só `tier` + `interval`. Backend mapeia.
+ *
+ * Estados especiais:
+ *  - master: card do Pro mostra "Conta Master ativa" (sem CTA).
+ *  - assinante ativo do mesmo tier: botão vira "Plano atual ✓" disabled.
+ *  - assinante ativo de outro tier: botão vira "Trocar pra X" e abre
+ *    Stripe portal (proration automática) em vez de novo checkout.
+ *  - canceled/free: checkout normal.
  */
 export function PlanosCheckout() {
   const [interval, setInterval] = useState<'monthly' | 'yearly'>('monthly');
-  const [loading, setLoading] = useState<null | 'estudante' | 'pro'>(null);
+  const [loading, setLoading] = useState<null | 'estudante' | 'pro' | 'portal'>(null);
+  const { plan } = useMyPlan();
+
+  const currentPlan: Plan | null = plan?.plan ?? null;
+  const isActive = isActiveSubscription(plan);
+  const master = isMaster(plan);
+
+  const openPortal = async () => {
+    setLoading('portal');
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.url) {
+        toast(
+          'Erro abrindo portal de assinatura. Tente em instantes.',
+          'error'
+        );
+        setLoading(null);
+        return;
+      }
+      window.location.href = json.url as string;
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Erro de rede', 'error');
+      setLoading(null);
+    }
+  };
 
   const checkout = async (tier: 'estudante' | 'pro') => {
+    // GUARD client-side: já assina algo ativo? Joga pro portal pra
+    // upgrade/downgrade (proration automática). Backend também rejeita
+    // — defesa em camadas.
+    if (isActive && currentPlan && currentPlan !== tier) {
+      openPortal();
+      return;
+    }
     setLoading(tier);
     track('checkout.started', { interval, tier });
     try {
@@ -28,12 +73,19 @@ export function PlanosCheckout() {
       }
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.url) {
-        toast(
-          json?.error === 'price_not_configured'
-            ? 'Plano não configurado (admin precisa setar STRIPE_PRICE_*).'
-            : 'Erro iniciando checkout. Tente de novo.',
-          'error'
-        );
+        const errCode = (json as { error?: string; message?: string } | null)?.error;
+        const errMsg = (json as { message?: string } | null)?.message;
+        let msg = 'Erro iniciando checkout. Tente de novo.';
+        if (errCode === 'master_no_checkout') {
+          msg = errMsg ?? 'Conta Master não usa Stripe.';
+        } else if (errCode === 'already_subscribed') {
+          // Server rejeitou duplo checkout — abre portal.
+          openPortal();
+          return;
+        } else if (errCode === 'price_not_configured') {
+          msg = 'Plano não configurado (admin precisa setar STRIPE_PRICE_*).';
+        }
+        toast(msg, 'error', 6000);
         setLoading(null);
         return;
       }
@@ -42,6 +94,43 @@ export function PlanosCheckout() {
       toast(e instanceof Error ? e.message : 'Erro de rede', 'error');
       setLoading(null);
     }
+  };
+
+  // Helper: rótulo do botão de cada tier conforme estado atual
+  const buttonState = (
+    tier: 'estudante' | 'pro'
+  ): { label: string; disabled: boolean; onClick?: () => void; primary?: boolean } => {
+    if (master) {
+      return {
+        label: '👑 Conta Master ativa',
+        disabled: true,
+      };
+    }
+    if (isActive && currentPlan === tier) {
+      return {
+        label: '✓ Plano atual',
+        disabled: true,
+      };
+    }
+    if (isActive && currentPlan && currentPlan !== tier) {
+      const acao =
+        (currentPlan === 'estudante' && tier === 'pro') ||
+        currentPlan === 'free'
+          ? 'Trocar pra'
+          : 'Mudar pra';
+      return {
+        label: loading === 'portal' ? 'Abrindo portal…' : `${acao} ${tier === 'pro' ? 'Pro' : 'Estudante'}`,
+        disabled: loading !== null,
+        onClick: openPortal,
+        primary: tier === 'pro',
+      };
+    }
+    return {
+      label: loading === tier ? 'Carregando…' : 'Começar trial 14 dias',
+      disabled: loading !== null,
+      onClick: () => checkout(tier),
+      primary: tier === 'pro',
+    };
   };
 
   // Toggle mensal / anual exibido em cima dos cards
@@ -130,14 +219,19 @@ export function PlanosCheckout() {
             <Feat>Calibração metacognitiva</Feat>
             <Feat>Export CSV</Feat>
           </ul>
-          <button
-            type="button"
-            onClick={() => checkout('estudante')}
-            disabled={loading !== null}
-            style={{ width: '100%', padding: '13px', fontSize: '0.95rem' }}
-          >
-            {loading === 'estudante' ? 'Carregando…' : 'Começar trial 14 dias'}
-          </button>
+          {(() => {
+            const s = buttonState('estudante');
+            return (
+              <button
+                type="button"
+                onClick={s.onClick}
+                disabled={s.disabled}
+                style={{ width: '100%', padding: '13px', fontSize: '0.95rem' }}
+              >
+                {s.label}
+              </button>
+            );
+          })()}
         </div>
 
         {/* Pro */}
@@ -183,26 +277,33 @@ export function PlanosCheckout() {
             <Feat>Suporte prioritário</Feat>
             <Feat>Acesso antecipado a novidades</Feat>
           </ul>
-          <button
-            type="button"
-            className="primary"
-            onClick={() => checkout('pro')}
-            disabled={loading !== null}
-            style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
-          >
-            {loading === 'pro' ? 'Carregando…' : 'Começar trial 14 dias'}
-          </button>
-          <p
-            className="muted"
-            style={{
-              margin: '4px 0 0',
-              fontSize: '0.78rem',
-              textAlign: 'center',
-              lineHeight: 1.4,
-            }}
-          >
-            14 dias grátis · sem cobrança até o fim do trial
-          </p>
+          {(() => {
+            const s = buttonState('pro');
+            return (
+              <button
+                type="button"
+                className={s.primary ? 'primary' : ''}
+                onClick={s.onClick}
+                disabled={s.disabled}
+                style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
+              >
+                {s.label}
+              </button>
+            );
+          })()}
+          {!isActive && !master && (
+            <p
+              className="muted"
+              style={{
+                margin: '4px 0 0',
+                fontSize: '0.78rem',
+                textAlign: 'center',
+                lineHeight: 1.4,
+              }}
+            >
+              14 dias grátis · sem cobrança até o fim do trial
+            </p>
+          )}
         </div>
       </div>
     </>

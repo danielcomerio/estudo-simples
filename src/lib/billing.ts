@@ -123,3 +123,54 @@ export function canManageSubscription(
   if (plan.plan === 'master') return false;
   return isPro(plan) && plan.subscription_status !== null;
 }
+
+/**
+ * Status de subscription que bloqueiam a criação de NOVA subscription
+ * (duplo checkout). Usuário com qualquer um destes deve passar pelo
+ * portal pra mudar/cancelar — proration automática do Stripe cuida da
+ * diferença em upgrades/downgrades.
+ */
+const BLOCKING_SUBSCRIPTION_STATUSES = new Set<SubscriptionStatus>([
+  'active',
+  'trialing',
+  'past_due',
+  'unpaid',
+  'paused',
+]);
+
+/**
+ * Decide se um perfil deve ser bloqueado de criar nova checkout session.
+ *
+ * Bloqueio quando:
+ *  - profile é master (não usa Stripe).
+ *  - profile já tem subscription_id E status ativo (lista acima).
+ *
+ * Permite quando:
+ *  - profile null/undefined (sem registro — pode comprar).
+ *  - subscription_status é null/canceled/incomplete/incomplete_expired
+ *    (sem subscription viva — pode comprar de novo).
+ *
+ * Pra UI: usa `isActiveSubscription(plan)` em conjunção com
+ * `plan.plan === target_tier` pra mostrar "Plano atual ✓" vs "Trocar
+ * pra X" no botão.
+ */
+export function shouldBlockNewCheckout(
+  profile: {
+    plan?: string | null;
+    subscription_status?: SubscriptionStatus | string | null;
+    stripe_subscription_id?: string | null;
+  } | null | undefined
+): { blocked: boolean; reason: 'master' | 'already_subscribed' | null } {
+  if (!profile) return { blocked: false, reason: null };
+  if (profile.plan === 'master') {
+    return { blocked: true, reason: 'master' };
+  }
+  const hasActive =
+    !!profile.stripe_subscription_id &&
+    !!profile.subscription_status &&
+    BLOCKING_SUBSCRIPTION_STATUSES.has(
+      profile.subscription_status as SubscriptionStatus
+    );
+  if (hasActive) return { blocked: true, reason: 'already_subscribed' };
+  return { blocked: false, reason: null };
+}

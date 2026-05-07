@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { priceIdFor, stripe } from '@/lib/stripe-server';
+import { shouldBlockNewCheckout } from '@/lib/billing';
 import { assertSameOrigin, rateLimit } from '@/lib/security';
 
 export const runtime = 'nodejs';
@@ -63,9 +64,36 @@ export async function POST(req: Request) {
   // Procura customer já existente pra não criar duplicado
   const { data: profile } = await supabase
     .from('profiles')
-    .select('stripe_customer_id, stripe_subscription_id')
+    .select('plan, subscription_status, stripe_customer_id, stripe_subscription_id')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // GUARDS centralizadas em lib/billing — testáveis isoladamente.
+  const guard = shouldBlockNewCheckout(profile);
+  if (guard.blocked) {
+    if (guard.reason === 'master') {
+      return NextResponse.json(
+        {
+          error: 'master_no_checkout',
+          message:
+            'Conta operacional (master) não usa assinatura Stripe. Gerenciamento manual via admin.',
+        },
+        { status: 400 }
+      );
+    }
+    // already_subscribed: usuário deve usar portal pra upgrade/downgrade
+    // (proration automática do Stripe).
+    return NextResponse.json(
+      {
+        error: 'already_subscribed',
+        message:
+          'Você já tem uma assinatura ativa. Para mudar de plano (upgrade/downgrade) ou cancelar, use o portal de gerenciamento — a proração é calculada automaticamente.',
+        current_plan: profile?.plan,
+        current_status: profile?.subscription_status,
+      },
+      { status: 409 } // Conflict — semântica correta
+    );
+  }
 
   // Trial: usuário ainda não teve subscription antes (nem ativa nem
   // cancelada). Stripe controla "trial usado uma vez por customer" via
