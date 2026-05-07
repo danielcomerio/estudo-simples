@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { LazyMount } from './LazyMount';
+import { ForecastCard } from './ForecastCard';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
@@ -288,6 +289,10 @@ export function StatsView() {
 
       <LazyMount>
         <ConcursosOverview />
+      </LazyMount>
+
+      <LazyMount>
+        <ForecastCard questions={questions} />
       </LazyMount>
 
       <div className="card">
