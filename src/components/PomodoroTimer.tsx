@@ -346,8 +346,15 @@ export function PomodoroTimer() {
             background: 'var(--bg-elev)',
             color: 'var(--text)',
             cursor: 'pointer',
-            fontSize: '1rem',
+            fontSize: '1.1rem',
             opacity: 0.6,
+            // Centralização robusta do emoji (glyph box é assimétrico
+            // por padrão — sem flex+lineHeight 1 fica puxado pra direita)
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+            padding: 0,
           }}
         >
           🍅
