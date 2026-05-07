@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "backfill:disciplinas": "tsx scripts/backfill-disciplinas.ts",
-    "export:platform": "tsx scripts/export-platform.ts"
+    "export:platform": "tsx scripts/export-platform.ts",
+    "check:migrations": "node scripts/check-migrations.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

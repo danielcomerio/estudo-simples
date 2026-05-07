@@ -83,5 +83,33 @@ select
   exists (select 1 from pg_proc
           where proname = 'count_due_per_user') as m0016_count_due_rpc,
 
+  -- 0017: marketplace público (shared_decks ganha is_public + title + description + category)
+  exists (select 1 from information_schema.columns
+          where table_schema='public' and table_name='shared_decks'
+          and column_name='is_public') as m0017_marketplace,
+
+  -- 0018: telegram bindings
+  to_regclass('public.telegram_bindings') is not null as m0018_telegram,
+
+  -- 0019: questões do dia (3 tabelas)
+  (to_regclass('public.daily_question_sets') is not null
+   and to_regclass('public.daily_question_attempts') is not null
+   and to_regclass('public.daily_preferences') is not null) as m0019_daily,
+
+  -- 0020: question ratings
+  to_regclass('public.question_ratings') is not null as m0020_ratings,
+
+  -- 0021: deck favorites (marketplace)
+  to_regclass('public.deck_favorites') is not null as m0021_deck_favorites,
+
+  -- 0022: discord webhooks
+  to_regclass('public.discord_webhooks') is not null as m0022_discord,
+
+  -- 0023: question comments
+  to_regclass('public.question_comments') is not null as m0023_comments,
+
+  -- 0024: audit log
+  to_regclass('public.audit_log') is not null as m0024_audit,
+
   -- Storage bucket
   exists (select 1 from storage.buckets where id='questions-images') as storage_bucket;

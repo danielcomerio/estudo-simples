@@ -293,8 +293,32 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 - `0020_question_ratings.sql` — 👍/👎 por questão. PK composta
   (user, q), rating IN (-1, 1), comment opcional. Endpoint
   `/api/question-rating`. UI `QuestionRatingButtons` no QuestionRunner.
+- `0021_deck_favorites.sql` — N:N user×shared_deck (PK composto)
+  pra ⭐ no marketplace público. Endpoint `/api/deck-favorites`.
+- `0022_discord_webhooks.sql` — webhook Discord por user (sem bot).
+  CHECK valida URL. Endpoint `/api/discord` com test ping.
+  Plugado no `notifyUser` como fallback após Telegram.
+- `0023_question_comments.sql` — comments públicos por questão.
+  RLS public select, own write, owner-da-questão OR author pode
+  delete. Endpoint `/api/question-comments`.
+- `0024_audit_log.sql` — trilha auditável (action + meta jsonb +
+  IP/UA opcional). RLS sem SELECT — só admin via service role.
+  Helper `lib/audit.ts` best-effort.
+- `0025_applied_migrations_tracking.sql` — tabela
+  `applied_migrations` pra rastrear o que está aplicado (Supabase
+  Dashboard manual NÃO popula `supabase_migrations.schema_migrations`).
+  Backfilla 0001-0024 e marca a 0025. **TODA migration nova daqui
+  pra frente deve terminar com:**
 
-**Próxima migration deve ser 0021.** Não editar 0001-0020.
+  ```sql
+  insert into public.applied_migrations (id, applied_at)
+  values ('NNNN', now())
+  on conflict (id) do update set applied_at = excluded.applied_at;
+  ```
+
+  Verifica com `npm run check:migrations` (cruza disco × DB).
+
+**Próxima migration deve ser 0026.** Não editar 0001-0025.
 
 ## Engagement diário (Questões do Dia)
 
