@@ -17,6 +17,7 @@ import { ShortcutsHelp } from './ShortcutsHelp';
 import { StreakBadge } from './StreakBadge';
 import { ConcursoCountdown } from './ConcursoCountdown';
 import { BrandLogo } from './BrandLogo';
+import { WhatsNewBadge } from './WhatsNewBadge';
 
 const TABS = [
   { href: '/', label: 'Painel' },
@@ -340,6 +341,10 @@ export function Topbar({
 
         <span className="topbar-desktop-only">
           <ShortcutsHelp />
+        </span>
+
+        <span className="topbar-desktop-only">
+          <WhatsNewBadge />
         </span>
 
         <span className="topbar-desktop-only">
