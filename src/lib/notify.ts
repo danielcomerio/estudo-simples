@@ -17,6 +17,7 @@ import { getSupabaseAdmin } from './supabase/admin';
 import { sendPushToUser } from './push-server';
 import { sendTelegramMessage } from './telegram';
 import type { PushPayload } from './push';
+import { buildTelegramText, shouldFallbackToTelegram } from './notify-helpers';
 
 export type NotifyResult = {
   channel: 'push' | 'telegram' | 'none';
@@ -33,7 +34,7 @@ export async function notifyUser(
 ): Promise<NotifyResult> {
   // Tenta Web Push
   const pushResult = await sendPushToUser(userId, payload);
-  if (pushResult.sent > 0) {
+  if (!shouldFallbackToTelegram(pushResult.sent)) {
     return {
       channel: 'push',
       success: true,
@@ -71,21 +72,4 @@ export async function notifyUser(
   return { channel: 'none', success: false, details: 'sem canais ativos' };
 }
 
-/**
- * Formata payload pra Telegram (HTML). Web Push usa title/body
- * separados; Telegram tem 1 mensagem só.
- */
-function buildTelegramText(payload: PushPayload): string {
-  const parts = [`<b>${escape(payload.title)}</b>`, '', escape(payload.body)];
-  if (payload.url) {
-    parts.push('', `<a href="https://app.estudosimples.com.br${payload.url}">Abrir no app</a>`);
-  }
-  return parts.join('\n');
-}
-
-function escape(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
+// buildTelegramText/escape extraídos pra ./notify-helpers (testáveis).

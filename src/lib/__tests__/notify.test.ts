@@ -1,39 +1,37 @@
 import { describe, expect, it } from 'vitest';
+import {
+  buildTelegramText,
+  escapeTelegramHtml,
+  shouldFallbackToTelegram,
+} from '../notify-helpers';
 
-/**
- * notify.ts faz I/O com Supabase admin + push providers, então testar
- * a função notifyUser fim-a-fim exigiria mocks pesados.
- *
- * Testamos apenas a função pura buildTelegramText que é pequena. Pra
- * isso, exportamos via re-import (não está no module exports público).
- *
- * Cobertura mais ampla virá quando refatorar pra extrair helpers.
- */
-
-// Replica do helper interno pra testar (mantido em sync com lib/notify.ts)
-function escape(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function buildTelegramText(payload: {
-  title: string;
-  body: string;
-  url?: string;
-}): string {
-  const parts = [`<b>${escape(payload.title)}</b>`, '', escape(payload.body)];
-  if (payload.url) {
-    parts.push(
-      '',
-      `<a href="https://app.estudosimples.com.br${payload.url}">Abrir no app</a>`
+describe('escapeTelegramHtml', () => {
+  it('escapa &, <, >', () => {
+    expect(escapeTelegramHtml('a & b < c > d')).toBe(
+      'a &amp; b &lt; c &gt; d'
     );
-  }
-  return parts.join('\n');
-}
+  });
 
-describe('notify.ts — buildTelegramText (replica)', () => {
+  it('texto sem chars especiais inalterado', () => {
+    expect(escapeTelegramHtml('hello world')).toBe('hello world');
+  });
+
+  it('idempotente quando já escapado uma vez', () => {
+    const once = escapeTelegramHtml('<a>');
+    const twice = escapeTelegramHtml(once);
+    // & vira &amp;, então uma 2ª escapada vira &amp;amp; — comportamento
+    // esperado, mas confirma intencionalmente:
+    expect(twice).toContain('&amp;lt;');
+  });
+
+  it('aspas e quotes não escapados (Telegram aceita)', () => {
+    expect(escapeTelegramHtml(`"quotes" e 'aspas'`)).toBe(
+      `"quotes" e 'aspas'`
+    );
+  });
+});
+
+describe('buildTelegramText', () => {
   it('formata title bold + body sem url', () => {
     const out = buildTelegramText({
       title: 'Vencendo',
@@ -53,6 +51,7 @@ describe('notify.ts — buildTelegramText (replica)', () => {
     expect(out).toContain(
       '<a href="https://app.estudosimples.com.br/estudar">'
     );
+    expect(out).toContain('Abrir no app');
   });
 
   it('escapa HTML pra evitar injection no Telegram', () => {
@@ -63,5 +62,36 @@ describe('notify.ts — buildTelegramText (replica)', () => {
     expect(out).toContain('&lt;script&gt;');
     expect(out).toContain('&amp;');
     expect(out).not.toContain('<script>');
+  });
+
+  it('separação correta com \\n duplo entre seções', () => {
+    const out = buildTelegramText({
+      title: 'T',
+      body: 'B',
+      url: '/x',
+    });
+    const lines = out.split('\n');
+    expect(lines[0]).toBe('<b>T</b>');
+    expect(lines[1]).toBe('');
+    expect(lines[2]).toBe('B');
+    expect(lines[3]).toBe('');
+    expect(lines[4]).toContain('<a href');
+  });
+
+  it('payload com title vazio não quebra', () => {
+    const out = buildTelegramText({ title: '', body: 'msg' });
+    expect(out).toContain('<b></b>');
+  });
+});
+
+describe('shouldFallbackToTelegram', () => {
+  it('0 push enviados → fallback', () => {
+    expect(shouldFallbackToTelegram(0)).toBe(true);
+  });
+
+  it('>= 1 push enviado → não fallback', () => {
+    expect(shouldFallbackToTelegram(1)).toBe(false);
+    expect(shouldFallbackToTelegram(5)).toBe(false);
+    expect(shouldFallbackToTelegram(100)).toBe(false);
   });
 });
