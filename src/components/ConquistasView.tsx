@@ -30,6 +30,7 @@ export function ConquistasView() {
     let totalCorrect = 0;
     let dominadas = 0;
     let bestDay = 0;
+    let validador = 0; // gabarito_source = 'oficial' (validadas)
     const dayCounts = new Map<number, number>();
     for (const q of questions) {
       totalAttempts += q.stats?.attempts ?? 0;
@@ -42,6 +43,9 @@ export function ConquistasView() {
           .every((r) => r.result === 'correct' || r.result === 'self_pass')
       ) {
         dominadas++;
+      }
+      if (q.fonte?.gabarito_source === 'oficial') {
+        validador++;
       }
       for (const e of h) {
         const d = startOfDay(e.date);
@@ -93,6 +97,7 @@ export function ConquistasView() {
       bestStreak,
       diasEstudados,
       bankSize: questions.length,
+      validador,
     };
   }, [questions]);
 
@@ -195,6 +200,20 @@ export function ConquistasView() {
         { threshold: 90, label: '90 dias estudados', emoji: '📅📅📅' },
         { threshold: 180, label: '180 dias estudados', emoji: '🌟' },
         { threshold: 365, label: '1 ano de dias', emoji: '👑' },
+      ],
+    },
+    {
+      title: '✓ Validador (gabaritos oficiais)',
+      desc:
+        'Questões com gabarito marcado como oficial (validado contra fonte). Mostra cuidado com qualidade do banco.',
+      current: data.validador,
+      unit: 'oficiais',
+      tiers: [
+        { threshold: 10, label: '10 oficiais', emoji: '✓' },
+        { threshold: 50, label: '50 oficiais', emoji: '✓✓' },
+        { threshold: 100, label: '100 oficiais', emoji: '✓✓✓' },
+        { threshold: 500, label: '500 oficiais', emoji: '🌟' },
+        { threshold: 1000, label: '1.000 oficiais', emoji: '👑' },
       ],
     },
   ];
