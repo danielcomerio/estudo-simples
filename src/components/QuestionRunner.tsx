@@ -24,6 +24,7 @@ import { haptic } from '@/lib/haptic';
 import { playSound } from '@/lib/sounds';
 import { acquireWakeLock, type WakeLockHandle } from '@/lib/wake-lock';
 import { triggerConfetti } from './ConfettiHost';
+import { triggerXP } from './XPToast';
 import { DidYouKnowTip } from './DidYouKnowTip';
 import {
   clearSession as clearStoredSession,
@@ -1214,6 +1215,12 @@ function RunningView({
     // (opt-in). Ambos no-op se desabilitados/sem suporte.
     haptic(isCorrect ? 'success' : 'error');
     playSound(isCorrect ? 'success' : 'error');
+
+    if (isCorrect) {
+      // Confidence alto + acerto = bônus. Sem confidence = base.
+      const xp = confidence === 3 ? 15 : confidence === 1 ? 5 : 10;
+      triggerXP(xp);
+    }
   };
 
   const rate = (quality: number) => {

@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { ConfettiHost } from '@/components/ConfettiHost';
+import { XPToast } from '@/components/XPToast';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';
@@ -116,6 +117,7 @@ export default async function RootLayout({
       <body>
         <ServiceWorkerRegister />
         <ConfettiHost />
+        <XPToast />
         <NavigationProgress />
         <BFCacheGuard />
         <ErrorLogger />
