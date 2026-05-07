@@ -147,13 +147,15 @@ export function Topbar({
       >
         {TABS.map((t) => {
           const showBadge = t.href === '/estudar' && dueObjetivas > 0;
+          const active = isActive(t.href);
           return (
             <Link
               key={t.href}
               href={t.href}
-              className={'tab' + (isActive(t.href) ? ' active' : '')}
+              className={'tab' + (active ? ' active' : '')}
               role="tab"
-              aria-selected={isActive(t.href)}
+              aria-selected={active}
+              aria-current={active ? 'page' : undefined}
               prefetch
               onClick={() => setMobileOpen(false)}
             >

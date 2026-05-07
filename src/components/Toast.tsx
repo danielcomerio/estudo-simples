@@ -74,64 +74,103 @@ export function ToastHost() {
     setItems((cur) => cur.filter((i) => i.id !== id));
   };
 
-  return (
-    <div className="toast-stack" aria-live="polite">
-      {items.map((t) => (
-        <div
-          key={t.id}
-          className={'toast ' + (t.kind || '')}
-          onClick={() => dismiss(t.id)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') dismiss(t.id);
+  // 2 regiões aria-live separadas: polite (info/success) e assertive
+  // (error/warn). Screen readers anunciam erros imediatamente; info
+  // espera idle. Sem isso tudo virava polite e erros podiam ser perdidos
+  // ou anunciados depois de algo importante.
+  const polite = items.filter((t) => t.kind !== 'error' && t.kind !== 'warn');
+  const assertive = items.filter(
+    (t) => t.kind === 'error' || t.kind === 'warn'
+  );
+
+  const renderToast = (t: ToastItem) => (
+    <div
+      key={t.id}
+      className={'toast ' + (t.kind || '')}
+      onClick={() => dismiss(t.id)}
+      role={t.kind === 'error' || t.kind === 'warn' ? 'alert' : 'status'}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+          e.preventDefault();
+          dismiss(t.id);
+        }
+      }}
+      aria-label={`${labelFor(t.kind)}: ${t.msg}. Pressione Enter ou Espaço para dispensar.`}
+      title="Clique ou pressione Enter para dispensar"
+      style={{ cursor: 'pointer' }}
+    >
+      <span aria-hidden style={{ fontSize: '1.1em', flexShrink: 0 }}>
+        {iconFor(t.kind)}
+      </span>
+      <span style={{ flex: 1 }}>{t.msg}</span>
+      {t.action && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            t.action!.onClick();
+            dismiss(t.id);
           }}
-          title="Clique para dispensar"
-          style={{ cursor: 'pointer' }}
+          style={{
+            background: 'rgba(255,255,255,0.15)',
+            border: '1px solid currentColor',
+            color: 'inherit',
+            padding: '3px 10px',
+            borderRadius: 6,
+            fontWeight: 600,
+            fontSize: '0.85em',
+            cursor: 'pointer',
+            marginLeft: 8,
+            whiteSpace: 'nowrap',
+          }}
         >
-          <span aria-hidden style={{ fontSize: '1.1em', flexShrink: 0 }}>
-            {iconFor(t.kind)}
-          </span>
-          <span style={{ flex: 1 }}>{t.msg}</span>
-          {t.action && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                t.action!.onClick();
-                dismiss(t.id);
-              }}
-              style={{
-                background: 'rgba(255,255,255,0.15)',
-                border: '1px solid currentColor',
-                color: 'inherit',
-                padding: '3px 10px',
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: '0.85em',
-                cursor: 'pointer',
-                marginLeft: 8,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {t.action.label}
-            </button>
-          )}
-          <span
-            aria-hidden
-            style={{
-              opacity: 0.6,
-              fontSize: '0.85em',
-              marginLeft: 10,
-              fontWeight: 600,
-            }}
-          >
-            ×
-          </span>
-        </div>
-      ))}
+          {t.action.label}
+        </button>
+      )}
+      <span
+        aria-hidden
+        style={{
+          opacity: 0.6,
+          fontSize: '0.85em',
+          marginLeft: 10,
+          fontWeight: 600,
+        }}
+      >
+        ×
+      </span>
     </div>
   );
+
+  return (
+    <>
+      <div
+        className="toast-stack"
+        aria-live="polite"
+        aria-atomic="false"
+        role="region"
+        aria-label="Notificações"
+      >
+        {polite.map(renderToast)}
+      </div>
+      <div
+        className="toast-stack toast-stack-assertive"
+        aria-live="assertive"
+        aria-atomic="false"
+        role="region"
+        aria-label="Alertas"
+      >
+        {assertive.map(renderToast)}
+      </div>
+    </>
+  );
+}
+
+function labelFor(kind: ToastKind): string {
+  if (kind === 'success') return 'Sucesso';
+  if (kind === 'error') return 'Erro';
+  if (kind === 'warn') return 'Atenção';
+  return 'Informação';
 }
 
 function iconFor(kind: ToastKind): string {

@@ -2773,9 +2773,19 @@ body.cvd-tritan {
   max-width: calc(100vw - 32px);
   pointer-events: none;
 }
+/* Stack assertive (errors/warns) fica em cima da polite — empilha
+   na mesma coluna mas eleva pra ficar visualmente prioritária. */
+.toast-stack-assertive {
+  bottom: auto;
+  top: 16px;
+}
 @media (max-width: 759px) {
   .toast-stack {
     bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .toast-stack-assertive {
+    bottom: auto;
+    top: calc(64px + env(safe-area-inset-top));
   }
 }
 .toast {
