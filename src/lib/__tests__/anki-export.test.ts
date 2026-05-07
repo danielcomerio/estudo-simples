@@ -139,5 +139,117 @@ describe('anki-export', () => {
       const dataLines = csv.split('\n').filter((l) => !l.startsWith('#') && l.trim());
       expect(dataLines.length).toBe(2);
     });
+
+    // ----- Edge cases -----
+
+    it('cloze sem nenhuma lacuna → texto inalterado', () => {
+      const q: Question = {
+        ...baseQ,
+        type: 'cloze',
+        payload: { texto: 'Texto sem lacunas.' },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toContain('Texto sem lacunas.');
+      expect(csv).not.toContain('[___]');
+    });
+
+    it('cloze com 5 lacunas — todas substituídas no front', () => {
+      const q: Question = {
+        ...baseQ,
+        type: 'cloze',
+        payload: {
+          texto:
+            '{{c1::a}} {{c2::b}} {{c3::c}} {{c4::d}} {{c5::e}}',
+        },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      const matches = csv.match(/\[___\]/g) ?? [];
+      expect(matches.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it('objetiva sem alternativa correta → "?" no gabarito', () => {
+      const q: Question = {
+        ...baseQ,
+        payload: {
+          enunciado: 'Q?',
+          alternativas: [
+            { letra: 'A', texto: 'a' },
+            { letra: 'B', texto: 'b' },
+          ],
+        },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toContain('Gabarito: ?');
+    });
+
+    it('discursiva sem espelho → fallback "(sem espelho)"', () => {
+      const q: Question = {
+        ...baseQ,
+        type: 'discursiva',
+        payload: { enunciado: 'Disserte X' },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toContain('(sem espelho)');
+    });
+
+    it('discursiva monta enunciado de texto_base + comando', () => {
+      const q: Question = {
+        ...baseQ,
+        type: 'discursiva',
+        payload: {
+          texto_base: 'Cenário descrito.',
+          comando: 'Considerando o cenário acima, responda...',
+          espelho_resposta: 'X',
+        },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toContain('Cenário descrito.');
+      expect(csv).toContain('Considerando o cenário acima');
+    });
+
+    it('quebras de linha são quoted', () => {
+      const q: Question = {
+        ...baseQ,
+        type: 'flashcard',
+        payload: { frente: 'linha1\nlinha2', verso: 'r' },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toMatch(/"linha1\nlinha2"/);
+    });
+
+    it('lista vazia → só header', () => {
+      const csv = questionsToAnkiCsv([]);
+      const lines = csv.split('\n');
+      expect(lines.every((l) => l.startsWith('#') || !l.trim())).toBe(true);
+    });
+
+    it('tipo desconhecido pulado', () => {
+      const q = {
+        ...baseQ,
+        type: 'desconhecido' as 'objetiva',
+        payload: { x: 1 },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      const dataLines = csv
+        .split('\n')
+        .filter((l) => !l.startsWith('#') && l.trim());
+      expect(dataLines.length).toBe(0);
+    });
+
+    it('explicacao_geral incluída no back de objetiva', () => {
+      const q: Question = {
+        ...baseQ,
+        payload: {
+          enunciado: 'Q?',
+          alternativas: [
+            { letra: 'A', texto: 'a', correta: true },
+            { letra: 'B', texto: 'b' },
+          ],
+          explicacao_geral: 'Contexto histórico relevante',
+        },
+      };
+      const csv = questionsToAnkiCsv([q]);
+      expect(csv).toContain('Contexto histórico relevante');
+    });
   });
 });
