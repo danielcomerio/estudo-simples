@@ -240,6 +240,14 @@ export function Topbar({
                 <span>Decks públicos</span>
               </Link>
               <Link
+                href="/diario"
+                onClick={() => setMobileOpen(false)}
+                className="drawer-link"
+              >
+                <span aria-hidden>📅</span>
+                <span>Questões do dia</span>
+              </Link>
+              <Link
                 href="/sobre"
                 onClick={() => setMobileOpen(false)}
                 className="drawer-link"

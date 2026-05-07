@@ -280,8 +280,56 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
   comunitário. Endpoint `/api/decks-publicos` lista. UI em
   `/decks-publicos` (PublicDecksMarketplace component). Owner
   publica via SharedLinksSection (PATCH /api/share/[token]).
+- `0018_telegram_bindings.sql` — vincula user → chat_id Telegram via
+  deeplink one-shot (TTL 1h). RLS owner-only. Endpoints
+  `/api/telegram/{bind,webhook}`. UI `TelegramSection` em
+  /configuracoes. lib/telegram.ts com sendTelegramMessage helper.
+- `0019_questoes_do_dia.sql` — engagement diário. 3 tabelas:
+  daily_question_sets (1 set/dia, mesmo pra todos), 
+  daily_question_attempts (resultado UNIQUE user×set, base do
+  ranking), daily_preferences (modo pessoal BYO IA). Endpoints
+  `/api/daily/{set,attempt,ranking}`. UI `/diario` page
+  (DailyChallengeView).
+- `0020_question_ratings.sql` — 👍/👎 por questão. PK composta
+  (user, q), rating IN (-1, 1), comment opcional. Endpoint
+  `/api/question-rating`. UI `QuestionRatingButtons` no QuestionRunner.
 
-**Próxima migration deve ser 0018.** Não editar 0001-0017.
+**Próxima migration deve ser 0021.** Não editar 0001-0020.
+
+## Engagement diário (Questões do Dia)
+
+- `/diario` page mostra set comunitário + ranking top 50.
+- Modo "comunidade": 1 set/dia, mesmo pra todos. Curadoria manual
+  (master via SQL ou cron futuro).
+- Modo "pessoal" (infra prep): user define prefs, IA gera via BYO
+  key. Implementação completa em sessão futura.
+
+## Telegram
+
+- `lib/telegram.ts`: sendTelegramMessage + generateBindToken.
+- Endpoints `/api/telegram/{bind,webhook}`: fluxo de vinculação
+  one-shot via deeplink.
+- UI `TelegramSection` em /configuracoes: botão "🔗 Vincular" gera
+  deeplink + polling 3s detecta confirmação no webhook.
+- Notificações via Telegram são fallback automático no notifyUser
+  quando push falha.
+- USER ACTION: `/newbot` no @BotFather, env TELEGRAM_BOT_TOKEN +
+  TELEGRAM_BOT_USERNAME + opcional TELEGRAM_WEBHOOK_SECRET.
+
+## Curadoria comunitária
+
+- `question_ratings` (0020): PK composta, rating IN (-1, 1).
+- `QuestionRatingButtons` no QuestionRunner: 👍/👎 com counters
+  comunidade visíveis + meu rating destacado.
+- Útil pra ranquear marketplace + detectar questões problemáticas.
+
+## Notificações unificadas
+
+- `lib/notify.ts`: notifyUser(userId, payload) tenta Web Push primeiro,
+  fallback Telegram se vinculado.
+- Cron `/api/cron/srs-due` usa essa função.
+- Sem duplicar — push é mais imediato; Telegram cobre user sem
+  browser ativo.
 
 ## Push notifications
 
@@ -332,6 +380,9 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
   chave. Validação básica de prefix (sk-, sk-ant-).
 - `AIExplainButton` no QuestionRunner (após responder): chama
   `/api/ai/chat` proxy. Sem chave: mostra link discreto pra config.
+- `AIDiscursivaEvaluator` no DiscursivaRunner (após revelar espelho):
+  pede avaliação completa (nota 0-10 + pontos fortes/fracos +
+  sugestão). Usa rubrica oficial se disponível. Mesmo padrão BYO.
 - `/api/ai/chat`: proxy stateless pro provider. NUNCA armazena chave
   no server. Auth obrigatória + rate limit 30/min.
 - Modelos default: gpt-4o-mini, claude-haiku-4-5, gemini-2.0-flash-exp
