@@ -6,6 +6,7 @@ import { LazyMount } from './LazyMount';
 import { ForecastCard } from './ForecastCard';
 import { PeerStatsCard } from './PeerStatsCard';
 import { SimuladoTimeline } from './SimuladoTimeline';
+import { HourPerformanceCard } from './HourPerformanceCard';
 import { selectActiveQuestions, useStore } from '@/lib/store';
 import { fmtPercent } from '@/lib/format';
 import { DAY_MS } from '@/lib/srs';
@@ -303,6 +304,10 @@ export function StatsView() {
 
       <LazyMount>
         <SimuladoTimeline />
+      </LazyMount>
+
+      <LazyMount>
+        <HourPerformanceCard />
       </LazyMount>
 
       <div className="card">

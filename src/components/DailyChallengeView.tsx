@@ -156,6 +156,11 @@ export function DailyChallengeView() {
             ({attempt.score_pct}%) em{' '}
             {Math.floor(attempt.duration_s / 60)}min{' '}
             {attempt.duration_s % 60}s.
+            <ShareDailyResult
+              correct={attempt.correct_count}
+              total={attempt.total_questions}
+              pct={attempt.score_pct}
+            />
           </div>
         )}
       </div>
@@ -220,5 +225,49 @@ export function DailyChallengeView() {
         </div>
       )}
     </main>
+  );
+}
+
+
+function ShareDailyResult({ correct, total, pct }: { correct: number; total: number; pct: number }) {
+  const date = new Date().toISOString().slice(0, 10);
+  const grid = "🟩".repeat(correct) + "⬜".repeat(Math.max(0, total - correct));
+  const text = `📚 Estudo Simples · ${date}
+${grid}
+${pct}% (${correct}/${total})
+estudosimples.com.br/diario`;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        type="button"
+        className="ghost"
+        onClick={async () => {
+          try {
+            if (navigator.clipboard) {
+              await navigator.clipboard.writeText(text);
+              alert("Copiado! Cole no WhatsApp/X/Discord.");
+            }
+          } catch {
+            /* ignore */
+          }
+        }}
+        style={{ padding: "4px 10px", fontSize: "0.82rem" }}
+      >
+        📋 Copiar resultado pra compartilhar
+      </button>
+      <pre
+        style={{
+          marginTop: 6,
+          fontSize: "0.85rem",
+          background: "var(--bg-elev-2)",
+          padding: 8,
+          borderRadius: "var(--radius)",
+          whiteSpace: "pre-wrap",
+          fontFamily: "inherit",
+        }}
+      >
+        {text}
+      </pre>
+    </div>
   );
 }

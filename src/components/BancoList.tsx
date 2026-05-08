@@ -42,6 +42,8 @@ import { AIOCRButton } from './AIOCRButton';
 import { AIToolbarFallback } from './AIToolbarFallback';
 import { AISearchButton } from './AISearchButton';
 import { PodcastModeButton } from './PodcastModeButton';
+import { AIBulkTagButton } from './AIBulkTagButton';
+import { AIBancoCoachButton } from './AIBancoCoachButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1899,6 +1901,8 @@ export function BancoList() {
           📖 Modo leitura
         </button>
         <PodcastModeButton questions={sorted.slice(0, 50)} />
+        <AIBulkTagButton />
+        <AIBancoCoachButton />
         <button
           type="button"
           onClick={() => setTagMergeOpen(true)}

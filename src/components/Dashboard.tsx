@@ -20,6 +20,7 @@ import { ShareProgressButton } from './ShareProgressButton';
 import { EditaisCard } from './EditaisCard';
 import { DailyBriefingCard } from './DailyBriefingCard';
 import { StreakFreezesCard } from './StreakFreezesCard';
+import { ConquistasButton } from './ConquistasButton';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -505,6 +506,10 @@ export function Dashboard() {
       <DailyBriefingCard />
 
       <StreakFreezesCard currentStreak={streak} />
+
+      <div className="row gap" style={{ marginBottom: 8 }}>
+        <ConquistasButton />
+      </div>
 
       <PrimeirosPassos questions={questions} />
 
