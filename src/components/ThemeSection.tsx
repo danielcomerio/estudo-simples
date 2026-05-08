@@ -23,6 +23,11 @@ const OPTIONS: Array<{ value: Theme; label: string; desc: string }> = [
     label: '⚫ AMOLED',
     desc: 'Preto puro — economiza bateria em telas OLED (celular).',
   },
+  {
+    value: 'time',
+    label: '🕐 Por horário',
+    desc: 'Claro 6h-18h, escuro fora. Não atualiza durante o dia (refresh aplica).',
+  },
 ];
 
 export function ThemeSection() {

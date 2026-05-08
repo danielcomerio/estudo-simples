@@ -21,6 +21,7 @@ import { EditaisCard } from './EditaisCard';
 import { DailyBriefingCard } from './DailyBriefingCard';
 import { StreakFreezesCard } from './StreakFreezesCard';
 import { ConquistasButton } from './ConquistasButton';
+import { WarmupQuestionCard } from './WarmupQuestionCard';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -510,6 +511,8 @@ export function Dashboard() {
       <div className="row gap" style={{ marginBottom: 8 }}>
         <ConquistasButton />
       </div>
+
+      <WarmupQuestionCard />
 
       <PrimeirosPassos questions={questions} />
 

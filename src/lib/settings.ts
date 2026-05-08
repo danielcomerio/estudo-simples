@@ -134,8 +134,14 @@ export function useActiveConcursoId(): string | null {
  * Aplica via atributo data-theme em <html>. Quando 'auto', remove o
  * atributo e cai no @media (prefers-color-scheme) do CSS.
  */
-export type Theme = 'auto' | 'light' | 'dark' | 'amoled';
-const VALID_THEMES: Theme[] = ['auto', 'light', 'dark', 'amoled'];
+export type Theme = 'auto' | 'light' | 'dark' | 'amoled' | 'time';
+const VALID_THEMES: Theme[] = ['auto', 'light', 'dark', 'amoled', 'time'];
+
+/** Resolve "time" pra light/dark baseado em horário local: 6-18h = light. */
+function resolveTimeTheme(): 'light' | 'dark' {
+  const hr = new Date().getHours();
+  return hr >= 6 && hr < 18 ? 'light' : 'dark';
+}
 
 export function getTheme(): Theme {
   if (typeof window === 'undefined') return 'auto';
@@ -164,6 +170,8 @@ export function applyTheme(theme: Theme): void {
   const html = document.documentElement;
   if (theme === 'auto') {
     html.removeAttribute('data-theme');
+  } else if (theme === 'time') {
+    html.setAttribute('data-theme', resolveTimeTheme());
   } else {
     html.setAttribute('data-theme', theme);
   }

@@ -399,6 +399,8 @@ export function BancoList() {
     const idFilters: string[] = [];
     let dueWithinDays: number | null = null; // due:7d → 7
     let onlyBookmarked = false;
+    let onlyAIGenerated = false;
+    let minAcerto: number | null = null; // dom:80 → questões com %acerto >= 80
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
@@ -412,6 +414,11 @@ export function BancoList() {
         if (m) dueWithinDays = parseInt(m[1], 10);
       } else if (lower === 'bookmark:1' || lower === 'fav:1' || lower === '⭐') {
         onlyBookmarked = true;
+      } else if (lower === 'ai:1' || lower === 'ia:1') {
+        onlyAIGenerated = true;
+      } else if (lower.startsWith('dom:')) {
+        const v = parseInt(lower.slice(4), 10);
+        if (!Number.isNaN(v)) minAcerto = Math.max(0, Math.min(100, v));
       } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
@@ -447,6 +454,21 @@ export function BancoList() {
         const due = q.srs?.dueDate ?? Infinity;
         const limit = now + dueWithinDays * DAY_MS;
         if (due > limit) return false;
+      }
+      // ai:1 — só questões com tag gabarito-ia (ou origem IA)
+      if (onlyAIGenerated) {
+        const tags = q.tags ?? [];
+        const fonte = (q.fonte as { gabarito_source?: string } | undefined) ?? {};
+        if (!tags.includes('gabarito-ia') && fonte.gabarito_source !== 'ia') {
+          return false;
+        }
+      }
+      // dom:N — só questões com %acerto >= N (e ≥3 tentativas pra ter signal)
+      if (minAcerto !== null) {
+        const t = q.stats?.attempts ?? 0;
+        const c = q.stats?.correct ?? 0;
+        if (t < 3) return false;
+        if ((c / t) * 100 < minAcerto) return false;
       }
       // Prefixos
       if (tagFilters.length > 0) {
@@ -1699,7 +1721,7 @@ export function BancoList() {
           <input
             ref={searchRef}
             type="search"
-            placeholder="Buscar (atalho: /). Prefixos: tag:x disc:y banca:z due:7d bookmark:1"
+            placeholder="Buscar (/). Prefixos: tag:x disc:y banca:z due:7d ai:1 dom:80 bookmark:1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, minWidth: 0 }}
