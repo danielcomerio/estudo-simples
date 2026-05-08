@@ -23,6 +23,10 @@ import {
 } from '@/lib/ai-coach';
 import { MicButton } from './MicButton';
 import { TTSButton } from './TTSButton';
+import {
+  getActivePersonaId,
+  setActivePersonaId as persistActivePersona,
+} from '@/lib/persona-active';
 
 type Persona = {
   id: string;
@@ -98,6 +102,7 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     setMessages(getCoachHistory());
+    setActivePersonaId(getActivePersonaId());
     fetch('/api/personas')
       .then((r) => r.json())
       .then((j: { items: Persona[] }) => {
@@ -285,8 +290,12 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               className={!activePersonaId ? 'primary' : 'ghost'}
-              onClick={() => setActivePersonaId(null)}
+              onClick={() => {
+                setActivePersonaId(null);
+                persistActivePersona(null);
+              }}
               style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+              title="Aplica em todo o app (Coach, Explain, Generate, Avaliação)"
             >
               🤖 Padrão
             </button>
@@ -295,8 +304,12 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
                 key={p.id}
                 type="button"
                 className={activePersonaId === p.id ? 'primary' : 'ghost'}
-                onClick={() => setActivePersonaId(p.id)}
+                onClick={() => {
+                  setActivePersonaId(p.id);
+                  persistActivePersona(p.id);
+                }}
                 style={{ padding: '2px 8px', fontSize: '0.78rem' }}
+                title={p.name}
               >
                 {p.emoji} {p.name}
               </button>

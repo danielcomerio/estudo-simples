@@ -13,6 +13,7 @@ import {
 import type { Concurso, ConcursoStatus } from '@/lib/types';
 import { ConcursoDisciplinasManager } from './ConcursoDisciplinasManager';
 import { ConcursoEventsManager } from './ConcursoEventsManager';
+import { AIStudyPlanButton } from './AIStudyPlanButton';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 
@@ -240,6 +241,9 @@ function ConcursoRow({
         <>
           <ConcursoDisciplinasManager concursoId={c.id} />
           <ConcursoEventsManager concursoId={c.id} />
+          <div style={{ marginTop: 12 }}>
+            <AIStudyPlanButton concursoId={c.id} concursoNome={c.nome} />
+          </div>
         </>
       )}
     </li>

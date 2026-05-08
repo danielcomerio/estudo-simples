@@ -256,6 +256,8 @@ export function PomodoroTimer() {
           : `☕ Pausa de ${settings.shortBreakMin}min começou`;
       toast(msg, 'success');
       notifyEnd('Pomodoro: foco completo', msg);
+      // Custom event pra outros componentes (ex: AI reflection)
+      window.dispatchEvent(new CustomEvent('es:pomodoro-focus-complete'));
     } else {
       // Pausa terminou — começa próximo foco automaticamente
       const next: Persisted = {

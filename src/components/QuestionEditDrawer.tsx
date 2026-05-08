@@ -31,6 +31,7 @@ import { QuestionChatPanel } from './QuestionChatPanel';
 import { AIRewriteButton } from './AIRewriteButton';
 import { AIQualityScoreButton } from './AIQualityScoreButton';
 import { TagInput } from './TagInput';
+import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -1001,6 +1002,9 @@ export function QuestionEditDrawer({
         )}
 
         <AIQualityScoreButton question={question} />
+        {question.type === 'objetiva' && (
+          <AIFlashcardFromQuestionButton question={question} />
+        )}
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (

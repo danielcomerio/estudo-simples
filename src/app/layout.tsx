@@ -7,6 +7,7 @@ import { ToastHost } from '@/components/Toast';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { GlobalDropZone } from '@/components/GlobalDropZone';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
+import { PomodoroReflectionToast } from '@/components/PomodoroReflectionToast';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -150,6 +151,7 @@ export default async function RootLayout({
             <OfflineBanner />
             <GlobalDropZone />
             <PomodoroTimer />
+            <PomodoroReflectionToast />
             <OnboardingTour />
             <main id="main-content" className="page">
               {children}
