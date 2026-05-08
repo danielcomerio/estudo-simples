@@ -23,11 +23,48 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Auto-carrega .env.local (e .env como fallback) se existir.
+ * Node não faz isso automaticamente em scripts standalone, só Next.
+ * Não sobrescreve var já existente no shell (precedência: shell > arquivo).
+ */
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return false;
+  const content = fs.readFileSync(filePath, 'utf-8');
+  for (const rawLine of content.split('\n')) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    if (process.env[key] === undefined) process.env[key] = val;
+  }
+  return true;
+}
+
+loadEnvFile(path.resolve(process.cwd(), '.env.local')) ||
+  loadEnvFile(path.resolve(process.cwd(), '.env'));
+
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!URL || !KEY) {
   console.error('❌ Faltam env vars: NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY');
+  console.error('');
+  console.error('Coloque em .env.local (na raiz do projeto):');
+  console.error('  NEXT_PUBLIC_SUPABASE_URL=https://SEU.supabase.co');
+  console.error('  SUPABASE_SERVICE_ROLE_KEY=eyJ...   ← Supabase Dashboard → Settings → API → service_role (secret)');
+  console.error('');
+  console.error('Ou seta no shell antes de rodar:');
+  console.error('  PowerShell: $env:SUPABASE_SERVICE_ROLE_KEY = "eyJ..."');
+  console.error('  Bash:       export SUPABASE_SERVICE_ROLE_KEY=eyJ...');
   process.exit(1);
 }
 
