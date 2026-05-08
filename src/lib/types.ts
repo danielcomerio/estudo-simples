@@ -335,6 +335,9 @@ export type SessionConfig = {
    *  é re-injetada no fim do pool da sessão atual. Reforça antes do
    *  schedule de longo prazo do FSRS pegar. */
   retryWrong?: boolean;
+  /** Live AI Tutor: explica automaticamente após erro (sem clicar no
+   *  botão IA). Consome tokens da chave BYO do user. Opt-in. */
+  liveTutor?: boolean;
 };
 
 export type DiscSessionConfig = {

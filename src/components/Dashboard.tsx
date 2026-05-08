@@ -18,6 +18,7 @@ import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 import { ShareProgressButton } from './ShareProgressButton';
 import { EditaisCard } from './EditaisCard';
+import { DailyBriefingCard } from './DailyBriefingCard';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -497,6 +498,8 @@ export function Dashboard() {
       )}
 
       <WelcomeBackBanner dueCount={dueToday} />
+
+      <DailyBriefingCard />
 
       <PrimeirosPassos questions={questions} />
 

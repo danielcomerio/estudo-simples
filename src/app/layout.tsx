@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { TopbarHeightTracker } from '@/components/TopbarHeightTracker';
+import { HashScrollHandler } from '@/components/HashScrollHandler';
 import { ConfettiHost } from '@/components/ConfettiHost';
 import { XPToast } from '@/components/XPToast';
 import { AchievementToast } from '@/components/AchievementToast';
@@ -143,6 +144,7 @@ export default async function RootLayout({
             </a>
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
             <TopbarHeightTracker />
+            <HashScrollHandler />
             <BadgingHost />
             <AchievementDetector />
             <OfflineBanner />

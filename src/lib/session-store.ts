@@ -31,6 +31,7 @@ export type StoredSession = {
   tempoLimite: number;
   free?: boolean;
   activeRecall?: boolean;
+  liveTutor?: boolean;
   correct: number;
   wrong: number;
   skipped: number;

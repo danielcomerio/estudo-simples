@@ -17,6 +17,7 @@ import {
   type GenerateConfig,
   type GeneratedQuestion,
 } from '@/lib/ai-generate';
+import { getActivePersonaPrompt, withPersona } from '@/lib/persona-active';
 import type { QuestionType } from '@/lib/types';
 import { toast } from './Toast';
 
@@ -121,13 +122,14 @@ function AIGenerateWizard({
       dificuldade,
     };
     try {
+      const personaPrompt = await getActivePersonaPrompt();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
           apiKey,
-          prompt: buildGenerationPrompt(cfg),
+          prompt: withPersona(buildGenerationPrompt(cfg), personaPrompt),
           kind: 'generate',
           // cacheable false — prompt criativo, mesma config gera coisas
           // diferentes; cache atrapalharia

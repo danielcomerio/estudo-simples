@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   getAIKey,
@@ -8,6 +8,7 @@ import {
   PROVIDER_LABELS,
 } from '@/lib/ai-keys';
 import { streamAIChat } from '@/lib/ai-stream';
+import { getActivePersonaPrompt, withPersona } from '@/lib/persona-active';
 
 /**
  * Botão "🤖 Explicar" — só aparece se user configurou ao menos uma
@@ -23,11 +24,15 @@ export function AIExplainButton({
   alternativaCorreta,
   alternativaEscolhida,
   explicacaoOficial,
+  autoTrigger,
 }: {
   enunciado: string;
   alternativaCorreta?: string | null;
   alternativaEscolhida?: string | null;
   explicacaoOficial?: string | null;
+  /** Quando true, dispara ask() automaticamente no primeiro mount.
+   *  Usado pelo Live AI Tutor: explica sem o user clicar. */
+  autoTrigger?: boolean;
 }) {
   const provider = getDefaultProvider();
   const [loading, setLoading] = useState(false);
@@ -82,7 +87,7 @@ export function AIExplainButton({
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const ask = () => {
+  const ask = async () => {
     if (!provider) return;
     setLoading(true);
     setError(null);
@@ -93,16 +98,18 @@ export function AIExplainButton({
       setLoading(false);
       return;
     }
+    const personaPrompt = await getActivePersonaPrompt();
     abortRef.current?.abort();
     abortRef.current = streamAIChat(
-      // cacheable: explicação de questão é determinística (mesma questão
-      // sempre tem mesma resposta correta + explicação). Cache compartilhado
+      // cacheable: SÓ quando sem persona — persona muda o prompt e
+      // tornaria o cache key user-specific demais (muito miss). Sem
+      // persona, explicação é determinística e o cache compartilhado
       // economiza tokens entre users.
       {
         provider,
         apiKey,
-        prompt: buildPrompt(),
-        cacheable: true,
+        prompt: withPersona(buildPrompt(), personaPrompt),
+        cacheable: !personaPrompt,
         kind: 'explain',
       },
       {
@@ -121,6 +128,15 @@ export function AIExplainButton({
     abortRef.current = null;
     setLoading(false);
   };
+
+  const triggeredRef = useRef(false);
+  useEffect(() => {
+    if (!autoTrigger || triggeredRef.current) return;
+    if (!provider) return;
+    triggeredRef.current = true;
+    ask();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoTrigger, provider]);
 
   return (
     <div style={{ marginTop: 10 }}>

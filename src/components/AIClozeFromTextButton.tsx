@@ -17,6 +17,7 @@ import {
 } from '@/lib/ai-generate';
 import { AIQuestionPreviewItem } from './AIQuestionPreviewItem';
 import { toast } from './Toast';
+import { getActivePersonaPrompt, withPersona } from '@/lib/persona-active';
 
 /**
  * Botão "🤖 Cloze de texto" no toolbar do BancoList.
@@ -86,16 +87,20 @@ function Wizard({ onClose }: { onClose: () => void }) {
       return;
     }
     try {
+      const personaPrompt = await getActivePersonaPrompt();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           provider,
           apiKey,
-          prompt: buildClozeFromTextPrompt(
-            text.trim().slice(0, 8000),
-            Math.max(1, Math.min(20, qtd)),
-            disciplina.trim() || undefined
+          prompt: withPersona(
+            buildClozeFromTextPrompt(
+              text.trim().slice(0, 8000),
+              Math.max(1, Math.min(20, qtd)),
+              disciplina.trim() || undefined
+            ),
+            personaPrompt
           ),
           kind: 'generate',
         }),

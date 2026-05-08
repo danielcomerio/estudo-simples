@@ -9,6 +9,7 @@ import {
 } from '@/lib/ai-keys';
 import { streamAIChat } from '@/lib/ai-stream';
 import { toast } from './Toast';
+import { getActivePersonaPrompt, withPersona } from '@/lib/persona-active';
 
 /**
  * Botão "🤖 Avaliar minha resposta" no DiscursivaRunner. User cola
@@ -54,7 +55,7 @@ export function AIDiscursivaEvaluator({
 
   const abortRef = useRef<AbortController | null>(null);
 
-  const ask = () => {
+  const ask = async () => {
     if (!provider) return;
     setLoading(true);
     setResult('');
@@ -64,6 +65,7 @@ export function AIDiscursivaEvaluator({
       setLoading(false);
       return;
     }
+    const personaPrompt = await getActivePersonaPrompt();
     const rubricaTxt =
       rubrica && rubrica.length > 0
         ? '\n\nCRITÉRIOS DE AVALIAÇÃO:\n' +
@@ -93,7 +95,12 @@ Seja específico e útil. Em pt-BR. Max 400 palavras.`;
 
     abortRef.current?.abort();
     abortRef.current = streamAIChat(
-      { provider, apiKey, prompt, kind: 'discursiva-eval' },
+      {
+        provider,
+        apiKey,
+        prompt: withPersona(prompt, personaPrompt),
+        kind: 'discursiva-eval',
+      },
       {
         onChunk: (chunk) => setResult((prev) => (prev ?? '') + chunk),
         onDone: () => setLoading(false),

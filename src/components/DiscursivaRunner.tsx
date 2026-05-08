@@ -29,6 +29,7 @@ import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
 import { VoiceSearchButton } from './VoiceSearchButton';
+import { MicButton } from './MicButton';
 import { AudioRecorder } from './AudioRecorder';
 import type {
   DiscSessionConfig,
@@ -613,7 +614,10 @@ function DiscRunningView({
               style={{ marginTop: 16, alignItems: 'center', flexWrap: 'wrap', gap: 6 }}
             >
               <h3 style={{ margin: 0 }}>Sua resposta</h3>
-              <VoiceSearchButton
+              <MicButton
+                size="md"
+                continuous
+                title="Ditar redação (mantém ouvindo)"
                 onTranscript={(t) =>
                   setResposta((prev) => (prev ? `${prev} ${t}` : t))
                 }

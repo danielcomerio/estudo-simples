@@ -73,6 +73,8 @@ type SessionState = {
   activeRecall?: boolean;
   /** Re-injeta questões erradas no fim do pool. */
   retryWrong?: boolean;
+  /** Live AI Tutor: explica auto após erros. Consome tokens BYO. */
+  liveTutor?: boolean;
 };
 
 const defaultCfg: SessionConfig = {
@@ -275,6 +277,7 @@ export function QuestionRunner() {
     tempoLimite: number;
     free?: boolean;
     activeRecall?: boolean;
+    liveTutor?: boolean;
     startedAt: number;
   } | null>(null);
 
@@ -301,6 +304,7 @@ export function QuestionRunner() {
       tempoLimite: stored.tempoLimite,
       free: stored.free,
       activeRecall: stored.activeRecall,
+      liveTutor: stored.liveTutor,
       startedAt: stored.startedAt,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,6 +322,7 @@ export function QuestionRunner() {
         tempoLimite: session.tempoLimite,
         free: session.free,
         activeRecall: session.activeRecall,
+        liveTutor: session.liveTutor,
         correct: session.correct,
         wrong: session.wrong,
         skipped: session.skipped,
@@ -484,6 +489,7 @@ export function QuestionRunner() {
           free: newCfg.free,
           activeRecall: newCfg.activeRecall,
           retryWrong: newCfg.retryWrong,
+          liveTutor: newCfg.liveTutor,
         });
         setPhase('running');
       }
@@ -506,6 +512,7 @@ export function QuestionRunner() {
       free: cfg.free,
       activeRecall: cfg.activeRecall,
       retryWrong: cfg.retryWrong,
+      liveTutor: cfg.liveTutor,
     });
     setPhase('running');
   };
@@ -531,6 +538,7 @@ export function QuestionRunner() {
       free: next.free,
       activeRecall: next.activeRecall,
       retryWrong: next.retryWrong,
+      liveTutor: next.liveTutor,
     });
     setPhase('running');
   };
@@ -985,6 +993,19 @@ export function QuestionRunner() {
           />
           <span title="Quando você marcar 'De novo' (q=0), a questão volta no fim da sessão. Tipo Anki 'again steps'. Reforço imediato antes do schedule de longo prazo.">
             🔁 Re-injetar erradas no fim da sessão
+          </span>
+        </label>
+
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={!!cfg.liveTutor}
+            onChange={(e) =>
+              setCfg({ ...cfg, liveTutor: e.target.checked })
+            }
+          />
+          <span title="Quando errar, IA explica AUTOMATICAMENTE (sem clicar). Consome tokens da sua chave BYO — opt-in.">
+            🤖 Tutor IA ao vivo (explica auto após erros · gasta tokens)
           </span>
         </label>
       </div>
@@ -1740,6 +1761,7 @@ function RunningView({
             explicacaoOficial={
               correctAlt?.explicacao ?? payload.explicacao_geral ?? null
             }
+            autoTrigger={!isCorrect && !!session.liveTutor}
           />
 
           {/* Rating de qualidade — comunidade ajuda a curar. */}

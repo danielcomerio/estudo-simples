@@ -18,6 +18,7 @@ export function AIToolbarFallback() {
   return (
     <Link
       href="/configuracoes#ai-keys"
+      scroll={false}
       title="Configure uma chave de IA pra usar geração, OCR e cloze automáticos"
       style={{
         fontSize: '0.85rem',

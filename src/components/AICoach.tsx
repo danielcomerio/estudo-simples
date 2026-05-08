@@ -21,6 +21,8 @@ import {
   saveCoachHistory,
   type CoachMessage,
 } from '@/lib/ai-coach';
+import { MicButton } from './MicButton';
+import { TTSButton } from './TTSButton';
 
 type Persona = {
   id: string;
@@ -379,6 +381,12 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
               resize: 'vertical',
             }}
           />
+          <MicButton
+            onTranscript={(text) =>
+              setDraft((cur) => (cur ? `${cur} ${text}` : text).slice(0, 2000))
+            }
+            title="Ditar pergunta"
+          />
           {!loading ? (
             <button
               type="button"
@@ -461,6 +469,11 @@ function Bubble({
         {message.content}
         {streaming && <span style={{ opacity: 0.5 }}>▊</span>}
       </div>
+      {!isUser && !streaming && message.content.length > 20 && (
+        <div style={{ marginTop: 4 }}>
+          <TTSButton text={message.content} size="small" />
+        </div>
+      )}
     </div>
   );
 }
