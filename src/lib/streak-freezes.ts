@@ -58,8 +58,15 @@ export function readFreezes(): FreezeState {
     ) {
       return {
         count: Math.max(0, Math.min(MAX, j.count)),
+        // earnedDates aceita YYYY-MM-DD OU sentinelas: 'streak-milestone-N'
+        // / 'simulado-YYYY-MM-DD' (ver maybeEarnFrom*). Filtro abaixo
+        // permite ambos formatos pra preservar idempotência.
         earnedDates: j.earnedDates.filter(
-          (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+          (d: unknown) =>
+            typeof d === 'string' &&
+            (/^\d{4}-\d{2}-\d{2}$/.test(d) ||
+              d.startsWith('streak-milestone-') ||
+              d.startsWith('simulado-'))
         ),
         usedDates: j.usedDates.filter(
           (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)

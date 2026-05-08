@@ -22,10 +22,14 @@ export function OnlineDot() {
     };
   }, []);
 
+  // Só renderiza quando offline — quando online, OfflineBanner não aparece
+  // e o dot é redundante (gera ruído visual no Topbar).
+  if (online) return null;
+
   return (
     <span
-      title={online ? 'Online' : 'Offline'}
-      aria-label={online ? 'online' : 'offline'}
+      title="Offline"
+      aria-label="offline"
       style={{
         display: 'inline-block',
         width: 10,
@@ -37,9 +41,9 @@ export function OnlineDot() {
         alignSelf: 'center',
         boxSizing: 'border-box',
         borderRadius: '50%',
-        background: online ? 'var(--primary, #22c55e)' : 'var(--danger, #dc2626)',
+        background: 'var(--danger, #dc2626)',
         marginLeft: 6,
-        animation: online ? undefined : 'pulse 1.5s ease-in-out infinite',
+        animation: 'pulse 1.5s ease-in-out infinite',
       }}
     />
   );
