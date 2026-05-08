@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ConcursosSection } from '@/components/ConcursosSection';
 import { GuestNotice } from '@/components/GuestNotice';
+import { ConcursoComparisonCard } from '@/components/ConcursoComparisonCard';
 
 export default function ConcursosPage() {
   return (
@@ -17,6 +18,8 @@ export default function ConcursosPage() {
       </div>
 
       <ConcursosSection />
+
+      <ConcursoComparisonCard />
 
       <div className="card">
         <h2 style={{ margin: '0 0 8px' }}>Disciplinas</h2>

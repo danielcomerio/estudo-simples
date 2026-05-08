@@ -41,6 +41,7 @@ import { AIClozeFromTextButton } from './AIClozeFromTextButton';
 import { AIOCRButton } from './AIOCRButton';
 import { AIToolbarFallback } from './AIToolbarFallback';
 import { AISearchButton } from './AISearchButton';
+import { PodcastModeButton } from './PodcastModeButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1030,6 +1031,21 @@ export function BancoList() {
     toast(`${filtered.length} questão(ões) exportada(s) (filtro aplicado).`, 'success');
   };
 
+  const exportMarkdown = async () => {
+    const pool = filtered.length > 0 ? filtered : questions;
+    if (pool.length === 0) {
+      toast('Nada pra exportar.', 'warn');
+      return;
+    }
+    const { questionsToMarkdown, downloadMarkdown } = await import('@/lib/markdown-export');
+    const md = questionsToMarkdown(pool);
+    downloadMarkdown(
+      md,
+      `estudo-simples-${pool.length}q-${new Date().toISOString().slice(0, 10)}.md`
+    );
+    toast(`${pool.length} questão(ões) exportada(s) em Markdown.`, 'success');
+  };
+
   // Atalhos de teclado globais na página
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1882,6 +1898,7 @@ export function BancoList() {
         >
           📖 Modo leitura
         </button>
+        <PodcastModeButton questions={sorted.slice(0, 50)} />
         <button
           type="button"
           onClick={() => setTagMergeOpen(true)}
@@ -2022,6 +2039,13 @@ export function BancoList() {
           title="Exportar selecionadas em CSV (1 linha por questão)"
         >
           📥 CSV selecionadas
+        </button>
+        <button
+          type="button"
+          onClick={exportMarkdown}
+          title="Exporta filtro atual em Markdown (Notion/Obsidian)"
+        >
+          📝 Markdown
         </button>
         <button type="button" className="danger" onClick={deleteAllFiltered}>
           Excluir TUDO no filtro

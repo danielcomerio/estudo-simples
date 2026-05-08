@@ -32,6 +32,7 @@ import { AIRewriteButton } from './AIRewriteButton';
 import { AIQualityScoreButton } from './AIQualityScoreButton';
 import { TagInput } from './TagInput';
 import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
+import { FlashcardReverseButton } from './FlashcardReverseButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -1004,6 +1005,9 @@ export function QuestionEditDrawer({
         <AIQualityScoreButton question={question} />
         {question.type === 'objetiva' && (
           <AIFlashcardFromQuestionButton question={question} />
+        )}
+        {question.type === 'flashcard' && (
+          <FlashcardReverseButton question={question} />
         )}
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}

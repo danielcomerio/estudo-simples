@@ -10,8 +10,9 @@ import {
   type DisciplinaInput,
 } from '@/lib/hierarchy';
 import { selectActiveQuestions, selectDisciplinas, useStore } from '@/lib/store';
-import type { Disciplina } from '@/lib/types';
+import type { Disciplina, Question } from '@/lib/types';
 import { toast } from './Toast';
+import { computeMastery } from '@/lib/disciplina-mastery';
 
 /**
  * Página de disciplinas — read-only no que toca a CRIAR ou EXCLUIR.
@@ -156,6 +157,7 @@ export function DisciplinasSection() {
                 disciplina={d}
                 qtdQuestoes={countByDisc.get(d.nome.toLowerCase()) ?? 0}
                 qtdConcursos={vinculosByDisc.get(d.id) ?? 0}
+                allQuestions={allQuestions}
                 onEdit={() => setEditingId(d.id)}
               />
             )
@@ -170,13 +172,16 @@ function DisciplinaRow({
   disciplina: d,
   qtdQuestoes,
   qtdConcursos,
+  allQuestions,
   onEdit,
 }: {
   disciplina: Disciplina;
   qtdQuestoes: number;
   qtdConcursos: number;
+  allQuestions: Question[];
   onEdit: () => void;
 }) {
+  const mastery = computeMastery(d.nome, allQuestions);
   return (
     <li
       style={{
@@ -214,6 +219,14 @@ function DisciplinaRow({
               }}
             >
               {d.nome}
+              {mastery.badge && (
+                <span
+                  title={`${mastery.badgeName} · ${mastery.score}/100 · acerto ${mastery.acerto}% · cobertura ${mastery.cobertura}%`}
+                  style={{ marginLeft: 6, fontSize: '0.92rem' }}
+                >
+                  {mastery.badge}
+                </span>
+              )}
             </div>
             <div
               className="muted"
@@ -222,6 +235,7 @@ function DisciplinaRow({
               {qtdQuestoes} questão(ões) no banco
               {qtdConcursos > 0 && ` · vinculada a ${qtdConcursos} concurso(s)`}
               {d.peso_default != null && ` · peso default ${d.peso_default}`}
+              {mastery.score > 0 && ` · domínio ${mastery.score}/100`}
             </div>
           </div>
         </div>
