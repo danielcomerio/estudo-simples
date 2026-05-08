@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   setCvdMode,
   useCvdMode,
@@ -145,6 +146,46 @@ export function AccessibilitySection() {
           </label>
         ))}
       </div>
+
+      <h3 style={{ margin: '14px 0 6px', fontSize: '1rem' }}>
+        Modo focado automático
+      </h3>
+      <AutoFocusToggle />
     </div>
+  );
+}
+
+function AutoFocusToggle() {
+  const KEY = 'estudo-simples:focus-mode-auto-estudar';
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setEnabled(localStorage.getItem(KEY) === '1');
+  }, []);
+  return (
+    <label
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: '0.88rem',
+      }}
+    >
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => {
+          if (e.target.checked) localStorage.setItem(KEY, '1');
+          else localStorage.removeItem(KEY);
+          setEnabled(e.target.checked);
+        }}
+      />
+      <span>
+        🎯 Ativar modo focado (F8) ao entrar em /estudar
+        <span className="muted" style={{ fontSize: '0.78rem', marginLeft: 6 }}>
+          (Esc sai)
+        </span>
+      </span>
+    </label>
   );
 }

@@ -718,3 +718,83 @@ O app é construído sobre evidências da ciência cognitiva:
 - **Distributed practice / streak**: meta diária + streak (com 1 freeze por semana) reforçam consistência.
 - **Retrieval with feedback**: feedback imediato pós-resposta (gabarito + explicação + mnemônico) maximiza fixação.
 - **Mnemonics**: campo opcional `payload.mnemonic` mostrado no feedback de errar — ROOM pra Recursos Operacionais Oriundos do Mercado, etc.
+
+
+## 19. Novidades (Onda 3 — 2026-05-08)
+
+App ganhou ~110 features novas focadas em IA, voz, gamificação e produtividade.
+
+### Atalhos novos
+- `Ctrl+G` — abre `/hoje` (visão consolidada do que importa agora)
+- `Ctrl+Shift+N` — captura rápida (cria flashcard ou cloze de qualquer rota)
+- `Ctrl+Shift+M` — bloco de notas global (auto-save em localStorage)
+- `F8` — modo focado (esconde topbar/sidebars/footer pra estudo full-screen)
+
+### Rotas novas
+- `/hoje` — visão consolidada: vencidas + briefing IA + freezes + atalhos
+- `/erros` (inimigas) — questões com baixa taxa de acerto agrupadas
+- `/free-recall` — técnica de Karpicke: escreva tudo que sabe, IA avalia
+- `/achievements` — 12 conquistas com progress bar
+
+### IA (todas com BYO key — você plugga sua chave OpenAI/Claude/Gemini)
+- **Live AI Tutor em /estudar** — auto-explica após errar (toggle no config da sessão)
+- **Persona global** — selecione uma persona em AICoach, ela é aplicada em explain/generate/discursiva
+- **AI Coach voice mode** — 🎙 conversa via voz (STT + auto-send)
+- **Daily AI Briefing matinal** — opt-in, 1×/dia
+- **AI Quality Score** — IA avalia 0-10 + flags (ambígua, gabarito errado, etc) por questão
+- **AI Mnemônico** — sigla/frase memorizável
+- **AI Variant** — gera 2 variações da questão
+- **AI Sintetiza disciplina** — resumo dos tópicos cobertos
+- **AI Concept Map** — árvore hierárquica 3 níveis
+- **AI Study Plan** — plano semanal baseado em peso × cobertura × horas
+- **AI Sugere tags** — bulk e individual
+- **AI Sugere mapeamento** de disciplinas no import
+- **AI Refine duplicates** — filtra falsos positivos do scan Jaccard
+- **AI Próxima ação** — sugere o que estudar agora baseado no estado
+- **AI Compara alternativas** A vs B — quando errar
+- **AI Compara 2 questões** ou **2 respostas discursivas**
+- **AI Tradutor** PT→EN/ES (concursos internacionais)
+- **AI Bulk validate** — valida 20 questões IA-geradas em lote
+- **AI Explica termo** — selecione texto no enunciado → popover
+
+### Voz
+- **MicButton STT** em AICoach + /discursivas (continuous pra ditado de redação)
+- **TTS automático** das respostas do AICoach (toggle 🔊)
+- **Voice answer** em /estudar — diga "letra A" ou "próxima"/"pular"/"explica"
+- **Modo podcast** em /banco — TTS lê N questões em sequência
+- **Voice cmd "revelar"** em /discursivas
+
+### Stats novas
+- Heatmap **24h × % acerto** (horário de pico)
+- **Treemap** disciplinas (tempo investido × % acerto)
+- **Sparkline** de simulados
+- **Tempo total acumulado**
+- **Mastery score** por disciplina com badges Bronze/Prata/Ouro/Diamante
+- **Insights de calibração** (overconfidence/lucky/solid)
+
+### Engagement
+- **Streak freezes** — 1 a cada 7 dias + 1 por simulado (max 3)
+- **Pomodoro reflection** opt-in (IA gera reflexão pós-foco)
+- **Wordle-style share** do daily challenge
+- **Cron daily-summary** (23h UTC) e **weekly-digest** (dom 18h UTC) via Telegram/Discord
+- **Quiz Duelo** — você vs IA em 10 questões
+
+### Import/Export
+- **Anki TXT** import na drop zone
+- **URL pública** import (gist + raw)
+- **Markdown export** (Notion/Obsidian)
+- **Paste de imagem** no Drawer (upload Storage automático)
+- **QR code** em SharedLinksSection
+
+### Banco — busca prefixos novos
+- `ai:1` — só gabarito-ia
+- `dom:80` — só com %acerto >=80
+- `quality:7` — só com ai_quality.score >=7
+- Quick filter chips abaixo da busca
+
+### Outros
+- **Theme `time`** — claro 6-18h, escuro fora
+- **Auto-backup** local 1×/dia em IDB (compactado lz-string)
+- **Online dot** discreto no Topbar (só quando offline)
+- **Banner simulado pendente** no Painel quando >24h
+- **PWA badge counter** no ícone (vencidas)

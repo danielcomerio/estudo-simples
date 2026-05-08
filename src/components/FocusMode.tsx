@@ -1,8 +1,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 const KEY = 'estudo-simples:focus-mode-active';
+const AUTO_KEY = 'estudo-simples:focus-mode-auto-estudar';
+
+export function isAutoFocusEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(AUTO_KEY) === '1';
+}
+
+export function setAutoFocusEnabled(v: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (v) localStorage.setItem(AUTO_KEY, '1');
+  else localStorage.removeItem(AUTO_KEY);
+}
 
 /**
  * Focus mode: esconde elementos da app (topbar, footer, sidebars)
@@ -16,6 +29,17 @@ const KEY = 'estudo-simples:focus-mode-active';
  */
 export function FocusMode() {
   const [active, setActive] = useState(false);
+  const pathname = usePathname();
+
+  // Auto-ativa em /estudar quando opt-in
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!isAutoFocusEnabled()) return;
+    if (pathname?.startsWith('/estudar')) {
+      localStorage.setItem(KEY, '1');
+      setActive(true);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -306,6 +306,9 @@ export function SimuladoReport({
         </details>
       )}
 
+      {/* Análise tempo × resultado (insights metacognitivos) */}
+      <TimeAnalysisCard simulado={simulado} />
+
       {/* Marcadas pra revisar (independente de certas/erradas) */}
       {r.questoes_marcadas.length > 0 && (
         <details className="card">
@@ -627,4 +630,60 @@ function fmtSeconds(s: number): string {
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
   return `${m}min ${sec.toFixed(0)}s`;
+}
+
+
+function TimeAnalysisCard({ simulado }: { simulado: Simulado }) {
+  const stats = (() => {
+    const respondidas = simulado.resultados.filter((r) => r.letra_marcada !== null);
+    if (respondidas.length < 5) return null;
+    const com_tempo = respondidas.filter((r) => typeof r.ms_para_responder === 'number');
+    if (com_tempo.length < 3) return null;
+    const tempos = com_tempo
+      .map((r) => r.ms_para_responder ?? 0)
+      .sort((a, b) => a - b);
+    const median = tempos[Math.floor(tempos.length / 2)];
+    let chuteRapidoErrou = 0;
+    let dominio = 0;
+    let raciocinioBom = 0;
+    let cuidadoso = 0;
+    for (const r of com_tempo) {
+      const lento = (r.ms_para_responder ?? 0) > median;
+      if (r.correto && !lento) dominio++;
+      else if (r.correto && lento) raciocinioBom++;
+      else if (!r.correto && !lento) chuteRapidoErrou++;
+      else if (!r.correto && lento) cuidadoso++;
+    }
+    return { dominio, raciocinioBom, chuteRapidoErrou, cuidadoso, total: com_tempo.length };
+  })();
+
+  if (!stats) return null;
+
+  return (
+    <details className="card">
+      <summary style={{ cursor: 'pointer', padding: 8, margin: -8, fontWeight: 600, fontSize: '1.05rem' }}>
+        🕐 Análise tempo × resultado
+      </summary>
+      <div style={{ marginTop: 12, fontSize: '0.92rem', lineHeight: 1.6 }}>
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 0 }}>
+          Compara seu tempo (vs mediana da prova) com o resultado pra
+          identificar padrões metacognitivos.
+        </p>
+        <ul style={{ paddingLeft: 18, margin: 0 }}>
+          <li>
+            <strong>✅ Domínio rápido:</strong> {stats.dominio} questão(ões) — acertou rápido (sabia bem).
+          </li>
+          <li>
+            <strong>🧠 Raciocínio bom:</strong> {stats.raciocinioBom} — acertou após pensar.
+          </li>
+          <li>
+            <strong>⚡ Errou rápido:</strong> {stats.chuteRapidoErrou} — descuido ou pegadinha.
+          </li>
+          <li>
+            <strong>🐢 Errou lento:</strong> {stats.cuidadoso} — esforço sem clareza, revise conceito.
+          </li>
+        </ul>
+      </div>
+    </details>
+  );
 }

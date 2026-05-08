@@ -1459,6 +1459,11 @@ function RunningView({
             snooze();
           }
         }
+        // Vim-like: j próxima sem rate (modo livre/skim) — só free=true
+        else if ((e.key === 'j' || e.key === 'J') && session.free) {
+          e.preventDefault();
+          next();
+        }
       }
     };
     window.addEventListener('keydown', onKey);

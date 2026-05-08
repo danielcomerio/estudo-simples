@@ -115,7 +115,20 @@ export type DiscursivaPayload = {
   [k: string]: unknown;
 };
 
-export type QuestionType = 'objetiva' | 'discursiva' | 'cloze' | 'flashcard';
+export type QuestionType = 'objetiva' | 'discursiva' | 'cloze' | 'flashcard' | 'soma';
+
+/** Payload pra questão tipo soma (UFRGS / Cebraspe somatório).
+ *  Cada item tem um valor (potência de 2 tradicionalmente: 01, 02, 04,
+ *  08, 16, 32, 64) e flag correta. Gabarito = soma dos valores corretos.
+ *  Ex: 25 = (01) + (08) + (16). */
+export type SomaPayload = {
+  enunciado: string;
+  itens: Array<{ valor: number; texto: string; correta?: boolean }>;
+  explicacao_geral?: string;
+  notes_user?: string;
+  imagens?: string[];
+  [k: string]: unknown;
+};
 
 /** Cloze: texto com lacunas {{c1::resposta}} {{c2::outra}}.
  *  Renderer esconde inicialmente e revela ao clicar. */

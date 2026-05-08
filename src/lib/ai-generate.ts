@@ -200,6 +200,17 @@ const SCHEMA_EXAMPLES: Record<QuestionType, string> = {
   "frente": "pergunta curta",
   "verso": "resposta curta"
 }`,
+  soma: `{
+  "enunciado": "comando — marque os itens corretos e some os valores",
+  "itens": [
+    {"valor": 1, "texto": "afirmação 1", "correta": true},
+    {"valor": 2, "texto": "afirmação 2", "correta": false},
+    {"valor": 4, "texto": "afirmação 3", "correta": true},
+    {"valor": 8, "texto": "afirmação 4", "correta": false},
+    {"valor": 16, "texto": "afirmação 5", "correta": true}
+  ],
+  "explicacao_geral": "fundamento das corretas"
+}`,
 };
 
 /**
