@@ -865,6 +865,7 @@ export function BancoList() {
     toast(`${selected.size} marcada(s) como ${label}.`, 'success');
   };
 
+
   /**
    * Bulk action otimizado pra "validar gabarito como oficial". Faz 3
    * mudanças atômicas em cada questão selecionada:

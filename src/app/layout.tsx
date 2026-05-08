@@ -24,7 +24,11 @@ import { XPToast } from '@/components/XPToast';
 import { AchievementToast } from '@/components/AchievementToast';
 import { BadgingHost } from '@/components/BadgingHost';
 import { AchievementDetector } from '@/components/AchievementDetector';
-import { AICoach } from '@/components/AICoach';
+import dynamic from 'next/dynamic';
+const AICoach = dynamic(
+  () => import('@/components/AICoach').then((m) => ({ default: m.AICoach })),
+  { ssr: false }
+);
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';

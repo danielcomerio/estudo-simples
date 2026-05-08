@@ -21,6 +21,8 @@ import { EditaisCard } from './EditaisCard';
 import { DailyBriefingCard } from './DailyBriefingCard';
 import { StreakFreezesCard } from './StreakFreezesCard';
 import { ConquistasButton } from './ConquistasButton';
+import { QuizDueloButton } from './QuizDueloButton';
+import { AIOneClickDeciderButton } from './AIOneClickDeciderButton';
 import { WarmupQuestionCard } from './WarmupQuestionCard';
 import { SimuladoPendingBanner } from './SimuladoPendingBanner';
 
@@ -511,8 +513,10 @@ export function Dashboard() {
 
       <StreakFreezesCard currentStreak={streak} />
 
-      <div className="row gap" style={{ marginBottom: 8 }}>
+      <div className="row gap wrap" style={{ marginBottom: 8 }}>
+        <AIOneClickDeciderButton />
         <ConquistasButton />
+        <QuizDueloButton />
       </div>
 
       <WarmupQuestionCard />
