@@ -65,6 +65,71 @@ export default function Planos() {
 
       <PlanosCheckout />
 
+      <section
+        style={{
+          marginTop: 28,
+          padding: 16,
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          background: 'var(--bg-elev-1)',
+        }}
+      >
+        <h2 style={{ fontSize: '1.05rem', margin: '0 0 8px' }}>
+          💸 Anual e parcelamento
+        </h2>
+        <p className="muted" style={{ fontSize: '0.92rem', marginBottom: 8 }}>
+          Pagando 12 meses adiantado:
+        </p>
+        <ul style={{ fontSize: '0.92rem', paddingLeft: 18, lineHeight: 1.6 }}>
+          <li>
+            <strong>🎓 Estudante anual</strong> — R$ 99,00/ano (≈ R$ 8,25/mês,
+            17% off vs mensal). Pode parcelar em até 12× R$ 8,25 sem juros.
+          </li>
+          <li>
+            <strong>✨ Pro anual</strong> — R$ 199,00/ano (≈ R$ 16,58/mês, 17% off
+            vs mensal). Pode parcelar em até 12× R$ 16,58 sem juros.
+          </li>
+        </ul>
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 8 }}>
+          Parcelamento processado pelo Stripe; cartões nacionais só.
+          Cancele a qualquer momento — você mantém acesso até o fim do ciclo.
+        </p>
+      </section>
+
+      <section
+        style={{
+          marginTop: 24,
+          padding: 16,
+          border: '1px dashed var(--border)',
+          borderRadius: 'var(--radius)',
+        }}
+      >
+        <h2 style={{ fontSize: '1.05rem', margin: '0 0 8px' }}>
+          📊 Vale a pena? (calculadora simples)
+        </h2>
+        <p style={{ fontSize: '0.92rem', lineHeight: 1.55 }}>
+          Concurseiros médios passam <strong>2-4 anos</strong> estudando antes de
+          aprovação. Em 24 meses:
+        </p>
+        <ul style={{ fontSize: '0.9rem', paddingLeft: 18, lineHeight: 1.6 }}>
+          <li>
+            Pro mensal: 24 × R$ 19,90 = <strong>R$ 477,60</strong>
+          </li>
+          <li>
+            Pro anual (2 anos): 2 × R$ 199 ={' '}
+            <strong>R$ 398,00 (economia R$ 79,60)</strong>
+          </li>
+          <li>
+            Cursinho presencial top:{' '}
+            <strong className="muted">R$ 3.000 a R$ 6.000/ano</strong>
+          </li>
+        </ul>
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 6 }}>
+          O ROI é a aprovação. Salário inicial de Auditor Federal ≈ R$ 21k/mês —
+          o app inteiro custa menos que 1% disso.
+        </p>
+      </section>
+
       <section style={{ marginTop: 36 }}>
         <h2
           style={{

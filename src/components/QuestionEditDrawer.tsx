@@ -29,6 +29,8 @@ import { QuestionTimeline } from './QuestionTimeline';
 import { QuestionComments } from './QuestionComments';
 import { QuestionChatPanel } from './QuestionChatPanel';
 import { AIRewriteButton } from './AIRewriteButton';
+import { AIQualityScoreButton } from './AIQualityScoreButton';
+import { TagInput } from './TagInput';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -602,26 +604,9 @@ export function QuestionEditDrawer({
           }}
         >
           <span style={{ fontSize: '0.85rem' }}>
-            Tags (separadas por vírgula, max 30)
+            Tags (auto-completion canônico)
           </span>
-          <input
-            type="text"
-            value={tagsStr}
-            onChange={(e) => setTagsStr(e.target.value)}
-            placeholder="ex: pegadinha-FGV, art.5-CF, súmula-vinculante-13"
-            list="banco-tags-datalist"
-          />
-          <datalist id="banco-tags-datalist">
-            {(() => {
-              const set = new Set<string>();
-              for (const q of allActive) {
-                for (const t of q.tags ?? []) set.add(t);
-              }
-              return Array.from(set)
-                .sort()
-                .map((t) => <option key={t} value={t} />);
-            })()}
-          </datalist>
+          <TagInput value={tagsStr} onChange={setTagsStr} placeholder="ex: fgv, art-5, doutrina" />
         </label>
 
         {/* Enunciado */}
@@ -1014,6 +999,8 @@ export function QuestionEditDrawer({
             <QuestionComments questionId={question.id} />
           </details>
         )}
+
+        <AIQualityScoreButton question={question} />
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (

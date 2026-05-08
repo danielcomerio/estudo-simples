@@ -19,6 +19,7 @@ import { ShareStreakButton } from './ShareStreakButton';
 import { ShareProgressButton } from './ShareProgressButton';
 import { EditaisCard } from './EditaisCard';
 import { DailyBriefingCard } from './DailyBriefingCard';
+import { StreakFreezesCard } from './StreakFreezesCard';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -500,6 +501,8 @@ export function Dashboard() {
       <WelcomeBackBanner dueCount={dueToday} />
 
       <DailyBriefingCard />
+
+      <StreakFreezesCard currentStreak={streak} />
 
       <PrimeirosPassos questions={questions} />
 

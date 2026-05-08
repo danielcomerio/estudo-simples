@@ -191,22 +191,56 @@ export function ImportZone() {
   }, [userId]);
 
   const handleFiles = async (files: FileList | File[]) => {
-    const arr = Array.from(files).filter(
+    const all = Array.from(files);
+    const json = all.filter(
       (f) => f.name.toLowerCase().endsWith('.json') || /json/i.test(f.type)
     );
-    if (!arr.length) {
-      toast('Nenhum arquivo JSON.', 'warn');
+    const txt = all.filter((f) => f.name.toLowerCase().endsWith('.txt'));
+    if (!json.length && !txt.length) {
+      toast('Nenhum arquivo JSON ou Anki TXT.', 'warn');
       return;
     }
-    if (arr.length === 1) {
-      const text = await arr[0].text();
+    // Caminho Anki TXT: converte rows → JSON autoral e processa pelo wizard
+    if (txt.length > 0 && json.length === 0) {
+      try {
+        const { parseAnkiTxt, ankiRowsToImport } = await import('@/lib/anki-import');
+        const allRows: ReturnType<typeof parseAnkiTxt>['rows'] = [];
+        let totalErrors = 0;
+        for (const f of txt) {
+          const t = await f.text();
+          const r = parseAnkiTxt(t);
+          allRows.push(...r.rows);
+          totalErrors += r.errors.length;
+        }
+        if (allRows.length === 0) {
+          setError('Anki TXT sem linhas válidas.');
+          return;
+        }
+        const items = ankiRowsToImport(allRows);
+        const synthJson = JSON.stringify(items);
+        startPreview(synthJson);
+        if (totalErrors > 0) {
+          toast(
+            `${allRows.length} cards importados, ${totalErrors} linhas ignoradas.`,
+            'warn'
+          );
+        } else {
+          toast(`${allRows.length} cards do Anki carregados pra preview.`, 'success');
+        }
+      } catch (e) {
+        setError('Falha lendo Anki TXT: ' + (e instanceof Error ? e.message : String(e)));
+      }
+      return;
+    }
+    if (json.length === 1) {
+      const text = await json[0].text();
       startPreview(text);
       return;
     }
     // Multi-file: lê todos em paralelo, agrega num único preview
     try {
       const contents = await Promise.all(
-        arr.map(async (f) => ({ name: f.name, text: await f.text() }))
+        json.map(async (f) => ({ name: f.name, text: await f.text() }))
       );
       startPreviewMulti(contents);
     } catch (e) {
@@ -392,12 +426,12 @@ export function ImportZone() {
             }}
           >
             <span className="icon" aria-hidden>⬆</span>
-            <strong>Arraste arquivos JSON aqui</strong>
+            <strong>Arraste arquivos JSON ou Anki .txt aqui</strong>
             <span>ou clique para selecionar (vários OK)</span>
             <input
               ref={inputRef}
               type="file"
-              accept=".json,application/json"
+              accept=".json,application/json,.txt,text/plain"
               multiple
               hidden
               onChange={(e) => {
