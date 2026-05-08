@@ -14,6 +14,7 @@ import type { Concurso, ConcursoStatus } from '@/lib/types';
 import { ConcursoDisciplinasManager } from './ConcursoDisciplinasManager';
 import { ConcursoEventsManager } from './ConcursoEventsManager';
 import { AIStudyPlanButton } from './AIStudyPlanButton';
+import { AIFinalSprintButton } from './AIFinalSprintButton';
 import { ConcursoHealthBadge } from './ConcursoHealthBadge';
 import { ConcursoNotebookButton } from './ConcursoNotebookButton';
 import { confirmDialog } from './ConfirmDialog';
@@ -246,6 +247,13 @@ function ConcursoRow({
           <ConcursoEventsManager concursoId={c.id} />
           <div style={{ marginTop: 12 }} className="row gap wrap">
             <AIStudyPlanButton concursoId={c.id} concursoNome={c.nome} />
+            {c.data_prova && (
+              <AIFinalSprintButton
+                concursoId={c.id}
+                concursoNome={c.nome}
+                dataProva={c.data_prova}
+              />
+            )}
             <ConcursoNotebookButton concursoId={c.id} concursoNome={c.nome} />
           </div>
         </>

@@ -59,6 +59,21 @@ export function detectFormat(obj: unknown): RawFormat {
   if (hasReal) return 'real';
   // Sinal de "autoral" — disciplina_id presente como string
   if (typeof o.disciplina_id === 'string') return 'autoral';
+  // Formato genérico — tem enunciado + alternativas (Gran/Estratégia/etc)
+  if (
+    (typeof o.enunciado === 'string' || typeof o.enunciado_completo === 'string') &&
+    Array.isArray(o.alternativas)
+  ) {
+    return 'autoral';
+  }
+  // Flashcard genérico
+  if (typeof o.frente === 'string' && typeof o.verso === 'string') {
+    return 'autoral';
+  }
+  // Cloze genérico
+  if (typeof o.texto === 'string' && /\{\{c\d+::/.test(o.texto)) {
+    return 'autoral';
+  }
   return 'unknown';
 }
 

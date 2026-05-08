@@ -94,7 +94,7 @@ export function Dashboard() {
   }, []);
   // Dia clicado no heatmap (modal de detalhes)
   const [heatmapDay, setHeatmapDay] = useState<number | null>(null);
-  const [heatmapExtended, setHeatmapExtended] = useState(false);
+  const [heatmapExtended, setHeatmapExtended] = useState<0 | 1 | 2>(0);
 
   // Confetti idempotente em PR de revisões/dia + streak milestones.
   // CRÍTICO: hooks ficam ANTES dos early returns (regra do React).
@@ -253,7 +253,7 @@ export function Dashboard() {
 
   // Heatmap dos últimos 90/365 dias (toggle)
   const today = startOfDay(Date.now());
-  const heatmapRange = heatmapExtended ? 365 : 90;
+  const heatmapRange = heatmapExtended === 2 ? 730 : heatmapExtended === 1 ? 365 : 90;
   const days: { date: number; count: number }[] = [];
   for (let i = heatmapRange - 1; i >= 0; i--) {
     days.push({ date: today - i * DAY_MS, count: 0 });
@@ -1005,10 +1005,11 @@ export function Dashboard() {
           <button
             type="button"
             className="ghost"
-            onClick={() => setHeatmapExtended((x) => !x)}
+            onClick={() => setHeatmapExtended((x) => ((x + 1) % 3) as 0 | 1 | 2)}
             style={{ padding: '4px 10px', fontSize: '0.82rem' }}
+            title="Cicla 90 dias → 1 ano → 2 anos"
           >
-            {heatmapExtended ? '↓ Voltar 90d' : '↑ Estender 1 ano'}
+            {heatmapExtended === 0 ? '↑ 1 ano' : heatmapExtended === 1 ? '↑ 2 anos' : '↓ 90d'}
           </button>
         </div>
         <Heatmap
