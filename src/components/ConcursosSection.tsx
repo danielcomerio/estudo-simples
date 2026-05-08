@@ -12,6 +12,7 @@ import {
 } from '@/lib/hierarchy';
 import type { Concurso, ConcursoStatus } from '@/lib/types';
 import { ConcursoDisciplinasManager } from './ConcursoDisciplinasManager';
+import { ConcursoEventsManager } from './ConcursoEventsManager';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 
@@ -235,7 +236,12 @@ function ConcursoRow({
         </div>
       </div>
 
-      {expanded && <ConcursoDisciplinasManager concursoId={c.id} />}
+      {expanded && (
+        <>
+          <ConcursoDisciplinasManager concursoId={c.id} />
+          <ConcursoEventsManager concursoId={c.id} />
+        </>
+      )}
     </li>
   );
 }

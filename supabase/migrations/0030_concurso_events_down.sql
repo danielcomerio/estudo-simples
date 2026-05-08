@@ -1,0 +1,10 @@
+begin;
+drop policy if exists "concurso_events_own_all" on public.concurso_events;
+drop trigger if exists concurso_events_updated_at on public.concurso_events;
+drop function if exists public.concurso_events_set_updated_at();
+drop index if exists public.concurso_events_pending_reminder_idx;
+drop index if exists public.concurso_events_concurso_idx;
+drop index if exists public.concurso_events_user_starts_idx;
+drop table if exists public.concurso_events;
+delete from public.applied_migrations where id = '0030';
+commit;
