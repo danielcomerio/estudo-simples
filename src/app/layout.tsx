@@ -16,6 +16,7 @@ import { XPToast } from '@/components/XPToast';
 import { AchievementToast } from '@/components/AchievementToast';
 import { BadgingHost } from '@/components/BadgingHost';
 import { AchievementDetector } from '@/components/AchievementDetector';
+import { AICoach } from '@/components/AICoach';
 import { AppFooter } from '@/components/AppFooter';
 import { NavigationProgress } from '@/components/NavigationProgress';
 import { BFCacheGuard } from '@/components/BFCacheGuard';
@@ -152,6 +153,7 @@ export default async function RootLayout({
             </main>
             <MobileFAB />
             <MobileBottomNav />
+            <AICoach />
             <ToastHost />
           </StoreProvider>
         ) : (

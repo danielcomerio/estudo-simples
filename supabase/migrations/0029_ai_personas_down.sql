@@ -1,0 +1,11 @@
+begin;
+drop policy if exists "ai_personas_public_select" on public.ai_personas;
+drop policy if exists "ai_personas_own_all" on public.ai_personas;
+drop trigger if exists ai_personas_updated_at on public.ai_personas;
+drop function if exists public.ai_personas_set_updated_at();
+drop index if exists public.ai_personas_public_idx;
+drop index if exists public.ai_personas_concurso_idx;
+drop index if exists public.ai_personas_user_idx;
+drop table if exists public.ai_personas;
+delete from public.applied_migrations where id = '0029';
+commit;
