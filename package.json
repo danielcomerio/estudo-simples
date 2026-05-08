@@ -14,7 +14,9 @@
     "backfill:disciplinas": "tsx scripts/backfill-disciplinas.ts",
     "export:platform": "tsx scripts/export-platform.ts",
     "check:migrations": "node scripts/check-migrations.mjs",
-    "backup": "node scripts/backup-supabase.mjs"
+    "backup": "node scripts/backup-supabase.mjs",
+    "restore": "node scripts/restore-supabase.mjs",
+    "snapshot:schema": "node scripts/combine-migrations.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
