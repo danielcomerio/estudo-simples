@@ -28,8 +28,14 @@ export function OnlineDot() {
       aria-label={online ? 'online' : 'offline'}
       style={{
         display: 'inline-block',
-        width: 8,
-        height: 8,
+        width: 10,
+        height: 10,
+        minWidth: 10,
+        minHeight: 10,
+        flexShrink: 0,
+        flexGrow: 0,
+        alignSelf: 'center',
+        boxSizing: 'border-box',
         borderRadius: '50%',
         background: online ? 'var(--primary, #22c55e)' : 'var(--danger, #dc2626)',
         marginLeft: 6,
