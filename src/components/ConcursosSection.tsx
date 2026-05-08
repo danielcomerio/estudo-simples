@@ -14,6 +14,7 @@ import type { Concurso, ConcursoStatus } from '@/lib/types';
 import { ConcursoDisciplinasManager } from './ConcursoDisciplinasManager';
 import { ConcursoEventsManager } from './ConcursoEventsManager';
 import { AIStudyPlanButton } from './AIStudyPlanButton';
+import { ConcursoHealthBadge } from './ConcursoHealthBadge';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
 
@@ -212,11 +213,12 @@ function ConcursoRow({
           )}
           <div
             className="muted"
-            style={{ fontSize: '0.82rem', marginTop: 4 }}
+            style={{ fontSize: '0.82rem', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
           >
-            {STATUS_LABEL[c.status]}
-            {c.data_prova && ` · prova em ${c.data_prova}`}
-            {vinculos.length > 0 && ` · ${vinculos.length} disciplina(s)`}
+            <span>{STATUS_LABEL[c.status]}</span>
+            {c.data_prova && <span>· prova em {c.data_prova}</span>}
+            {vinculos.length > 0 && <span>· {vinculos.length} disciplina(s)</span>}
+            {vinculos.length > 0 && <ConcursoHealthBadge concursoId={c.id} />}
           </div>
         </div>
         <div className="row gap">

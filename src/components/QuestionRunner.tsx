@@ -38,6 +38,7 @@ import { loadPrefs, savePrefs } from '@/lib/session-prefs';
 import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
+import { VoiceAnswerButton } from './VoiceAnswerButton';
 import { AIExplainButton } from './AIExplainButton';
 import { createInsightState, pushAndDetect } from '@/lib/live-insights';
 import { QuestionRatingButtons } from './QuestionRatingButtons';
@@ -1615,6 +1616,15 @@ function RunningView({
           <TTSButton text={payload.enunciado} size="small" />
         </div>
 
+        {!answered && alts.length > 0 && (
+          <VoiceAnswerButton
+            onLetra={(letra) => {
+              const alt = alts.find((a) => a.letra === letra);
+              if (alt) submit(letra);
+            }}
+          />
+        )}
+
         <QuestionImages urls={payload.imagens} />
 
         {!answered && (
@@ -1967,6 +1977,30 @@ function Summary({
     return Array.from(m.entries()).sort((a, b) => b[1].total - a[1].total);
   }, [session.pool, allQuestions, session.startedAt]);
 
+  // Calibração metacognitiva: confidence registrada vs resultado real.
+  // Confidence: 1=chutei, 2=incerto, 3=confiante.
+  // Padrões: confiante e errou (overconfidence) / chutei e acertei (lucky).
+  const calibration = useMemo(() => {
+    let overconfidence = 0; // conf=3 e errou
+    let lucky = 0; // conf=1 e acertou
+    let solid = 0; // conf=3 e acertou
+    let withConf = 0;
+    for (const q of session.pool) {
+      const liveQ = allQuestions.find((x) => x.id === q.id) ?? q;
+      const sessionHistory = (liveQ.stats?.history ?? []).filter(
+        (h) => h.date >= session.startedAt && typeof h.confidence === 'number'
+      );
+      for (const h of sessionHistory) {
+        withConf++;
+        const correct = h.result === 'correct' || h.result === 'self_pass';
+        if (h.confidence === 3 && !correct) overconfidence++;
+        else if (h.confidence === 3 && correct) solid++;
+        else if (h.confidence === 1 && correct) lucky++;
+      }
+    }
+    return { overconfidence, lucky, solid, withConf };
+  }, [session.pool, session.startedAt, allQuestions]);
+
   // Próximas vencendo até amanhã (excluindo as desta sessão)
   const sessionIds = useMemo(
     () => new Set(session.pool.map((q) => q.id)),
@@ -2069,6 +2103,27 @@ function Summary({
             emoji: '☕',
             text: `Sessão de ${Math.round(elapsed / 60)}min — sua atenção começa a cair depois de 45min. Quebra com um pomodoro?`,
           });
+        }
+        // Calibração metacognitiva — só quando há marcação de confidence
+        if (calibration.withConf >= 5) {
+          if (calibration.overconfidence >= 3) {
+            insights.push({
+              emoji: '⚠',
+              text: `Você marcou "confiante" e errou ${calibration.overconfidence} questões — atenção a pegadinhas. Reler o enunciado pode evitar.`,
+            });
+          }
+          if (calibration.lucky >= 3) {
+            insights.push({
+              emoji: '🍀',
+              text: `Você marcou "chutei" e acertou ${calibration.lucky} — você sabe mais do que pensa. Aumente a confiança ao responder.`,
+            });
+          }
+          if (calibration.solid >= 5 && calibration.overconfidence === 0) {
+            insights.push({
+              emoji: '✅',
+              text: `Calibração afiada — quando você marcou "confiante", acertou ${calibration.solid} de ${calibration.solid}. Confie no seu instinto.`,
+            });
+          }
         }
         if (insights.length === 0) return null;
         return (
