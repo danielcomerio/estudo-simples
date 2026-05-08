@@ -18,16 +18,30 @@ import { getActivePersonaPrompt, withPersona } from '@/lib/persona-active';
  *
  * BYO key (sem custo pro app).
  */
+/** Extrai nota 0-10 do texto da avaliação. Procura padrões comuns:
+ *  "Nota geral: 7,5/10", "Nota: 8", "**Nota geral**: 6.5". */
+function parseNota(text: string): number | null {
+  const m = text.match(/nota[^:]*[:\s]+\*{0,2}\s*(\d+(?:[.,]\d+)?)/i);
+  if (!m) return null;
+  const n = parseFloat(m[1].replace(',', '.'));
+  if (Number.isNaN(n)) return null;
+  return Math.max(0, Math.min(10, n));
+}
+
 export function AIDiscursivaEvaluator({
+  questionId,
   enunciado,
   espelho,
   resposta,
   rubrica,
+  onGraded,
 }: {
+  questionId?: string;
   enunciado: string;
   espelho: string;
   resposta: string;
   rubrica?: Array<{ criterio: string; pontos: number }>;
+  onGraded?: (nota: number) => void;
 }) {
   const provider = getDefaultProvider();
   const [loading, setLoading] = useState(false);
@@ -103,7 +117,35 @@ Seja específico e útil. Em pt-BR. Max 400 palavras.`;
       },
       {
         onChunk: (chunk) => setResult((prev) => (prev ?? '') + chunk),
-        onDone: () => setLoading(false),
+        onDone: () => {
+          setLoading(false);
+          // Tenta extrair nota do texto final + notifica caller via callback
+          setResult((cur) => {
+            if (cur) {
+              const nota = parseNota(cur);
+              if (nota !== null) {
+                onGraded?.(nota);
+                if (questionId) {
+                  // Persiste nota mais recente na questão.
+                  void import('@/lib/store').then(({ updateQuestionLocal }) => {
+                    updateQuestionLocal(questionId, (q) => {
+                      const p = q.payload as Record<string, unknown>;
+                      const grades = Array.isArray(p.discursiva_grades)
+                        ? (p.discursiva_grades as Array<{ nota: number; at: number; provider: string }>).slice(-9)
+                        : [];
+                      grades.push({ nota, at: Date.now(), provider });
+                      return {
+                        ...q,
+                        payload: { ...p, discursiva_grades: grades },
+                      };
+                    });
+                  });
+                }
+              }
+            }
+            return cur;
+          });
+        },
         onError: (msg) => {
           toast(msg, 'error');
           setLoading(false);

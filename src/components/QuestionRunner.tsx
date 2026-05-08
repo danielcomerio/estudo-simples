@@ -39,6 +39,7 @@ import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
 import { AIExplainButton } from './AIExplainButton';
+import { createInsightState, pushAndDetect } from '@/lib/live-insights';
 import { QuestionRatingButtons } from './QuestionRatingButtons';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
@@ -1073,6 +1074,7 @@ function RunningView({
   const q = session.pool[session.idx];
   const payload = q.payload as ObjetivaPayload;
   const [answered, setAnswered] = useState(false);
+  const insightStateRef = useRef(createInsightState());
   const [chosen, setChosen] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<1 | 2 | 3 | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(session.tempoLimite);
@@ -1244,6 +1246,27 @@ function RunningView({
       // Confidence alto + acerto = bônus. Sem confidence = base.
       const xp = confidence === 3 ? 15 : confidence === 1 ? 5 : 10;
       triggerXP(xp);
+    }
+
+    // Live insights — só quando user ativou liveTutor.
+    if (session.liveTutor) {
+      const insight = pushAndDetect(insightStateRef.current, {
+        questionId: q.id,
+        disciplina: q.disciplina_id ?? null,
+        isCorrect,
+        durationMs: elapsed,
+        at: Date.now(),
+      });
+      if (insight) {
+        toast(
+          insight.text,
+          insight.kind === 'hot'
+            ? 'success'
+            : insight.kind === 'cold' || insight.kind === 'slow'
+              ? 'warn'
+              : ''
+        );
+      }
     }
   };
 

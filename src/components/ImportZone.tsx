@@ -25,6 +25,7 @@ import {
 } from '@/lib/real-import';
 import { toast } from './Toast';
 import { consumeSharedContent } from './ShareTargetReceiver';
+import { AISuggestMappingButton } from './AISuggestMappingButton';
 import { parseCsvToQuestions, looksLikeCsv } from '@/lib/csv-parse';
 
 /**
@@ -813,9 +814,23 @@ function PreviewPanel({
       {/* Mapping de disciplinas novas */}
       {novasNaoExistentes.length > 0 && (
         <div style={{ marginBottom: 14 }}>
-          <h4 style={{ margin: '0 0 6px' }}>
-            Disciplinas novas detectadas ({novasNaoExistentes.length})
-          </h4>
+          <div className="row gap" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <h4 style={{ margin: '0 0 6px' }}>
+              Disciplinas novas detectadas ({novasNaoExistentes.length})
+            </h4>
+            <span style={{ flex: 1 }} />
+            <AISuggestMappingButton
+              novosNomes={novasNaoExistentes}
+              existentes={existingDisciplinas}
+              onSuggestion={(map) => {
+                const next = new Map(discMapping);
+                for (const [novo, m] of map.entries()) {
+                  if (m.match && m.confidence >= 0.6) next.set(novo, m.match);
+                }
+                setDiscMapping(next);
+              }}
+            />
+          </div>
           <p className="muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
             Cada uma destas não existe na sua app. Você pode mapear pra
             uma existente (recomendado quando há sugestão de match) ou

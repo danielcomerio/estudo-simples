@@ -740,6 +740,7 @@ function DiscReveal({
 
           {/* AI evaluator: avalia a resposta do user contra o espelho. */}
           <AIDiscursivaEvaluator
+            questionId={q.id}
             enunciado={enun}
             espelho={payload.espelho_resposta ?? ''}
             resposta={resposta}
