@@ -12,6 +12,7 @@ import { TelegramSection } from '@/components/TelegramSection';
 import { DiscordSection } from '@/components/DiscordSection';
 import { DailyPreferencesSection } from '@/components/DailyPreferencesSection';
 import { EditaisPreferencesSection } from '@/components/EditaisPreferencesSection';
+import { ICSTokenSection } from '@/components/ICSTokenSection';
 import { AccessibilitySection } from '@/components/AccessibilitySection';
 import { SoundsSection } from '@/components/SoundsSection';
 import { SettingsBackupSection } from '@/components/SettingsBackupSection';
@@ -65,6 +66,8 @@ export default async function ConfiguracoesPage() {
       <DailyPreferencesSection />
 
       <EditaisPreferencesSection />
+
+      <ICSTokenSection />
 
       <SoundsSection />
 

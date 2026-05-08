@@ -107,6 +107,93 @@ export function generateRevisionICS(
   return lines.join('\r\n') + '\r\n';
 }
 
+/**
+ * Tipo simplificado de evento de concurso usado pra geração ICS
+ * (server-side; não importa Question type).
+ */
+export type ConcursoEventLite = {
+  id: string;
+  type: string;
+  title: string;
+  starts_at: string; // ISO
+  ends_at: string | null;
+  notes: string | null;
+};
+
+const CONCURSO_EVENT_EMOJI: Record<string, string> = {
+  inscricao_inicio: '📋',
+  inscricao_fim: '⏰',
+  prova_objetiva: '📝',
+  prova_discursiva: '✍️',
+  redacao: '📄',
+  taf: '🏃',
+  simulado: '🎯',
+  reuniao_estudo: '👥',
+  outro: '📅',
+};
+
+/**
+ * Gera ICS feed completo: revisões SRS (next 30 days) + eventos de
+ * concurso. Usado pelo /api/ics/[token].
+ */
+export function generateFullICS(
+  events: ConcursoEventLite[],
+  reviewCountsByDay: Map<number, number> = new Map()
+): string {
+  const now = formatDateUTC(new Date());
+  const lines: string[] = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Estudo Simples//Feed Completo//PT',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'X-WR-CALNAME:Estudo Simples',
+    'X-WR-TIMEZONE:UTC',
+  ];
+
+  // Eventos de concurso
+  for (const ev of events) {
+    const start = new Date(ev.starts_at);
+    if (isNaN(start.getTime())) continue;
+    const end = ev.ends_at
+      ? new Date(ev.ends_at)
+      : new Date(start.getTime() + 60 * 60 * 1000);
+    const emoji = CONCURSO_EVENT_EMOJI[ev.type] ?? '📅';
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:es-evt-${ev.id}@estudo-simples.app`,
+      `DTSTAMP:${now}`,
+      `DTSTART:${formatDateUTC(start)}`,
+      `DTEND:${formatDateUTC(end)}`,
+      `SUMMARY:${escapeIcs(`${emoji} ${ev.title}`)}`,
+      ev.notes ? `DESCRIPTION:${escapeIcs(ev.notes)}` : 'DESCRIPTION:',
+      'END:VEVENT'
+    );
+  }
+
+  // Revisões agregadas por dia (eventos all-day, transparentes)
+  let idx = 0;
+  for (const [d, count] of Array.from(reviewCountsByDay.entries()).sort(
+    (a, b) => a[0] - b[0]
+  )) {
+    const start = new Date(d);
+    const end = new Date(d + DAY_MS);
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:es-rev-${d}-${idx++}@estudo-simples.app`,
+      `DTSTAMP:${now}`,
+      `DTSTART;VALUE=DATE:${formatDateOnly(start)}`,
+      `DTEND;VALUE=DATE:${formatDateOnly(end)}`,
+      `SUMMARY:${escapeIcs(`🎯 ${count} revisão(ões)`)}`,
+      'TRANSP:TRANSPARENT',
+      'END:VEVENT'
+    );
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n') + '\r\n';
+}
+
 export function downloadICS(content: string, filename = 'revisoes.ics'): void {
   if (typeof window === 'undefined') return;
   const blob = new Blob([content], { type: 'text/calendar;charset=utf-8' });

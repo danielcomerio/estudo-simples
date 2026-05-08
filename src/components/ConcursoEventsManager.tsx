@@ -28,6 +28,39 @@ const TYPES: Array<{ value: string; label: string }> = [
   { value: 'outro', label: '📅 Outro' },
 ];
 
+/**
+ * Gera URL pra adicionar evento direto no Google Calendar (one-shot).
+ * Formato oficial: calendar.google.com/calendar/render?action=TEMPLATE&...
+ *
+ * Datas em formato YYYYMMDDTHHMMSSZ (UTC).
+ */
+function googleCalendarUrl(ev: EventRow): string {
+  const fmt = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return (
+      d.getUTCFullYear().toString() +
+      String(d.getUTCMonth() + 1).padStart(2, '0') +
+      String(d.getUTCDate()).padStart(2, '0') +
+      'T' +
+      String(d.getUTCHours()).padStart(2, '0') +
+      String(d.getUTCMinutes()).padStart(2, '0') +
+      '00Z'
+    );
+  };
+  const start = fmt(ev.starts_at);
+  const end = ev.ends_at
+    ? fmt(ev.ends_at)
+    : fmt(new Date(Date.parse(ev.starts_at) + 60 * 60 * 1000).toISOString());
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: ev.title,
+    dates: `${start}/${end}`,
+    details: ev.notes ?? 'Criado via Estudo Simples',
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 const REMINDER_OPTIONS: Array<{ value: number | null; label: string }> = [
   { value: null, label: 'Sem lembrete' },
   { value: 60, label: '1 hora antes' },
@@ -143,6 +176,16 @@ export function ConcursoEventsManager({ concursoId }: { concursoId: string }) {
                   {e.notified_at && ' ✓'}
                 </span>
               </span>
+              <a
+                href={googleCalendarUrl(e)}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ padding: '0 6px', fontSize: '0.85rem', color: 'var(--muted)', textDecoration: 'none' }}
+                title="Adicionar ao Google Calendar"
+                aria-label="Adicionar ao Google Calendar"
+              >
+                📅
+              </a>
               <button
                 type="button"
                 onClick={() => remove(e.id)}
