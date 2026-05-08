@@ -249,9 +249,17 @@ html {
   overflow-x: hidden;
   max-width: 100vw;
   /* Deixa espaço no topo quando rola pra âncora (#section) — senão o
-     conteúdo fica sob a Topbar sticky. ~80px cobre Topbar 56-72px +
-     respiro. Aplica também a Element.scrollIntoView(). */
-  scroll-padding-top: 80px;
+     conteúdo fica sob a Topbar sticky. ~96px cobre Topbar 56-72px +
+     respiro generoso pra título da seção respirar. Aplica também a
+     Element.scrollIntoView(). */
+  scroll-padding-top: 96px;
+}
+
+/* Reforço pra qualquer .card alvo de âncora — scroll-margin tem
+   prioridade sobre scroll-padding e cobre cards com padding interno
+   grande que ficavam "centralizados" visualmente. */
+.card[id] {
+  scroll-margin-top: 96px;
 }
 
 /* Focus visible — outline forte só pra navegação por teclado.

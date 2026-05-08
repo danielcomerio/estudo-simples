@@ -102,6 +102,126 @@ export function findSimilar(
 }
 
 /**
+ * Display name canônico — pega a versão mais "completa" (mais chars,
+ * mais acentos preservados, capitalização title-case se possível).
+ *
+ * Útil quando temos duas variações ("matematica" vs "Matemática
+ * Discreta" vs "MATEMATICA DISCRETA") e queremos escolher a melhor
+ * pra exibir como display oficial.
+ *
+ * Critérios em ordem:
+ *  1. Tem acentos? Prefere (sinaliza que vem de input cuidadoso)
+ *  2. Tem capitalização misturada (Title Case)? Prefere
+ *  3. Mais longa = mais informação
+ *  4. Empate: lexicográfico
+ */
+export function pickCanonicalDisplay(names: string[]): string {
+  const filtered = names.filter((n) => n && n.trim());
+  if (filtered.length === 0) return '';
+  if (filtered.length === 1) return normalizeDisplayName(filtered[0]);
+
+  const scored = filtered.map((n) => {
+    const trimmed = normalizeDisplayName(n);
+    let score = 0;
+    // +10 se tem acento (caractere fora ASCII)
+    if (/[À-ÿ]/.test(trimmed)) score += 10;
+    // +5 se tem capitalização misturada (não é all-lower nem all-upper)
+    if (trimmed !== trimmed.toLowerCase() && trimmed !== trimmed.toUpperCase()) {
+      score += 5;
+    }
+    // +tamanho (encoraja versão mais completa)
+    score += trimmed.length * 0.1;
+    return { name: trimmed, score };
+  });
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.name.localeCompare(b.name);
+  });
+
+  return scored[0].name;
+}
+
+/**
+ * Detecta grupos de duplicatas em uma lista de nomes (mesmo slug).
+ * Retorna array de grupos: [{ canonical, variants }]
+ *
+ * Util pra UI de "merge disciplinas duplicadas":
+ *   ["Direito Constitucional", "direito constitucional", "Português"]
+ *     → [
+ *         { canonical: "Direito Constitucional", variants: ["direito constitucional"] },
+ *       ]
+ *   (Português não vai porque não tem variante)
+ */
+export type DuplicateGroup = {
+  canonical: string;
+  variants: string[];
+  slug: string;
+};
+
+export function detectDuplicates(names: string[]): DuplicateGroup[] {
+  const bySlug = new Map<string, string[]>();
+  for (const n of names) {
+    if (!n || !n.trim()) continue;
+    const s = slugify(n);
+    if (!s) continue;
+    const arr = bySlug.get(s) ?? [];
+    if (!arr.includes(n)) arr.push(n);
+    bySlug.set(s, arr);
+  }
+  const groups: DuplicateGroup[] = [];
+  for (const [slug, vars] of bySlug.entries()) {
+    if (vars.length < 2) continue;
+    const canonical = pickCanonicalDisplay(vars);
+    const others = vars.filter((v) => v !== canonical);
+    groups.push({ canonical, variants: others, slug });
+  }
+  return groups;
+}
+
+/**
+ * Detecta grupos de near-duplicatas (slug similar mas não idêntico —
+ * ex: "matematica" vs "matemtica" / "direito-constitucional" vs
+ * "direito-const"). Threshold default 2 edições.
+ *
+ * Retorna grupos como detectDuplicates mas marca como "fuzzy" — usuário
+ * confirma cada merge.
+ */
+export function detectNearDuplicates(
+  names: string[],
+  threshold = 2
+): DuplicateGroup[] {
+  const slugs = Array.from(
+    new Set(names.filter((n) => n && n.trim()).map((n) => slugify(n)))
+  ).filter(Boolean);
+
+  const visited = new Set<string>();
+  const groups: DuplicateGroup[] = [];
+
+  for (const s of slugs) {
+    if (visited.has(s)) continue;
+    const cluster = [s];
+    visited.add(s);
+    for (const other of slugs) {
+      if (visited.has(other)) continue;
+      const dist = levenshtein(s, other);
+      if (dist > 0 && dist <= threshold) {
+        cluster.push(other);
+        visited.add(other);
+      }
+    }
+    if (cluster.length < 2) continue;
+    // Pega todos os nomes originais que mapeiam pra esses slugs
+    const originals = names.filter((n) => cluster.includes(slugify(n)));
+    const canonical = pickCanonicalDisplay(originals);
+    const variants = originals.filter((v) => v !== canonical);
+    groups.push({ canonical, variants, slug: s });
+  }
+
+  return groups;
+}
+
+/**
  * Aceita string ou array, retorna array de tags normalizadas e dedup-
  * licadas (por slug). Filtra strings vazias.
  *
