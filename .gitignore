@@ -34,6 +34,10 @@ yarn-error.log*
 .env*.local
 !.env.example
 
+# backups (gerados por scripts/backup-supabase.mjs) — contêm dados sensíveis
+backup-*.json
+backup-*.sql
+
 # vercel
 .vercel
 
