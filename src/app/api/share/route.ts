@@ -141,6 +141,15 @@ export async function POST(req: Request) {
     );
   }
 
+  // Audit
+  const { audit } = await import('@/lib/audit');
+  void audit({
+    userId: user.id,
+    action: 'sharing.created',
+    meta: { token, question_count: snapshot.length, expires_at: expiresAt },
+    req,
+  });
+
   // URL relativa — cliente compõe com origin atual
   return NextResponse.json({
     token,

@@ -12,6 +12,9 @@
  *   export NEXT_PUBLIC_SUPABASE_URL=https://x.supabase.co
  *   export SUPABASE_SERVICE_ROLE_KEY=eyJ...
  *   npm run check:migrations
+ *   npm run check:migrations -- --mark-applied 0030,0031
+ *     (marca como aplicada — útil quando aplicou via Dashboard manual e
+ *      o INSERT no fim falhou ou foi pulado)
  *
  * Service role pra bypass RLS — só admin roda esse script.
  */
@@ -28,6 +31,16 @@ if (!URL || !KEY) {
   process.exit(1);
 }
 
+// --mark-applied parser
+const markIdx = process.argv.findIndex((a) => a === '--mark-applied');
+const markIds =
+  markIdx >= 0
+    ? (process.argv[markIdx + 1] ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => /^\d{4}$/.test(s))
+    : [];
+
 const root = path.resolve(process.cwd(), 'supabase/migrations');
 
 // Lista IDs do disco (ignora _down e arquivos não-numéricos no início)
@@ -41,6 +54,25 @@ for (const f of fs.readdirSync(root)) {
 const sb = createClient(URL, KEY, {
   auth: { persistSession: false },
 });
+
+// Mark mode: insere/atualiza ids como aplicadas e termina
+if (markIds.length > 0) {
+  console.log(`Marcando como aplicadas: ${markIds.join(', ')}`);
+  for (const id of markIds) {
+    const { error } = await sb
+      .from('applied_migrations')
+      .upsert(
+        { id, applied_at: new Date().toISOString(), notes: 'manual mark via check:migrations' },
+        { onConflict: 'id' }
+      );
+    if (error) {
+      console.error(`  ${id}: ✗ ${error.message}`);
+    } else {
+      console.log(`  ${id}: ✓ marcada`);
+    }
+  }
+  process.exit(0);
+}
 
 const { data, error } = await sb
   .from('applied_migrations')

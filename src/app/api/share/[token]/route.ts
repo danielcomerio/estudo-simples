@@ -157,7 +157,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: { token: string } }
 ) {
   const { token } = params;
@@ -184,6 +184,14 @@ export async function DELETE(
       { status: 500 }
     );
   }
+
+  const { audit } = await import('@/lib/audit');
+  void audit({
+    userId: user.id,
+    action: 'sharing.revoked',
+    meta: { token },
+    req,
+  });
 
   return NextResponse.json({ ok: true });
 }
