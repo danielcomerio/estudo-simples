@@ -39,6 +39,7 @@ import { ShareDeckButton } from './ShareDeckButton';
 import { AIGenerateButton } from './AIGenerateButton';
 import { AIClozeFromTextButton } from './AIClozeFromTextButton';
 import { AIOCRButton } from './AIOCRButton';
+import { AIToolbarFallback } from './AIToolbarFallback';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1842,6 +1843,7 @@ export function BancoList() {
         <AIGenerateButton />
         <AIClozeFromTextButton />
         <AIOCRButton />
+        <AIToolbarFallback />
         <button
           type="button"
           onClick={() => setBrowsing(true)}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import Link from 'next/link';
 import { Modal } from './Modal';
 import { useStore } from '@/lib/store';
 import { scheduleSync } from '@/lib/sync';
@@ -38,20 +37,8 @@ export function AIOCRButton() {
   const provider = getDefaultProvider();
 
   if (!provider) {
-    return (
-      <Link
-        href="/configuracoes"
-        title="Configure uma chave de IA"
-        style={{
-          fontSize: '0.85rem',
-          color: 'var(--muted)',
-          textDecoration: 'underline',
-          padding: '6px 12px',
-        }}
-      >
-        🤖 Configurar IA
-      </Link>
-    );
+    // Sem chave: null. Toolbar mostra link único consolidado.
+    return null;
   }
 
   return (

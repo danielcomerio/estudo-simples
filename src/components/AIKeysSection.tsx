@@ -56,7 +56,7 @@ export function AIKeysSection() {
   };
 
   return (
-    <div className="card">
+    <div className="card" id="ai-keys">
       <h2 style={{ margin: '0 0 8px' }}>🤖 Conexão com IAs (BYO key)</h2>
       <p className="muted" style={{ margin: 0, fontSize: '0.9rem' }}>
         Pluga sua chave de API. App usa pra explicar questões erradas
