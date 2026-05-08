@@ -197,9 +197,24 @@ export function PersonasSection() {
         </ul>
       )}
 
-      <button type="button" onClick={() => setEditing('new')}>
-        + Nova persona
-      </button>
+      <div className="row gap" style={{ flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => setEditing('new')}>
+          + Nova persona
+        </button>
+        <a
+          href="/personas-publicas"
+          className="ghost"
+          style={{
+            padding: '6px 12px',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            textDecoration: 'none',
+            fontSize: '0.88rem',
+          }}
+        >
+          🎭 Ver personas públicas →
+        </a>
+      </div>
 
       {editing && (
         <PersonaEditor
@@ -234,6 +249,7 @@ function PersonaEditor({
   const [concursoId, setConcursoId] = useState<string | null>(
     initial?.concurso_id ?? null
   );
+  const [isPublic, setIsPublic] = useState<boolean>(initial?.is_public ?? false);
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -252,6 +268,7 @@ function PersonaEditor({
       description: description.trim() || null,
       system_prompt: systemPrompt,
       concurso_id: concursoId,
+      is_public: isPublic,
     };
     const url = initial?.id ? `/api/personas/${initial.id}` : '/api/personas';
     const method = initial?.id ? 'PATCH' : 'POST';
@@ -349,6 +366,35 @@ function PersonaEditor({
               resize: 'vertical',
             }}
           />
+        </label>
+
+        <label
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'flex-start',
+            padding: 8,
+            background: 'var(--bg-elev-2)',
+            borderRadius: 6,
+            fontSize: '0.85rem',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            <strong>Compartilhar com a comunidade</strong>
+            <span
+              className="muted"
+              style={{ display: 'block', fontSize: '0.78rem' }}
+            >
+              Aparece no marketplace público. Outros users podem importar
+              cópia. Não vaza seu user_id.
+            </span>
+          </span>
         </label>
       </div>
 
