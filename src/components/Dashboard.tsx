@@ -23,6 +23,7 @@ import { StreakFreezesCard } from './StreakFreezesCard';
 import { ConquistasButton } from './ConquistasButton';
 import { QuizDueloButton } from './QuizDueloButton';
 import { AIOneClickDeciderButton } from './AIOneClickDeciderButton';
+import { TempoTotalCard } from './TempoTotalCard';
 import { WarmupQuestionCard } from './WarmupQuestionCard';
 import { SimuladoPendingBanner } from './SimuladoPendingBanner';
 
@@ -512,6 +513,8 @@ export function Dashboard() {
       <DailyBriefingCard />
 
       <StreakFreezesCard currentStreak={streak} />
+
+      <TempoTotalCard />
 
       <div className="row gap wrap" style={{ marginBottom: 8 }}>
         <AIOneClickDeciderButton />

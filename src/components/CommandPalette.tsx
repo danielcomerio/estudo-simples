@@ -36,6 +36,10 @@ export function CommandPalette() {
   const commands: Command[] = useMemo(() => {
     const cmds: Command[] = [
       { label: 'Painel', action: () => router.push('/'), hint: 'Início' },
+      { label: 'Hoje', action: () => router.push('/hoje'), keywords: 'hoje rapido vencidas', hint: 'Ctrl+G' },
+      { label: 'Inimigas', action: () => router.push('/erros'), keywords: 'erros inimigas dificeis' },
+      { label: 'Free recall', action: () => router.push('/free-recall'), keywords: 'karpicke escrever livre' },
+      { label: 'Conquistas', action: () => router.push('/achievements'), keywords: 'achievements badges' },
       { label: 'Banco de questões', action: () => router.push('/banco'), keywords: 'questoes lista' },
       { label: 'Estudar (objetivas)', action: () => router.push('/estudar') },
       { label: 'Discursivas', action: () => router.push('/discursivas') },
@@ -120,6 +124,11 @@ export function CommandPalette() {
       if (isMod && (e.key === 'e' || e.key === 'E')) {
         e.preventDefault();
         router.push('/estudar');
+        return;
+      }
+      if (isMod && (e.key === 'g' || e.key === 'G')) {
+        e.preventDefault();
+        router.push('/hoje');
         return;
       }
     };

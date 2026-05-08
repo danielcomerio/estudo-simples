@@ -18,8 +18,10 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(req: Request) {
   const startTime = Date.now();
+  const url = new URL(req.url);
+  const wantMetrics = url.searchParams.get('metrics') === '1';
 
   // Check DB ping (não retorna dados, só verifica conexão).
   let dbOk = false;
@@ -68,6 +70,28 @@ export async function GET() {
 
   const overall = dbOk && config.supabase ? 'ok' : 'degraded';
 
+  // Counts agregados (anônimo, opt-in via ?metrics=1 pra não alongar
+  // request comum de uptime monitor).
+  let metrics: { questions_total?: number; profiles_total?: number } | null = null;
+  if (wantMetrics && dbOk) {
+    try {
+      const supabase = await createClient();
+      const [{ count: qCount }, { count: pCount }] = await Promise.all([
+        supabase
+          .from('questions')
+          .select('id', { head: true, count: 'exact' })
+          .is('deleted_at', null),
+        supabase.from('profiles').select('user_id', { head: true, count: 'exact' }),
+      ]);
+      metrics = {
+        questions_total: qCount ?? 0,
+        profiles_total: pCount ?? 0,
+      };
+    } catch {
+      metrics = null;
+    }
+  }
+
   return NextResponse.json(
     {
       status: overall,
@@ -86,6 +110,7 @@ export async function GET() {
             : { configured: true, ok: tgOk, latency_ms: tgLatencyMs },
         config,
       },
+      ...(metrics ? { metrics } : {}),
     },
     {
       // Sempre 200 — uptime monitor decide alertar baseado no body

@@ -84,6 +84,18 @@ export function StoreProvider({
       if (cancelled) return;
       startBackgroundSync();
 
+      // Auto-backup 1×/dia (best-effort)
+      void (async () => {
+        try {
+          const { maybeAutoBackup } = await import('@/lib/auto-backup');
+          const { getState, selectActiveQuestions } = await import('@/lib/store');
+          const qts = selectActiveQuestions(getState());
+          await maybeAutoBackup(userId, qts);
+        } catch {
+          /* ignore */
+        }
+      })();
+
       // Fase B (migration 0010): backfill de disciplina_uuid em questões
       // locais que ainda não têm. Carrega cache de disciplinas primeiro,
       // depois resolve via slug match. Não bloqueia o boot — roda em

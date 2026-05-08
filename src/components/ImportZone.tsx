@@ -458,6 +458,11 @@ export function ImportZone() {
             </div>
           </details>
 
+          <details className="paste-block">
+            <summary>Importar de URL pública (gist, raw)</summary>
+            <UrlImportRow onLoad={(text) => startPreview(text)} />
+          </details>
+
           <ExemplosFormatos onPick={(text) => setPaste(text)} />
         </>
       )}
@@ -486,6 +491,66 @@ export function ImportZone() {
  * Snippets de JSON de exemplo pra cada formato suportado. Click
  * popula a textarea de paste pra editar/analisar.
  */
+function UrlImportRow({ onLoad }: { onLoad: (text: string) => void }) {
+  const [url, setUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const fetchUrl = async () => {
+    if (!url.trim()) return;
+    setLoading(true);
+    setErr(null);
+    try {
+      // Detecta gist URL e converte pra raw
+      let target = url.trim();
+      const gistMatch = target.match(/^https?:\/\/gist\.github\.com\/[^/]+\/([a-f0-9]+)/);
+      if (gistMatch && !target.includes('/raw')) {
+        target = target.replace(/\/?$/, '/raw');
+      }
+      const r = await fetch(target);
+      if (!r.ok) {
+        setErr(`HTTP ${r.status}`);
+        return;
+      }
+      const text = await r.text();
+      if (text.length < 5 || text.length > 5_000_000) {
+        setErr('Conteúdo vazio ou muito grande (>5MB)');
+        return;
+      }
+      onLoad(text);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'erro');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <div>
+      <input
+        type="url"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="https://gist.githubusercontent.com/.../raw"
+        style={{ width: '100%', marginBottom: 8 }}
+      />
+      <div className="row gap">
+        <button
+          type="button"
+          className="primary"
+          onClick={fetchUrl}
+          disabled={loading || !url.trim()}
+        >
+          {loading ? 'Baixando…' : 'Baixar e analisar'}
+        </button>
+        {err && (
+          <span className="muted" style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>
+            ⚠ {err}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ExemplosFormatos({ onPick }: { onPick: (text: string) => void }) {
   const exemplos: Array<{ label: string; json: string }> = [
     {
