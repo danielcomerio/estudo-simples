@@ -177,6 +177,26 @@ export function SmartSuggestions({ questions }: { questions: Question[] }) {
       });
     }
 
+    // Sugestão por hora do dia
+    const hr = new Date().getHours();
+    if (hr >= 6 && hr < 11) {
+      out.unshift({
+        id: 'morning-srs',
+        emoji: '🌅',
+        text: 'Manhã: melhor hora pra SRS — sua memória tá fresca.',
+        href: `/estudar?modo=srs&qtd=15&auto=1`,
+        cta: 'SRS 15',
+      });
+    } else if (hr >= 19 && hr < 23) {
+      out.unshift({
+        id: 'evening-revisao',
+        emoji: '🌙',
+        text: 'Noite: revise as erradas do dia. Consolida memória durante o sono.',
+        href: `/estudar?modo=erros&qtd=10&auto=1`,
+        cta: 'Revisar erradas',
+      });
+    }
+
     return out.slice(0, 3);
   }, [questions]);
 

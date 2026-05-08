@@ -22,6 +22,7 @@ import { DailyBriefingCard } from './DailyBriefingCard';
 import { StreakFreezesCard } from './StreakFreezesCard';
 import { ConquistasButton } from './ConquistasButton';
 import { WarmupQuestionCard } from './WarmupQuestionCard';
+import { SimuladoPendingBanner } from './SimuladoPendingBanner';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -503,6 +504,8 @@ export function Dashboard() {
       )}
 
       <WelcomeBackBanner dueCount={dueToday} />
+
+      <SimuladoPendingBanner />
 
       <DailyBriefingCard />
 

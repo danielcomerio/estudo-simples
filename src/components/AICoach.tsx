@@ -83,6 +83,7 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [voiceMode, setVoiceMode] = useState(false);
+  const [autoSendVoice, setAutoSendVoice] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -132,8 +133,12 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
     concursos?.find((c) => c.id === activeConcursoId)?.nome ?? null;
 
   function send() {
+    sendWithText(draft);
+  }
+
+  function sendWithText(rawText: string) {
     if (!provider) return;
-    const text = draft.trim();
+    const text = rawText.trim();
     if (!text || loading) return;
 
     const userMsg: CoachMessage = {
@@ -456,11 +461,34 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
             }}
           />
           <MicButton
-            onTranscript={(text) =>
-              setDraft((cur) => (cur ? `${cur} ${text}` : text).slice(0, 2000))
-            }
-            title="Ditar pergunta"
+            onTranscript={(text) => {
+              const next = (draft ? `${draft} ${text}` : text).slice(0, 2000);
+              setDraft(next);
+              if (autoSendVoice && text.trim().length > 5) {
+                // Auto-envia logo após pausa (transcript final)
+                setTimeout(() => {
+                  setDraft('');
+                  void sendWithText(next);
+                }, 100);
+              }
+            }}
+            title={autoSendVoice ? 'Modo conversa: envia automaticamente' : 'Ditar pergunta'}
           />
+          <button
+            type="button"
+            onClick={() => setAutoSendVoice((v) => !v)}
+            title={autoSendVoice ? 'Desativar modo conversa' : 'Ativar modo conversa (auto-send após pausa)'}
+            style={{
+              padding: '4px 10px',
+              fontSize: '0.85rem',
+              background: autoSendVoice ? 'var(--primary)' : 'transparent',
+              color: autoSendVoice ? '#fff' : undefined,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+            }}
+          >
+            🎙
+          </button>
           {!loading ? (
             <button
               type="button"

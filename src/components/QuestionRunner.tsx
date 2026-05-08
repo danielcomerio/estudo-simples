@@ -1621,6 +1621,7 @@ function RunningView({
 
         <div
           className="enunciado"
+          data-explain="1"
           dangerouslySetInnerHTML={{ __html: renderRichText(payload.enunciado) }}
         />
 

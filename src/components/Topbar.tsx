@@ -18,6 +18,7 @@ import { StreakBadge } from './StreakBadge';
 import { ConcursoCountdown } from './ConcursoCountdown';
 import { BrandLogo } from './BrandLogo';
 import { WhatsNewBadge } from './WhatsNewBadge';
+import { OnlineDot } from './OnlineDot';
 
 const TABS = [
   { href: '/', label: 'Painel' },
@@ -338,6 +339,8 @@ export function Topbar({
         </span>
 
         <ThemeToggleQuick />
+
+        <OnlineDot />
 
         <span className="topbar-desktop-only">
           <ShortcutsHelp />
