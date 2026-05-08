@@ -79,7 +79,19 @@ for (const f of files) {
   console.log(`  ✓ ${f} (${(content.length / 1024).toFixed(1)} KB)`);
 }
 
-const stamp = new Date().toISOString().slice(0, 10);
+// Timestamp completo (YYYY-MM-DD-HHMMSS) pra nunca sobrescrever um
+// snapshot anterior — mesmo se rodar várias vezes no mesmo dia.
+const now = new Date();
+const stamp =
+  now.getFullYear() +
+  '-' +
+  String(now.getMonth() + 1).padStart(2, '0') +
+  '-' +
+  String(now.getDate()).padStart(2, '0') +
+  '-' +
+  String(now.getHours()).padStart(2, '0') +
+  String(now.getMinutes()).padStart(2, '0') +
+  String(now.getSeconds()).padStart(2, '0');
 const outFile = `schema-snapshot-${stamp}.sql`;
 const outPath = path.resolve(process.cwd(), outFile);
 
