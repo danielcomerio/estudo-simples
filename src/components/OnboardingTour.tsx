@@ -40,6 +40,28 @@ const STEPS = [
       </>
     ),
   },
+  {
+    title: 'Conecte uma IA (opcional)',
+    icon: '🤖',
+    body: (
+      <>
+        Em <strong>/configuracoes</strong>, plug uma chave OpenAI/Claude/
+        Gemini (BYO key — você paga direto). Desbloqueia: tutor ao vivo,
+        gerar questões, avaliar discursivas, mnemônicas, plano semanal.
+      </>
+    ),
+  },
+  {
+    title: 'Personalize sua rotina',
+    icon: '⚙️',
+    body: (
+      <>
+        Defina meta diária, ative push notifications e escolha um concurso
+        ativo no menu superior pra filtrar tudo. Ctrl+Shift+N abre captura
+        rápida de qualquer rota. F8 ativa modo focado.
+      </>
+    ),
+  },
 ];
 
 /**

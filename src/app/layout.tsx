@@ -10,6 +10,7 @@ import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { PomodoroReflectionToast } from '@/components/PomodoroReflectionToast';
 import { QuickCaptureModal } from '@/components/QuickCaptureModal';
 import { FocusMode } from '@/components/FocusMode';
+import { StickyNotesModal } from '@/components/StickyNotesModal';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -156,6 +157,7 @@ export default async function RootLayout({
             <PomodoroReflectionToast />
             <QuickCaptureModal />
             <FocusMode />
+            <StickyNotesModal />
             <OnboardingTour />
             <main id="main-content" className="page">
               {children}

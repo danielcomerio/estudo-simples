@@ -25,6 +25,7 @@ import { QuestionImages } from './QuestionImages';
 import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
 import { AIDiscursivaEvaluator } from './AIDiscursivaEvaluator';
+import { DiscursivaSideBySide } from './DiscursivaSideBySide';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
@@ -736,6 +737,10 @@ function DiscReveal({
           <div
             className="espelho-block"
             dangerouslySetInnerHTML={{ __html: renderRichText(payload.espelho_resposta) }}
+          />
+          <DiscursivaSideBySide
+            resposta={resposta}
+            espelho={payload.espelho_resposta}
           />
 
           {/* AI evaluator: avalia a resposta do user contra o espelho. */}

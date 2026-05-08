@@ -41,6 +41,7 @@ import { TTSButton } from './TTSButton';
 import { VoiceAnswerButton } from './VoiceAnswerButton';
 import { AIExplainButton } from './AIExplainButton';
 import { createInsightState, pushAndDetect } from '@/lib/live-insights';
+import { QuestionChatPanel } from './QuestionChatPanel';
 import { QuestionRatingButtons } from './QuestionRatingButtons';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
@@ -1799,6 +1800,26 @@ function RunningView({
 
           {/* Rating de qualidade — comunidade ajuda a curar. */}
           <QuestionRatingButtons questionId={q.id} />
+
+          <details style={{ marginTop: 10 }}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--muted)' }}>
+              💬 Chat com IA sobre esta questão
+            </summary>
+            <div style={{ marginTop: 8 }}>
+              <QuestionChatPanel
+                questionId={q.id}
+                questionContext={[
+                  payload.enunciado,
+                  ...(payload.alternativas ?? []).map(
+                    (a) => `${a.letra}) ${a.texto}${a.correta ? ' [GABARITO]' : ''}`
+                  ),
+                  payload.explicacao_geral ?? '',
+                ]
+                  .filter(Boolean)
+                  .join('\n')}
+              />
+            </div>
+          </details>
 
           {Array.isArray(payload.pegadinhas) && payload.pegadinhas.length > 0 && (
             <div className="feedback-block">
