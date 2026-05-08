@@ -33,6 +33,7 @@ import {
   normalizeTagList,
   slugify,
 } from './normalize';
+import { canonicalizeTagList } from './tag-dictionary';
 
 // =====================================================================
 // Detecção de formato
@@ -296,9 +297,10 @@ export function parseRealItem(raw: unknown): ParsedRealItem {
       : null;
 
   // Tags: alguns dumps reais trazem `tags` ou `palavrasChave`. Normaliza
-  // pra slug kebab-case (mesmo formato do autoral).
+  // pra slug kebab-case (mesmo formato do autoral) + canonicaliza
+  // contra dicionário (ex: 'fgv' → 'banca-fgv', 'cespe' → 'banca-cebraspe').
   const rawTags = (o.tags ?? o.palavrasChave ?? o.palavras_chave) as unknown;
-  const tags = normalizeTagList(rawTags);
+  const tags = canonicalizeTagList(normalizeTagList(rawTags));
 
   // Origem do gabarito: aceita `gabarito_source`/`gabaritoSource`/
   // `gabarito_origem` no JSON. Se vier 'ia', adiciona automaticamente

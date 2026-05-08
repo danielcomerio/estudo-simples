@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { DisciplinasSection } from '@/components/DisciplinasSection';
+import { DisciplinaMergeSuggestions } from '@/components/DisciplinaMergeSuggestions';
 import { GuestNotice } from '@/components/GuestNotice';
 
 export default function DisciplinasPage() {
@@ -15,6 +16,8 @@ export default function DisciplinasPage() {
           que apontam pra ela em <code>/banco</code>.
         </p>
       </div>
+
+      <DisciplinaMergeSuggestions />
 
       <DisciplinasSection />
 
