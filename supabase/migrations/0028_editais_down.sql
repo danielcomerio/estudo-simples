@@ -1,0 +1,10 @@
+begin;
+drop policy if exists "editais_prefs_own_all" on public.editais_preferences;
+drop table if exists public.editais_preferences;
+drop policy if exists "editais_public_select" on public.editais;
+drop index if exists public.editais_area_idx;
+drop index if exists public.editais_region_idx;
+drop index if exists public.editais_pub_date_idx;
+drop table if exists public.editais;
+delete from public.applied_migrations where id = '0028';
+commit;

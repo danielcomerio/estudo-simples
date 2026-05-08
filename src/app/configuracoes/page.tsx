@@ -10,6 +10,7 @@ import { AIUsageSection } from '@/components/AIUsageSection';
 import { TelegramSection } from '@/components/TelegramSection';
 import { DiscordSection } from '@/components/DiscordSection';
 import { DailyPreferencesSection } from '@/components/DailyPreferencesSection';
+import { EditaisPreferencesSection } from '@/components/EditaisPreferencesSection';
 import { AccessibilitySection } from '@/components/AccessibilitySection';
 import { SoundsSection } from '@/components/SoundsSection';
 import { SettingsBackupSection } from '@/components/SettingsBackupSection';
@@ -59,6 +60,8 @@ export default async function ConfiguracoesPage() {
       <AIUsageSection />
 
       <DailyPreferencesSection />
+
+      <EditaisPreferencesSection />
 
       <SoundsSection />
 

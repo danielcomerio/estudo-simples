@@ -17,6 +17,7 @@ import { PrimeirosPassos } from './PrimeirosPassos';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 import { ShareProgressButton } from './ShareProgressButton';
+import { EditaisCard } from './EditaisCard';
 
 export function Dashboard() {
   const hydrated = useStore((s) => s.hydrated);
@@ -688,6 +689,9 @@ export function Dashboard() {
           dominadas={dominadas}
         />
       )}
+
+      {/* Editais ativos (feed agregado, opt-out via configurações) */}
+      <EditaisCard />
 
       {/* Meta diária */}
       <div className="card">
