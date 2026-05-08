@@ -1752,6 +1752,57 @@ export function BancoList() {
             refreshKey={searchHistoryRefresh}
           />
         </div>
+
+        <div
+          className="row gap wrap"
+          style={{
+            marginTop: 6,
+            marginBottom: 8,
+            fontSize: '0.78rem',
+          }}
+        >
+          {[
+            { label: '🔥 Vencidas', q: 'due:0' },
+            { label: '👹 Inimigas', q: 'dom:0' },
+            { label: '🆕 Sem tags', q: 'tag:' },
+            { label: '🤖 IA gerada', q: 'ai:1' },
+            { label: '⭐ Favoritas', q: 'bookmark:1' },
+          ].map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={() => setSearch((cur) => (cur ? `${cur} ${chip.q}` : chip.q))}
+              title={`Adicionar filtro: ${chip.q}`}
+              style={{
+                padding: '2px 8px',
+                fontSize: '0.78rem',
+                background: 'var(--bg-elev-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 999,
+                cursor: 'pointer',
+              }}
+            >
+              {chip.label}
+            </button>
+          ))}
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Limpar busca"
+              style={{
+                padding: '2px 8px',
+                fontSize: '0.78rem',
+                background: 'transparent',
+                border: '1px dashed var(--border)',
+                borderRadius: 999,
+                cursor: 'pointer',
+              }}
+            >
+              ✕ Limpar
+            </button>
+          )}
+        </div>
         <select
           value={disc}
           onChange={(e) => setDisc(e.target.value)}
