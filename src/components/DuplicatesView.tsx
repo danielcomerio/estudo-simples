@@ -7,6 +7,7 @@ import { findNearDuplicates, type DuplicatePair } from '@/lib/near-duplicates';
 import type { ObjetivaPayload, DiscursivaPayload, Question } from '@/lib/types';
 import { confirmDialog } from './ConfirmDialog';
 import { toast } from './Toast';
+import { AIDuplicateRefineButton } from './AIDuplicateRefineButton';
 
 /**
  * Página de detecção de quase-duplicatas: questões similares (Jaccard
@@ -101,6 +102,12 @@ export function DuplicatesView() {
           >
             {scanning ? 'Calculando…' : 'Detectar similares'}
           </button>
+          {pairs && pairs.length > 0 && (
+            <AIDuplicateRefineButton
+              pairs={pairs}
+              onRefined={(filtered) => setPairs(filtered)}
+            />
+          )}
           <span className="muted" style={{ fontSize: '0.85rem' }}>
             ({questions.length} questões no banco)
           </span>

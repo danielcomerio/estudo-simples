@@ -33,6 +33,7 @@ import { AIQualityScoreButton } from './AIQualityScoreButton';
 import { TagInput } from './TagInput';
 import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
 import { FlashcardReverseButton } from './FlashcardReverseButton';
+import { AIMnemonicButton } from './AIMnemonicButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -620,10 +621,47 @@ export function QuestionEditDrawer({
             marginBottom: 4,
           }}
         >
-          <span style={{ fontSize: '0.85rem' }}>Enunciado *</span>
+          <span style={{ fontSize: '0.85rem' }}>Enunciado * (cole imagem com Ctrl+V)</span>
           <textarea
             value={enun}
             onChange={(e) => setEnun(e.target.value)}
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              for (const it of Array.from(items)) {
+                if (it.kind === 'file' && it.type.startsWith('image/')) {
+                  const file = it.getAsFile();
+                  if (!file) continue;
+                  e.preventDefault();
+                  void (async () => {
+                    try {
+                      const { uploadQuestionImage } = await import('@/lib/storage');
+                      const userId = question.user_id;
+                      if (!userId) return;
+                      const url = await uploadQuestionImage(file, question.id, userId);
+                      // Anexa URL no payload.imagens
+                      const cur = question.payload as { imagens?: string[] };
+                      const imagens = Array.isArray(cur.imagens) ? cur.imagens : [];
+                      imagens.push(url);
+                      // updateQuestionLocal será chamado ao salvar; por ora avisa
+                      toast(
+                        '📷 Imagem enviada. Salve a questão pra anexar.',
+                        'success'
+                      );
+                      // Anexa via patch transitório no payload state — mas como
+                      // não há setter direto, exibe URL no enunciado pra user
+                      setEnun((cur) => `${cur}\n\n[imagem: ${url}]`);
+                    } catch (err) {
+                      toast(
+                        err instanceof Error ? err.message : 'erro upload',
+                        'error'
+                      );
+                    }
+                  })();
+                  return;
+                }
+              }
+            }}
             rows={5}
             maxLength={50_000}
           />
@@ -1009,6 +1047,7 @@ export function QuestionEditDrawer({
         {question.type === 'flashcard' && (
           <FlashcardReverseButton question={question} />
         )}
+        <AIMnemonicButton question={question} />
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (

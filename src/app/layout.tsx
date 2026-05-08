@@ -9,6 +9,7 @@ import { GlobalDropZone } from '@/components/GlobalDropZone';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { PomodoroReflectionToast } from '@/components/PomodoroReflectionToast';
 import { QuickCaptureModal } from '@/components/QuickCaptureModal';
+import { FocusMode } from '@/components/FocusMode';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -154,6 +155,7 @@ export default async function RootLayout({
             <PomodoroTimer />
             <PomodoroReflectionToast />
             <QuickCaptureModal />
+            <FocusMode />
             <OnboardingTour />
             <main id="main-content" className="page">
               {children}
