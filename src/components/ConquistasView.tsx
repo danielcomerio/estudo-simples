@@ -58,17 +58,29 @@ export function ConquistasView() {
     let bestDay = 0;
     let validador = 0; // gabarito_source = 'oficial' (validadas)
     const dayCounts = new Map<number, number>();
+    // Banca → set de disciplinas dominadas
+    const bancaDom = new Map<string, Set<string>>();
     for (const q of questions) {
       totalAttempts += q.stats?.attempts ?? 0;
       totalCorrect += q.stats?.correct ?? 0;
       const h = q.stats?.history ?? [];
-      if (
+      const isDominated =
         h.length >= 5 &&
         h
           .slice(-5)
-          .every((r) => r.result === 'correct' || r.result === 'self_pass')
-      ) {
+          .every((r) => r.result === 'correct' || r.result === 'self_pass');
+      if (isDominated) {
         dominadas++;
+        const banca = q.banca_estilo?.trim();
+        const disc = q.disciplina_id?.trim();
+        if (banca && disc) {
+          let set = bancaDom.get(banca);
+          if (!set) {
+            set = new Set();
+            bancaDom.set(banca, set);
+          }
+          set.add(disc.toLowerCase());
+        }
       }
       if (q.fonte?.gabarito_source === 'oficial') {
         validador++;
@@ -113,6 +125,14 @@ export function ConquistasView() {
       totalAttempts > 0 ? Math.round((100 * totalCorrect) / totalAttempts) : 0;
     const diasEstudados = dayCounts.size;
 
+    // Banca top: maior nº de disciplinas dominadas em uma única banca
+    let topBanca: { name: string; count: number } | null = null;
+    for (const [name, set] of bancaDom.entries()) {
+      if (!topBanca || set.size > topBanca.count) {
+        topBanca = { name, count: set.size };
+      }
+    }
+
     return {
       totalAttempts,
       totalCorrect,
@@ -124,6 +144,7 @@ export function ConquistasView() {
       diasEstudados,
       bankSize: questions.length,
       validador,
+      topBanca,
     };
   }, [questions]);
 
@@ -256,6 +277,22 @@ export function ConquistasView() {
         { threshold: 100, label: '100 oficiais', emoji: '✓✓✓' },
         { threshold: 500, label: '500 oficiais', emoji: '🌟' },
         { threshold: 1000, label: '1.000 oficiais', emoji: '👑' },
+      ],
+    },
+    {
+      title: data.topBanca
+        ? `🥷 Mestre da banca ${data.topBanca.name}`
+        : '🥷 Mestre da banca',
+      desc: data.topBanca
+        ? `Disciplinas dominadas (≥5 acertos consecutivos) com banca_estilo = "${data.topBanca.name}". Sua banca top no momento.`
+        : 'Domine 3+ disciplinas em uma mesma banca pra desbloquear. Marque banca_estilo nas questões.',
+      current: data.topBanca?.count ?? 0,
+      unit: 'disciplinas dominadas',
+      tiers: [
+        { threshold: 3, label: '3 disciplinas', emoji: '🥷' },
+        { threshold: 5, label: '5 disciplinas', emoji: '🥷🥷' },
+        { threshold: 10, label: '10 disciplinas', emoji: '🥷🥷🥷' },
+        { threshold: 20, label: '20 disciplinas', emoji: '👑' },
       ],
     },
   ];
