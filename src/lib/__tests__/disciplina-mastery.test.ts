@@ -13,7 +13,12 @@ function q(opts: {
     type: 'objetiva',
     disciplina_id: opts.disc,
     user_id: 'u',
-    payload: { enunciado: 'x' },
+    tema: null,
+    banca_estilo: null,
+    dificuldade: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    payload: { enunciado: 'x' } as never,
     srs: {
       dueDate: 0,
       repetitions: opts.reps ?? 0,

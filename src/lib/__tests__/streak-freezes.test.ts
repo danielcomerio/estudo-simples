@@ -13,10 +13,10 @@ beforeAll(() => {
     },
     key: (i: number) => Array.from(store.keys())[i] ?? null,
   };
-  // @ts-expect-error mock
-  globalThis.window = { localStorage: ls };
-  // @ts-expect-error mock
-  globalThis.localStorage = ls;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).window = { localStorage: ls };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).localStorage = ls;
 });
 
 import {

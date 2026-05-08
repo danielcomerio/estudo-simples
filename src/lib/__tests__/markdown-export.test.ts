@@ -11,6 +11,8 @@ function baseQ(overrides: Partial<Question>): Question {
     tema: null,
     banca_estilo: null,
     dificuldade: null,
+    created_at: '2026-05-08T00:00:00Z',
+    updated_at: '2026-05-08T00:00:00Z',
     payload: { enunciado: '' } as never,
     srs: { dueDate: 0, repetitions: 0, easeFactor: 2.5, interval: 0, lastReviewed: null },
     stats: { attempts: 0, correct: 0, wrong: 0, history: [] },

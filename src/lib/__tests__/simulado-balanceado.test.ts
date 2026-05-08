@@ -11,6 +11,8 @@ function q(disc: string, opts: { attempts?: number; correct?: number } = {}): Qu
     tema: null,
     banca_estilo: null,
     dificuldade: null,
+    created_at: '2026-05-08T00:00:00Z',
+    updated_at: '2026-05-08T00:00:00Z',
     payload: { enunciado: 'x' } as never,
     srs: { dueDate: 0, repetitions: 0, easeFactor: 2.5, interval: 0, lastReviewed: null },
     stats: {
