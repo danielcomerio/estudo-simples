@@ -40,6 +40,7 @@ import { AIGenerateButton } from './AIGenerateButton';
 import { AIClozeFromTextButton } from './AIClozeFromTextButton';
 import { AIOCRButton } from './AIOCRButton';
 import { AIToolbarFallback } from './AIToolbarFallback';
+import { AISearchButton } from './AISearchButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -124,6 +125,8 @@ export function BancoList() {
   }, [discMeta]);
 
   const [search, setSearch] = useState('');
+  /** Filtro semântico via AI search. Null = sem filtro IA ativo. */
+  const [aiFilteredIds, setAiFilteredIds] = useState<Set<string> | null>(null);
   const [disc, setDisc] = useState('');
   const [tipo, setTipo] = useState<'' | 'objetiva' | 'discursiva'>('');
   const [origem, setOrigem] = useState<'' | 'real' | 'autoral' | 'adaptada'>('');
@@ -414,6 +417,9 @@ export function BancoList() {
     const tomorrow = startOfDay(now) + DAY_MS;
     const sevenDaysAgo = now - 7 * DAY_MS;
     return questions.filter((q) => {
+      // Filtro semântico via AI search (se ativo, restringe ao set retornado)
+      if (aiFilteredIds && !aiFilteredIds.has(q.id)) return false;
+
       if (
         !matchActiveConcursoFull(
           q,
@@ -567,7 +573,7 @@ export function BancoList() {
       }
       return true;
     });
-  }, [questions, search, disc, tipo, origem, verif, gabSourceFilter, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, activeConcurso, concursoDiscNomes, questionLinks]);
+  }, [questions, search, disc, tipo, origem, verif, gabSourceFilter, srsFilter, imgFilter, notasFilter, mnemoFilter, latexFilter, tempoFilter, favFilter, activeConcurso, concursoDiscNomes, questionLinks, aiFilteredIds]);
 
   // Aplica ordenação ao filtered (separado pra evitar re-trigger filter)
   const sorted = useMemo(() => {
@@ -1682,6 +1688,10 @@ export function BancoList() {
             title="Prefixos: tag:foo · disc:bar · banca:FGV · due:7d (vencendo em até 7 dias) · bookmark:1 (favoritas) · id:abc (ID exato/prefix). Atalhos: / busca · j/k navega · Enter edita · espaço seleciona · x exclui · R aleatório"
           />
           <VoiceSearchButton onTranscript={(t) => setSearch(t)} />
+          <AISearchButton
+            onResults={(ids) => setAiFilteredIds(ids)}
+            onClear={() => setAiFilteredIds(null)}
+          />
           <SearchHistoryDropdown
             inputRef={searchRef}
             currentValue={search}
