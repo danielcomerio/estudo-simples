@@ -41,18 +41,44 @@ export function MobileFAB() {
     : '/estudar?modo=aleatorio&qtd=10&auto=1';
 
   return (
-    <Link
-      href={href}
-      className="mobile-fab"
-      aria-label={hasDue ? `Estudar ${due} vencendo` : 'Estudar agora'}
-      title={hasDue ? `${due} vencendo` : 'Estudar 10 aleatórias'}
-    >
-      <span aria-hidden style={{ fontSize: '1.45rem', lineHeight: 1 }}>🎯</span>
-      {hasDue && (
-        <span className="mobile-fab-badge" aria-hidden>
-          {due > 99 ? '99+' : due}
-        </span>
-      )}
-    </Link>
+    <>
+      <button
+        type="button"
+        className="mobile-fab"
+        aria-label="Captura rápida"
+        title="Captura rápida (Ctrl+Shift+N)"
+        onClick={() => {
+          // Dispara mesmo evento que QuickCaptureModal escuta
+          window.dispatchEvent(
+            new KeyboardEvent('keydown', {
+              key: 'N',
+              ctrlKey: true,
+              shiftKey: true,
+            })
+          );
+        }}
+        style={{
+          bottom: 'calc(var(--mobile-bottom-nav-height, 56px) + 76px)',
+          background: 'var(--bg-elev-2)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+        }}
+      >
+        <span aria-hidden style={{ fontSize: '1.4rem', lineHeight: 1 }}>+</span>
+      </button>
+      <Link
+        href={href}
+        className="mobile-fab"
+        aria-label={hasDue ? `Estudar ${due} vencendo` : 'Estudar agora'}
+        title={hasDue ? `${due} vencendo` : 'Estudar 10 aleatórias'}
+      >
+        <span aria-hidden style={{ fontSize: '1.45rem', lineHeight: 1 }}>🎯</span>
+        {hasDue && (
+          <span className="mobile-fab-badge" aria-hidden>
+            {due > 99 ? '99+' : due}
+          </span>
+        )}
+      </Link>
+    </>
   );
 }

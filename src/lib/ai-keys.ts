@@ -67,7 +67,25 @@ export function hasAnyAIKey(): boolean {
   );
 }
 
+const PREFERRED_KEY = 'estudo-simples:ai-preferred-provider';
+
+export function setPreferredProvider(p: AIProvider | null): void {
+  if (typeof localStorage === 'undefined') return;
+  if (!p) localStorage.removeItem(PREFERRED_KEY);
+  else localStorage.setItem(PREFERRED_KEY, p);
+}
+
+export function getPreferredProvider(): AIProvider | null {
+  if (typeof localStorage === 'undefined') return null;
+  const v = localStorage.getItem(PREFERRED_KEY);
+  if (v === 'openai' || v === 'anthropic' || v === 'gemini') return v;
+  return null;
+}
+
 export function getDefaultProvider(): AIProvider | null {
+  // Honra preferência manual do user se chave existir
+  const pref = getPreferredProvider();
+  if (pref && getAIKey(pref)) return pref;
   if (getAIKey('anthropic')) return 'anthropic';
   if (getAIKey('openai')) return 'openai';
   if (getAIKey('gemini')) return 'gemini';

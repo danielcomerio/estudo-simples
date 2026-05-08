@@ -31,6 +31,7 @@ import { QuestionChatPanel } from './QuestionChatPanel';
 import { AIRewriteButton } from './AIRewriteButton';
 import { AIQualityScoreButton } from './AIQualityScoreButton';
 import { TagInput } from './TagInput';
+import { AISuggestTagsButton } from './AISuggestTagsButton';
 import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
 import { FlashcardReverseButton } from './FlashcardReverseButton';
 import { AIMnemonicButton } from './AIMnemonicButton';
@@ -606,9 +607,23 @@ export function QuestionEditDrawer({
             marginBottom: 14,
           }}
         >
-          <span style={{ fontSize: '0.85rem' }}>
-            Tags (auto-completion canônico)
-          </span>
+          <div className="row gap" style={{ alignItems: 'center' }}>
+            <span style={{ fontSize: '0.85rem' }}>
+              Tags (auto-completion canônico)
+            </span>
+            <span style={{ flex: 1 }} />
+            <AISuggestTagsButton
+              question={question}
+              onSuggest={(tags) => {
+                const cur = tagsStr
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter(Boolean);
+                const merged = Array.from(new Set([...cur, ...tags]));
+                setTagsStr(merged.join(', '));
+              }}
+            />
+          </div>
           <TagInput value={tagsStr} onChange={setTagsStr} placeholder="ex: fgv, art-5, doutrina" />
         </label>
 

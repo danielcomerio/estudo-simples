@@ -13,6 +13,7 @@ import { selectActiveQuestions, selectDisciplinas, useStore } from '@/lib/store'
 import type { Disciplina, Question } from '@/lib/types';
 import { toast } from './Toast';
 import { computeMastery } from '@/lib/disciplina-mastery';
+import { AIDisciplinaSummary } from './AIDisciplinaSummary';
 
 /**
  * Página de disciplinas — read-only no que toca a CRIAR ou EXCLUIR.
@@ -240,6 +241,7 @@ function DisciplinaRow({
           </div>
         </div>
         <div className="row gap">
+          <AIDisciplinaSummary disciplinaNome={d.nome} />
           <button type="button" className="ghost" onClick={onEdit}>
             Editar
           </button>

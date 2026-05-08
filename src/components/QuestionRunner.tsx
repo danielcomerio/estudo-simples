@@ -523,9 +523,11 @@ export function QuestionRunner() {
   const quickStart = (
     modo: SessionConfig['modo'],
     qtd: number,
-    free = false
+    free = false,
+    overrideTempo?: number
   ) => {
-    const next = { ...cfg, modo, qtd, free };
+    const tempo = overrideTempo ?? cfg.tempo;
+    const next = { ...cfg, modo, qtd, free, tempo };
     setCfg(next);
     const pool = buildPool(all, next);
     if (!pool.length) return;
@@ -762,6 +764,16 @@ export function QuestionRunner() {
               <span className="qs-emoji">🎓</span>
               <span className="qs-label">Pré-prova</span>
               <span className="qs-sub">30 mistas</span>
+            </button>
+            <button
+              type="button"
+              className="quick-start-btn"
+              onClick={() => quickStart('aleatorio', 3, false, 30)}
+              title="3 questões com 30s cada — pratica leitura rápida"
+            >
+              <span className="qs-emoji">⚡</span>
+              <span className="qs-label">Treino rápido</span>
+              <span className="qs-sub">3× 30s</span>
             </button>
             {favCount > 0 && (
               <button

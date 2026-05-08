@@ -27,6 +27,7 @@ import {
   getActivePersonaId,
   setActivePersonaId as persistActivePersona,
 } from '@/lib/persona-active';
+import { setPreferredProvider } from '@/lib/ai-keys';
 
 type Persona = {
   id: string;
@@ -258,9 +259,31 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
               {activePersona?.emoji ?? '🤖'}{' '}
               {activePersona?.name ?? 'AI Coach'}
             </strong>
-            <div className="muted" style={{ fontSize: '0.74rem' }}>
-              {provider && PROVIDER_LABELS[provider]}
-              {concursoNome && ` · ${concursoNome}`}
+            <div className="muted" style={{ fontSize: '0.74rem', display: 'flex', gap: 4, alignItems: 'center' }}>
+              <select
+                value={provider ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === 'openai' || v === 'anthropic' || v === 'gemini') {
+                    setPreferredProvider(v);
+                    window.location.reload();
+                  }
+                }}
+                style={{
+                  padding: '0px 4px',
+                  fontSize: '0.74rem',
+                  background: 'transparent',
+                  border: '1px dashed var(--border)',
+                  borderRadius: 4,
+                }}
+                title="Trocar provider"
+              >
+                {provider && <option value={provider}>{PROVIDER_LABELS[provider]}</option>}
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Claude</option>
+                <option value="gemini">Gemini</option>
+              </select>
+              {concursoNome && <span>· {concursoNome}</span>}
             </div>
           </div>
           <button
