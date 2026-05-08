@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlgorithmSection } from '@/components/AlgorithmSection';
 import { BackupSection } from '@/components/BackupSection';
+import { AutoBackupRestoreSection } from '@/components/AutoBackupRestoreSection';
 import { ThemeSection } from '@/components/ThemeSection';
 import { DailyGoalSection } from '@/components/DailyGoalSection';
 import { NotificationsSection } from '@/components/NotificationsSection';
@@ -78,6 +79,8 @@ export default async function ConfiguracoesPage() {
       <StorageInfo />
 
       <BackupSection />
+
+      <AutoBackupRestoreSection />
 
       <SettingsBackupSection />
 
