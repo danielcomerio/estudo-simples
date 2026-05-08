@@ -318,7 +318,23 @@ Path scheme: `{user_id}/{question_id}/{uuid}.{ext}`.
 
   Verifica com `npm run check:migrations` (cruza disco × DB).
 
-**Próxima migration deve ser 0026.** Não editar 0001-0025.
+- `0026_ai_response_cache.sql` — cache compartilhado de respostas IA
+  determinísticas (cache_key sha256). RPC `ai_cache_record_hit` atômico.
+- `0027_ai_usage.sql` — tracking por user (provider, model, chars,
+  tokens, cached, kind). RLS own. Endpoint `/api/ai/usage` agrega 30d.
+- `0028_editais.sql` — feed agregado de editais via cron RSS PCI.
+  Tabelas `editais` (público) + `editais_preferences` (own).
+- `0029_ai_personas.sql` — personas customizadas pra AI Coach
+  (system_prompt + concurso_id opcional + is_public). Marketplace
+  via `/personas-publicas`.
+- `0030_concurso_events.sql` — eventos vinculados a concursos
+  (provas, simulados, redação, inscrições). FK composto pra concursos.
+  Cron `events-reminders` notifica via push/telegram/discord.
+- `0031_ics_tokens.sql` — token público pra subscribe de calendário
+  (Google/Outlook/Apple). RPC SECURITY DEFINER resolve user_id +
+  incrementa fetch_count anônimo.
+
+**Próxima migration deve ser 0032.** Não editar 0001-0031.
 
 ## Roadmap & escopo
 
