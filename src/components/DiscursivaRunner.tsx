@@ -26,6 +26,7 @@ import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
 import { AIDiscursivaEvaluator } from './AIDiscursivaEvaluator';
 import { DiscursivaSideBySide } from './DiscursivaSideBySide';
+import { AICompareDiscursivasButton } from './AICompareDiscursivasButton';
 import { useSwipe } from '@/lib/use-swipe';
 import { UndoChip } from './UndoChip';
 import { acquireWakeLock } from '@/lib/wake-lock';
@@ -618,10 +619,15 @@ function DiscRunningView({
               <MicButton
                 size="md"
                 continuous
-                title="Ditar redação (mantém ouvindo)"
-                onTranscript={(t) =>
-                  setResposta((prev) => (prev ? `${prev} ${t}` : t))
-                }
+                title="Ditar redação (mantém ouvindo). Diga 'revelar' pra mostrar espelho."
+                onTranscript={(t) => {
+                  // Comando de voz: "revelar" / "revelar espelho"
+                  if (/\brevel(ar|e|ou)\b/i.test(t)) {
+                    setRevealed(true);
+                    return;
+                  }
+                  setResposta((prev) => (prev ? `${prev} ${t}` : t));
+                }}
               />
             </div>
             <textarea
@@ -753,6 +759,11 @@ function DiscReveal({
               criterio: r.criterio ?? '',
               pontos: r.pontos ?? 1,
             }))}
+          />
+          <AICompareDiscursivasButton
+            enunciado={enun}
+            espelho={payload.espelho_resposta}
+            respostaInicial={resposta}
           />
         </>
       )}

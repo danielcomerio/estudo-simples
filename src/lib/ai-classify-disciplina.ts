@@ -42,7 +42,9 @@ function buildPrompt(novos: string[], existentes: string[]): string {
   return lines.join('\n');
 }
 
-function parseResponse(text: string, novos: string[]): AIDiscMappingResult {
+// Exportado pra testes (parseResponse_internalForTests). Não usar em
+// produção fora deste módulo.
+export function parseResponse(text: string, novos: string[]): AIDiscMappingResult {
   const out: AIDiscMappingResult = new Map();
   for (const n of novos) out.set(n, { match: null, confidence: 0 });
   const m = text.match(/\{[\s\S]*\}/);

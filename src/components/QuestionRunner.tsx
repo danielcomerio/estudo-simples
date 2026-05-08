@@ -41,6 +41,7 @@ import { TTSButton } from './TTSButton';
 import { VoiceAnswerButton } from './VoiceAnswerButton';
 import { AIExplainButton } from './AIExplainButton';
 import { AICompareAlternativesButton } from './AICompareAlternativesButton';
+import { SuggestSimilarButton } from './SuggestSimilarButton';
 import { createInsightState, pushAndDetect } from '@/lib/live-insights';
 import { QuestionChatPanel } from './QuestionChatPanel';
 import { AISessionSummaryButton } from './AISessionSummaryButton';
@@ -1819,6 +1820,7 @@ function RunningView({
               altErrada={{ letra: chosenAlt.letra, texto: chosenAlt.texto ?? '' }}
             />
           )}
+          {!isCorrect && <SuggestSimilarButton question={q} />}
 
           {/* Rating de qualidade — comunidade ajuda a curar. */}
           <QuestionRatingButtons questionId={q.id} />

@@ -15,6 +15,8 @@ import { toast } from './Toast';
 import { computeMastery } from '@/lib/disciplina-mastery';
 import { AIDisciplinaSummary } from './AIDisciplinaSummary';
 import { AIConceptMapButton } from './AIConceptMapButton';
+import { AIDicaDoDiaButton } from './AIDicaDoDiaButton';
+import { ResetDisciplinaButton } from './ResetDisciplinaButton';
 
 /**
  * Página de disciplinas — read-only no que toca a CRIAR ou EXCLUIR.
@@ -244,6 +246,8 @@ function DisciplinaRow({
         <div className="row gap">
           <AIDisciplinaSummary disciplinaNome={d.nome} />
           <AIConceptMapButton disciplinaNome={d.nome} />
+          <AIDicaDoDiaButton disciplinaNome={d.nome} />
+          <ResetDisciplinaButton disciplinaNome={d.nome} />
           <button type="button" className="ghost" onClick={onEdit}>
             Editar
           </button>

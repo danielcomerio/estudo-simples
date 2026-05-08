@@ -45,6 +45,7 @@ import { PodcastModeButton } from './PodcastModeButton';
 import { AIBulkTagButton } from './AIBulkTagButton';
 import { AIBancoCoachButton } from './AIBancoCoachButton';
 import { AICompareQuestionsButton } from './AICompareQuestionsButton';
+import { AIBulkValidateButton } from './AIBulkValidateButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -1987,6 +1988,7 @@ export function BancoList() {
         <PodcastModeButton questions={sorted.slice(0, 50)} />
         <AIBulkTagButton />
         <AIBancoCoachButton />
+        <AIBulkValidateButton />
         <button
           type="button"
           onClick={() => setTagMergeOpen(true)}
