@@ -803,6 +803,87 @@ Antes de escrever código:
 
 Veja `git log --oneline` — commits têm o "porquê" no corpo.
 
+### Onda 3 (2026-05-08) — IA expandida + UX diferenciais (~80 features)
+
+**Persona/Coach unificado:**
+- `lib/persona-active.ts` — persona global aplicada em Explain/Generate/
+  Discursiva/Cloze/Coach. AICoach selector sincroniza via setter compartilhado.
+- AICoach: STT input (MicButton), TTS output por mensagem, voice mode (auto-TTS),
+  conversa mode (auto-send pós pausa), provider switch inline.
+
+**IA contextual:**
+- Live AI Tutor em /estudar (auto-explica após erro, opt-in via SessionConfig.liveTutor).
+- Live insights local (hot/cold streak, slump por disciplina) sem custo IA.
+- AIExplainTermPopover global: seleciona texto → IA explica termo (data-explain="1").
+- AIBancoCoachButton: IA sugere próxima ação baseada no estado do banco.
+- AISessionSummaryButton: IA resume sessão com retrospectiva.
+
+**Geração e qualidade:**
+- AIQualityScoreButton no Drawer: nota 0-10 + flags, salva em payload.ai_quality.
+- AIFlashcardFromQuestionButton: gera flashcards a partir de objetiva.
+- AIVariantButton: gera variações da questão.
+- AIMnemonicButton: cria mnemônica curta (sigla/frase).
+- AISuggestTagsButton + AIBulkTagButton: tags canônicas via IA.
+- AISuggestMappingButton: mapeia disciplinas no import via IA.
+- AIDuplicateRefineButton: filtra falsos positivos do scan Jaccard.
+
+**Análise de disciplina/concurso:**
+- AIDisciplinaSummary, AIConceptMapButton, AIStudyPlanButton.
+- ConcursoHealthBadge (cobertura × domínio), ConcursoComparisonCard,
+  ConcursoNotebookButton.
+
+**Voice:**
+- `components/MicButton.tsx` — Web Speech API pt-BR, continuous opcional.
+- `components/VoiceAnswerButton.tsx` — STT detecta letra A-E + comandos
+  ("próxima", "pular", "explica") em /estudar.
+- PodcastModeButton: TTS lê N questões em sequência.
+
+**Stats e gamificação:**
+- /achievements page: 12 conquistas com progress bar.
+- ConquistasButton: modal agregado de stats/badges/streaks.
+- HourPerformanceCard, SimuladoTimeline.
+- StreakFreezesCard: 1 freeze a cada 7 dias + 1 por simulado, max 3.
+- WarmupQuestionCard, DisciplinaMastery (Bronze/Prata/Ouro/Diamante).
+
+**Engagement:**
+- DailyBriefingCard, PomodoroReflectionToast, ShareDailyResult.
+- /api/cron/daily-summary 23h, /api/cron/weekly-digest dom 18h.
+
+**UX produtividade:**
+- /hoje, /erros, /free-recall, /achievements (rotas novas).
+- QuickCaptureModal Ctrl+Shift+N, StickyNotesModal Ctrl+Shift+M.
+- FocusMode F8: esconde topbar/sidebars/footer.
+- HashScrollHandler, BackToTopFab, OnlineDot, SimuladoPendingBanner.
+
+**Tipos novos:**
+- TagInput chip-style com auto-completion canonical.
+- FlashcardReverseButton: card SRS reverso (Anki Basic+reversed).
+- Theme `time` (claro 6-18h, escuro fora).
+
+**Import/Export:**
+- Anki TXT import (sem .apkg pra evitar sql.js).
+- Markdown export (Notion/Obsidian).
+- Paste de imagem no Drawer enunciado (upload Storage automático).
+
+**Busca em /banco — prefixos novos:**
+- `ai:1` (gabarito-ia), `dom:N` (% acerto >=N), `quality:N` (ai_quality.score >=N).
+
+**Compartilhamento:**
+- QR code via api.qrserver.com em SharedLinksSection.
+
+**/planos:**
+- Seção anual + parcelamento + ROI calculator vs cursinho.
+
+**Libs novas:**
+- `lib/persona-active.ts`, `lib/anki-import.ts`, `lib/streak-freezes.ts`,
+  `lib/ai-classify-disciplina.ts`, `lib/live-insights.ts`,
+  `lib/disciplina-mastery.ts`, `lib/markdown-export.ts`,
+  `lib/simulado-balanceado.ts`.
+
+**Crons novos:**
+- `/api/cron/daily-summary` (23h UTC)
+- `/api/cron/weekly-digest` (dom 18h UTC)
+
 ### Onda 2 (2026-05-04 → ...) — refinements e produtividade
 
 **Painel:**

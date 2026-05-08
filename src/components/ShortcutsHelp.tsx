@@ -93,6 +93,9 @@ export function ShortcutsHelp() {
               <Row k="Ctrl+E" desc="Vai pra /estudar" />
               <Row k="Ctrl+Shift+F" desc="Busca global em todas as questões" />
               <Row k="Ctrl+Shift+L" desc="Cicla tema (auto / claro / escuro)" />
+              <Row k="Ctrl+Shift+N" desc="Captura rápida (cria flashcard ou cloze)" />
+              <Row k="Ctrl+Shift+M" desc="Bloco de notas (sticky notes)" />
+              <Row k="F8" desc="Ativa/desativa modo focado (esconde topbar/sidebars)" />
               <Row k="?" desc="Abre/fecha esta ajuda" />
               <Row k="G H/B/E/C/D/S/M/K/O" desc="Vim-jump: g + letra navega (h painel, b banco, e estudar, c cards, d discursivas, s stats, m simulado, k concursos, o opções)" />
             </Section>

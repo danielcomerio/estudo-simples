@@ -35,6 +35,7 @@ import { AISuggestTagsButton } from './AISuggestTagsButton';
 import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
 import { FlashcardReverseButton } from './FlashcardReverseButton';
 import { AIMnemonicButton } from './AIMnemonicButton';
+import { AIVariantButton } from './AIVariantButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -1063,6 +1064,7 @@ export function QuestionEditDrawer({
           <FlashcardReverseButton question={question} />
         )}
         <AIMnemonicButton question={question} />
+        <AIVariantButton question={question} />
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (

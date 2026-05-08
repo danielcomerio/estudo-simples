@@ -42,6 +42,7 @@ import { VoiceAnswerButton } from './VoiceAnswerButton';
 import { AIExplainButton } from './AIExplainButton';
 import { createInsightState, pushAndDetect } from '@/lib/live-insights';
 import { QuestionChatPanel } from './QuestionChatPanel';
+import { AISessionSummaryButton } from './AISessionSummaryButton';
 import { QuestionRatingButtons } from './QuestionRatingButtons';
 import { fmtRelative } from '@/lib/format';
 import { useSwipe } from '@/lib/use-swipe';
@@ -2193,6 +2194,13 @@ function Summary({
           </div>
         );
       })()}
+
+      <AISessionSummaryButton
+        pool={session.pool}
+        startedAt={session.startedAt}
+        correct={session.correct}
+        wrong={session.wrong}
+      />
 
       {(() => {
         // Lista de questões erradas nesta sessão (com link rápido pra

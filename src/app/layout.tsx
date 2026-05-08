@@ -12,6 +12,7 @@ import { QuickCaptureModal } from '@/components/QuickCaptureModal';
 import { FocusMode } from '@/components/FocusMode';
 import { StickyNotesModal } from '@/components/StickyNotesModal';
 import { AIExplainTermPopover } from '@/components/AIExplainTermPopover';
+import { BackToTopFab } from '@/components/BackToTopFab';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -160,6 +161,7 @@ export default async function RootLayout({
             <FocusMode />
             <StickyNotesModal />
             <AIExplainTermPopover />
+            <BackToTopFab />
             <OnboardingTour />
             <main id="main-content" className="page">
               {children}

@@ -401,6 +401,7 @@ export function BancoList() {
     let onlyBookmarked = false;
     let onlyAIGenerated = false;
     let minAcerto: number | null = null; // dom:80 → questões com %acerto >= 80
+    let minQuality: number | null = null; // quality:7 → ai_quality.score >= 7
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
@@ -419,6 +420,9 @@ export function BancoList() {
       } else if (lower.startsWith('dom:')) {
         const v = parseInt(lower.slice(4), 10);
         if (!Number.isNaN(v)) minAcerto = Math.max(0, Math.min(100, v));
+      } else if (lower.startsWith('quality:')) {
+        const v = parseInt(lower.slice(8), 10);
+        if (!Number.isNaN(v)) minQuality = Math.max(0, Math.min(10, v));
       } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
@@ -469,6 +473,11 @@ export function BancoList() {
         const c = q.stats?.correct ?? 0;
         if (t < 3) return false;
         if ((c / t) * 100 < minAcerto) return false;
+      }
+      // quality:N — só com ai_quality.score >= N
+      if (minQuality !== null) {
+        const score = (q.payload as { ai_quality?: { score?: number } } | null)?.ai_quality?.score;
+        if (typeof score !== 'number' || score < minQuality) return false;
       }
       // Prefixos
       if (tagFilters.length > 0) {
@@ -1721,7 +1730,7 @@ export function BancoList() {
           <input
             ref={searchRef}
             type="search"
-            placeholder="Buscar (/). Prefixos: tag:x disc:y banca:z due:7d ai:1 dom:80 bookmark:1"
+            placeholder="Buscar (/). Prefixos: tag:x disc:y banca:z due:7d ai:1 dom:80 quality:7 bookmark:1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, minWidth: 0 }}

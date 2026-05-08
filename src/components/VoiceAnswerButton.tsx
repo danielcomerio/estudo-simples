@@ -34,16 +34,37 @@ function extractLetra(text: string): string | null {
   return null;
 }
 
-export function VoiceAnswerButton({ onLetra }: { onLetra: (l: string) => void }) {
+/** Detecta comando textual além de letras. */
+function extractCommand(text: string): 'next' | 'skip' | 'explain' | null {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (/\b(próxima|proxima|next|continua)\b/.test(t)) return 'next';
+  if (/\b(pular|skip|passa)\b/.test(t)) return 'skip';
+  if (/\b(explica|explicar|explique)\b/.test(t)) return 'explain';
+  return null;
+}
+
+export function VoiceAnswerButton({
+  onLetra,
+  onCommand,
+}: {
+  onLetra: (l: string) => void;
+  onCommand?: (c: 'next' | 'skip' | 'explain') => void;
+}) {
   const [last, setLast] = useState('');
 
   return (
     <div className="row gap" style={{ alignItems: 'center', marginTop: 6 }}>
       <MicButton
         size="sm"
-        title="Diga a letra (A-E)"
+        title="Diga a letra (A-E) ou comando: próxima/pular/explica"
         onTranscript={(text) => {
           setLast(text);
+          const cmd = extractCommand(text);
+          if (cmd && onCommand) {
+            onCommand(cmd);
+            return;
+          }
           const letra = extractLetra(text);
           if (letra) onLetra(letra);
         }}
