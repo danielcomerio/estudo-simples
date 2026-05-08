@@ -14,9 +14,9 @@ import { startOfDay } from '@/lib/utils';
  */
 const TABS = [
   { href: '/', label: 'Painel', icon: '🏠' },
+  { href: '/hoje', label: 'Hoje', icon: '📅' },
   { href: '/banco', label: 'Banco', icon: '📚' },
   { href: '/estudar', label: 'Estudar', icon: '🎯' },
-  { href: '/cards', label: 'Cards', icon: '🃏' },
   { href: '/stats', label: 'Stats', icon: '📊' },
 ];
 

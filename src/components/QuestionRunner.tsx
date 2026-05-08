@@ -40,6 +40,7 @@ import { GabaritoSourceBadge } from './GabaritoSourceBadge';
 import { TTSButton } from './TTSButton';
 import { VoiceAnswerButton } from './VoiceAnswerButton';
 import { AIExplainButton } from './AIExplainButton';
+import { AICompareAlternativesButton } from './AICompareAlternativesButton';
 import { createInsightState, pushAndDetect } from '@/lib/live-insights';
 import { QuestionChatPanel } from './QuestionChatPanel';
 import { AISessionSummaryButton } from './AISessionSummaryButton';
@@ -1811,6 +1812,13 @@ function RunningView({
             }
             autoTrigger={!isCorrect && !!session.liveTutor}
           />
+          {!isCorrect && correctAlt && chosenAlt && correctAlt.letra !== chosenAlt.letra && (
+            <AICompareAlternativesButton
+              enunciado={payload.enunciado}
+              altCorreta={{ letra: correctAlt.letra, texto: correctAlt.texto ?? '' }}
+              altErrada={{ letra: chosenAlt.letra, texto: chosenAlt.texto ?? '' }}
+            />
+          )}
 
           {/* Rating de qualidade — comunidade ajuda a curar. */}
           <QuestionRatingButtons questionId={q.id} />

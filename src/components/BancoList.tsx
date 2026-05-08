@@ -44,6 +44,7 @@ import { AISearchButton } from './AISearchButton';
 import { PodcastModeButton } from './PodcastModeButton';
 import { AIBulkTagButton } from './AIBulkTagButton';
 import { AIBancoCoachButton } from './AIBancoCoachButton';
+import { AICompareQuestionsButton } from './AICompareQuestionsButton';
 import { TagMergeDialog } from './TagMergeDialog';
 import { BancoBrowse } from './BancoBrowse';
 import { QuestionEditDrawer } from './QuestionEditDrawer';
@@ -2049,6 +2050,7 @@ export function BancoList() {
             telas estreitas, e antes do destrutivo "Excluir" pra evitar
             cliques acidentais. */}
         <ShareDeckButton selectedIds={selected} />
+        <AICompareQuestionsButton selectedIds={selected} />
         <button type="button" className="danger" onClick={deleteSelected}>
           Excluir selecionadas
         </button>
