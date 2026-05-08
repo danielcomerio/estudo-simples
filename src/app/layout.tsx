@@ -11,6 +11,7 @@ import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
 import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
+import { TopbarHeightTracker } from '@/components/TopbarHeightTracker';
 import { ConfettiHost } from '@/components/ConfettiHost';
 import { XPToast } from '@/components/XPToast';
 import { AchievementToast } from '@/components/AchievementToast';
@@ -141,6 +142,7 @@ export default async function RootLayout({
               Pular para o conteúdo
             </a>
             <Topbar email={effectiveEmail ?? null} isGuest={isGuest} />
+            <TopbarHeightTracker />
             <BadgingHost />
             <AchievementDetector />
             <OfflineBanner />

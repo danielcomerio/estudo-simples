@@ -192,23 +192,43 @@ export function BancoList() {
   }, [compact]);
 
   // Persiste e restaura scroll position do /banco entre navegações.
-  // Salva sempre que o user rola; restaura ao montar (uma vez).
+  // Salva sempre que o user rola; restaura ao montar SE a última
+  // posição é recente (<2min). Senão começa do topo — evita o
+  // comportamento confuso de "abre sempre no fim quando vou e volto
+  // várias vezes na aba".
   useEffect(() => {
     const KEY = 'estudo-simples:banco:scrollY';
+    const TS_KEY = 'estudo-simples:banco:scrollY:ts';
+    const TTL_MS = 2 * 60 * 1000;
+    let saveTimer: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
-      try {
-        sessionStorage.setItem(KEY, String(window.scrollY));
-      } catch {}
+      // Debounce 200ms pra não saturar sessionStorage
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        try {
+          sessionStorage.setItem(KEY, String(window.scrollY));
+          sessionStorage.setItem(TS_KEY, String(Date.now()));
+        } catch {}
+      }, 200);
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    // Restaura na próxima frame (após o layout estabilizar)
     requestAnimationFrame(() => {
       try {
+        const ts = parseInt(sessionStorage.getItem(TS_KEY) ?? '0', 10);
+        if (Date.now() - ts > TTL_MS) {
+          // Posição expirada: começa do topo
+          sessionStorage.removeItem(KEY);
+          sessionStorage.removeItem(TS_KEY);
+          return;
+        }
         const v = sessionStorage.getItem(KEY);
         if (v) window.scrollTo(0, parseInt(v, 10));
       } catch {}
     });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      if (saveTimer) clearTimeout(saveTimer);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
   // Aplica filtros via URL query (?search=foo, ?srs=inimigas, etc.)
