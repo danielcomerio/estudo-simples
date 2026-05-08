@@ -82,6 +82,7 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState('');
+  const [voiceMode, setVoiceMode] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -182,6 +183,27 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
             const final = [...newMessages, assistantMsg];
             setMessages(final);
             saveCoachHistory(final);
+            if (voiceMode && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+              try {
+                const cleaned = buffer
+                  .trim()
+                  .replace(/\$\$[\s\S]*?\$\$/g, '')
+                  .replace(/\$[^$]*?\$/g, '')
+                  .replace(/```[\s\S]*?```/g, '')
+                  .replace(/`[^`]*?`/g, '')
+                  .replace(/[*_~]+/g, '')
+                  .slice(0, 1500);
+                const u = new SpeechSynthesisUtterance(cleaned);
+                u.lang = 'pt-BR';
+                const voices = window.speechSynthesis.getVoices();
+                const ptBr = voices.find((v) => v.lang.startsWith('pt'));
+                if (ptBr) u.voice = ptBr;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(u);
+              } catch {
+                /* ignore */
+              }
+            }
           }
           setStreamingText('');
           setLoading(false);
@@ -286,6 +308,22 @@ function CoachPanel({ onClose }: { onClose: () => void }) {
               {concursoNome && <span>· {concursoNome}</span>}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setVoiceMode((v) => !v)}
+            title={voiceMode ? 'Desativar voz' : 'Ativar voz (TTS automática)'}
+            style={{
+              padding: '4px 10px',
+              fontSize: '0.85rem',
+              background: voiceMode ? 'var(--primary-soft)' : 'transparent',
+              color: voiceMode ? 'var(--primary)' : undefined,
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              marginRight: 6,
+            }}
+          >
+            {voiceMode ? '🔊' : '🔈'}
+          </button>
           <button
             onClick={onClose}
             aria-label="Fechar"

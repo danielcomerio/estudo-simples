@@ -274,6 +274,20 @@ function LinkItem({
           </button>
           <button
             type="button"
+            onClick={() => {
+              window.open(
+                `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`,
+                '_blank',
+                'noopener'
+              );
+            }}
+            title="QR code (abre em nova aba via api.qrserver.com)"
+            style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+          >
+            🔲 QR
+          </button>
+          <button
+            type="button"
             className="danger"
             onClick={revoke}
             style={{ padding: '4px 10px', fontSize: '0.85rem' }}
