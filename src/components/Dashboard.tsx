@@ -204,10 +204,8 @@ export function Dashboard() {
             <li>
               <strong>Importe questões</strong> em{' '}
               <Link href="/banco">/banco</Link>. Suporta JSON formato
-              autoral (`disciplina_id` + `enunciado` + `alternativas`)
-              ou formato real (extração tipo QConcursos: `materia` +
-              `concursoAno` + `gabarito`). Detecta automático e abre
-              wizard com mapping de disciplinas.
+              autoral e formatos alternativos (extração de outros sites).
+              Detecta automático e abre wizard com mapping de disciplinas.
             </li>
             <li>
               <strong>Comece a estudar</strong> em{' '}

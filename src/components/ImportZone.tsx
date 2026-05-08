@@ -561,9 +561,8 @@ function ExemplosFormatos({ onPick }: { onPick: (text: string) => void }) {
         className="muted"
         style={{ fontSize: '0.78rem', marginTop: 8, fontStyle: 'italic' }}
       >
-        Pra formato "real" (extração de QConcursos), use <code>materia</code>{' '}
-        e <code>concursoAno</code> em vez de <code>disciplina_id</code> +
-        <code>banca_estilo</code> — o app detecta automaticamente.
+        Formatos alternativos (extração de outros sites) também são
+        detectados automaticamente.
       </p>
     </details>
   );
