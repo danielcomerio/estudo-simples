@@ -1070,6 +1070,40 @@ export function QuestionEditDrawer({
         <AIVariantButton question={question} />
         <AITranslateButton question={question} />
         <AIFixDuvidosaButton question={question} />
+        <button
+          type="button"
+          className="ghost"
+          onClick={async () => {
+            const json = JSON.stringify(
+              {
+                type: question.type,
+                disciplina_id: question.disciplina_id,
+                tema: question.tema,
+                banca_estilo: question.banca_estilo,
+                dificuldade: question.dificuldade,
+                tags: question.tags,
+                origem: question.origem,
+                fonte: question.fonte,
+                verificacao: question.verificacao,
+                payload: question.payload,
+              },
+              null,
+              2
+            );
+            try {
+              if (navigator.clipboard) {
+                await navigator.clipboard.writeText(json);
+                toast('📋 JSON copiado', 'success');
+              }
+            } catch {
+              toast('Falha ao copiar', 'error');
+            }
+          }}
+          title="Copia formato autoral pra clipboard (debug/share)"
+          style={{ padding: '6px 12px', fontSize: '0.85rem', marginTop: 8 }}
+        >
+          📋 Copiar JSON
+        </button>
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (

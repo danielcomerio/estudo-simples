@@ -405,6 +405,8 @@ export function BancoList() {
     let minAcerto: number | null = null; // dom:80 → questões com %acerto >= 80
     let minQuality: number | null = null; // quality:7 → ai_quality.score >= 7
     let onlyWithImages = false; // img:1 — questões com payload.imagens preenchido
+    let yearMin: number | null = null; // ano:2024 ou ano:2020-2024
+    let yearMax: number | null = null;
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
@@ -428,6 +430,19 @@ export function BancoList() {
         if (!Number.isNaN(v)) minQuality = Math.max(0, Math.min(10, v));
       } else if (lower === 'img:1' || lower === 'imagem:1') {
         onlyWithImages = true;
+      } else if (lower.startsWith('ano:')) {
+        const v = lower.slice(4);
+        const range = v.match(/^(\d{4})-(\d{4})$/);
+        if (range) {
+          yearMin = parseInt(range[1], 10);
+          yearMax = parseInt(range[2], 10);
+        } else {
+          const single = parseInt(v, 10);
+          if (!Number.isNaN(single) && single >= 1900 && single <= 2100) {
+            yearMin = single;
+            yearMax = single;
+          }
+        }
       } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
@@ -487,6 +502,12 @@ export function BancoList() {
       if (onlyWithImages) {
         const imgs = (q.payload as { imagens?: unknown[] } | null)?.imagens;
         if (!Array.isArray(imgs) || imgs.length === 0) return false;
+      }
+      if (yearMin !== null || yearMax !== null) {
+        const ano = (q.fonte as { ano?: number } | undefined)?.ano;
+        if (typeof ano !== 'number') return false;
+        if (yearMin !== null && ano < yearMin) return false;
+        if (yearMax !== null && ano > yearMax) return false;
       }
       // Prefixos
       if (tagFilters.length > 0) {
