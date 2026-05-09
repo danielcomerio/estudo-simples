@@ -31,12 +31,14 @@ import { QuestionChatPanel } from './QuestionChatPanel';
 import { AIRewriteButton } from './AIRewriteButton';
 import { AIQualityScoreButton } from './AIQualityScoreButton';
 import { TagInput } from './TagInput';
+import { confirmDialog } from './ConfirmDialog';
 import { AISuggestTagsButton } from './AISuggestTagsButton';
 import { AIFlashcardFromQuestionButton } from './AIFlashcardFromQuestionButton';
 import { FlashcardReverseButton } from './FlashcardReverseButton';
 import { AIMnemonicButton } from './AIMnemonicButton';
 import { AIVariantButton } from './AIVariantButton';
 import { AITranslateButton } from './AITranslateButton';
+import { AIFixDuvidosaButton } from './AIFixDuvidosaButton';
 
 /**
  * Drawer modal pra edição inline de questão.
@@ -1067,6 +1069,7 @@ export function QuestionEditDrawer({
         <AIMnemonicButton question={question} />
         <AIVariantButton question={question} />
         <AITranslateButton question={question} />
+        <AIFixDuvidosaButton question={question} />
 
         {/* Histórico de revisão detalhado — só aparece quando há registros */}
         {(question.stats?.history?.length ?? 0) > 0 && (
@@ -1163,6 +1166,39 @@ export function QuestionEditDrawer({
                 </li>
               )}
             </ul>
+            <button
+              type="button"
+              className="ghost"
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: 'Limpar histórico desta questão',
+                  message:
+                    'Vai zerar SRS (dueDate, repetições, EF) e stats (tentativas, acertos, history). Não exclui a questão. Continuar?',
+                  danger: true,
+                });
+                if (!ok) return;
+                updateQuestionLocal(question.id, () => ({
+                  srs: {
+                    dueDate: 0,
+                    repetitions: 0,
+                    easeFactor: 2.5,
+                    interval: 0,
+                    lastReviewed: null,
+                  },
+                  stats: { attempts: 0, correct: 0, wrong: 0, history: [] },
+                }));
+                scheduleSync();
+                toast('✅ Histórico zerado', 'success');
+              }}
+              style={{
+                padding: '4px 10px',
+                fontSize: '0.82rem',
+                marginTop: 8,
+                color: 'var(--danger)',
+              }}
+            >
+              ↺ Limpar histórico desta questão
+            </button>
           </details>
         )}
 

@@ -404,6 +404,7 @@ export function BancoList() {
     let onlyAIGenerated = false;
     let minAcerto: number | null = null; // dom:80 → questões com %acerto >= 80
     let minQuality: number | null = null; // quality:7 → ai_quality.score >= 7
+    let onlyWithImages = false; // img:1 — questões com payload.imagens preenchido
     const freeTextParts: string[] = [];
     for (const tok of tokens) {
       const lower = tok.toLowerCase();
@@ -425,6 +426,8 @@ export function BancoList() {
       } else if (lower.startsWith('quality:')) {
         const v = parseInt(lower.slice(8), 10);
         if (!Number.isNaN(v)) minQuality = Math.max(0, Math.min(10, v));
+      } else if (lower === 'img:1' || lower === 'imagem:1') {
+        onlyWithImages = true;
       } else freeTextParts.push(tok.toLowerCase());
     }
     const txt = freeTextParts.join(' ');
@@ -480,6 +483,10 @@ export function BancoList() {
       if (minQuality !== null) {
         const score = (q.payload as { ai_quality?: { score?: number } } | null)?.ai_quality?.score;
         if (typeof score !== 'number' || score < minQuality) return false;
+      }
+      if (onlyWithImages) {
+        const imgs = (q.payload as { imagens?: unknown[] } | null)?.imagens;
+        if (!Array.isArray(imgs) || imgs.length === 0) return false;
       }
       // Prefixos
       if (tagFilters.length > 0) {
@@ -1733,7 +1740,7 @@ export function BancoList() {
           <input
             ref={searchRef}
             type="search"
-            placeholder="Buscar (/). Prefixos: tag:x disc:y banca:z due:7d ai:1 dom:80 quality:7 bookmark:1"
+            placeholder="Buscar (/). Prefixos: tag:x disc:y banca:z due:7d ai:1 dom:80 quality:7 img:1 bookmark:1"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ flex: 1, minWidth: 0 }}

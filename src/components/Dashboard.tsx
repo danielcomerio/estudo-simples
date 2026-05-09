@@ -24,6 +24,7 @@ import { ConquistasButton } from './ConquistasButton';
 import { QuizDueloButton } from './QuizDueloButton';
 import { AIOneClickDeciderButton } from './AIOneClickDeciderButton';
 import { TempoTotalCard } from './TempoTotalCard';
+import { UltimaSessaoCard } from './UltimaSessaoCard';
 import { WarmupQuestionCard } from './WarmupQuestionCard';
 import { SimuladoPendingBanner } from './SimuladoPendingBanner';
 
@@ -515,6 +516,8 @@ export function Dashboard() {
       <StreakFreezesCard currentStreak={streak} />
 
       <TempoTotalCard />
+
+      <UltimaSessaoCard />
 
       <div className="row gap wrap" style={{ marginBottom: 8 }}>
         <AIOneClickDeciderButton />
