@@ -9,6 +9,7 @@ const KEY = 'estudo-simples:desktop-sidebar-collapsed';
 const ITEMS = [
   { href: '/', label: 'Painel', icon: '🏠' },
   { href: '/hoje', label: 'Hoje', icon: '📅' },
+  { href: '/revisoes', label: 'Revisões', icon: '🗓' },
   { href: '/banco', label: 'Banco', icon: '📚' },
   { href: '/estudar', label: 'Estudar', icon: '🎯' },
   { href: '/cards', label: 'Cards', icon: '🃏' },

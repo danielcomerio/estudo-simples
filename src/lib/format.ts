@@ -8,7 +8,22 @@ export function fmtDate(ts: number | null | undefined): string {
 
 export function fmtRelative(ts: number | null | undefined, now = Date.now()): string {
   if (!ts) return '—';
-  const diffDays = Math.round((ts - now) / DAY_MS);
+  const diffMs = ts - now;
+  const absDiff = Math.abs(diffMs);
+  const past = diffMs < 0;
+  // < 1min — granularidade fina
+  if (absDiff < 60_000) return past ? 'agora há pouco' : 'em instantes';
+  // < 1h
+  if (absDiff < 3_600_000) {
+    const min = Math.round(absDiff / 60_000);
+    return past ? `há ${min}min` : `em ${min}min`;
+  }
+  // < 1d (mas só aplica se mesma data; senão cai pra "ontem"/"hoje")
+  if (absDiff < DAY_MS && Math.round(diffMs / DAY_MS) === 0) {
+    const h = Math.round(absDiff / 3_600_000);
+    return past ? `há ${h}h` : `em ${h}h`;
+  }
+  const diffDays = Math.round(diffMs / DAY_MS);
   if (diffDays < -30) return `há ${Math.abs(diffDays)} dias`;
   if (diffDays < -1) return `há ${-diffDays} dias`;
   if (diffDays === -1) return 'ontem';

@@ -37,6 +37,7 @@ export function CommandPalette() {
     const cmds: Command[] = [
       { label: 'Painel', action: () => router.push('/'), hint: 'Início' },
       { label: 'Hoje', action: () => router.push('/hoje'), keywords: 'hoje rapido vencidas', hint: 'Ctrl+G' },
+      { label: 'Calendário de revisões', action: () => router.push('/revisoes'), keywords: 'calendario revisoes srs cronograma' },
       { label: 'Inimigas', action: () => router.push('/erros'), keywords: 'erros inimigas dificeis' },
       { label: 'Free recall', action: () => router.push('/free-recall'), keywords: 'karpicke escrever livre' },
       { label: 'Conquistas', action: () => router.push('/achievements'), keywords: 'achievements badges' },
@@ -100,10 +101,11 @@ export function CommandPalette() {
     );
   }, [commands, query]);
 
-  // Atalhos globais pra abrir/fechar
+  // Atalhos globais pra abrir/fechar.
+  // Aceita Ctrl/Cmd OR Alt — Alt evita conflito com bookmarks do navegador.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const isMod = e.ctrlKey || e.metaKey;
+      const isMod = e.ctrlKey || e.metaKey || e.altKey;
       if (isMod && (e.key === 'k' || e.key === 'K' || e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
         setOpen((v) => !v);

@@ -19,10 +19,11 @@ import { toast } from './Toast';
 export function QuickCaptureModal() {
   const userId = useStore((s) => s.userId);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<'flashcard' | 'cloze'>('flashcard');
+  const [mode, setMode] = useState<'flashcard' | 'cloze' | 'paste'>('flashcard');
   const [frente, setFrente] = useState('');
   const [verso, setVerso] = useState('');
   const [clozeText, setClozeText] = useState('');
+  const [pasteText, setPasteText] = useState('');
   const [disciplina, setDisciplina] = useState('');
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export function QuickCaptureModal() {
     setFrente('');
     setVerso('');
     setClozeText('');
+    setPasteText('');
   };
 
   const save = () => {
@@ -70,7 +72,7 @@ export function QuickCaptureModal() {
       );
       scheduleSync();
       toast(r.added > 0 ? '✅ Flashcard salvo' : '❌ Falha', r.added > 0 ? 'success' : 'error');
-    } else {
+    } else if (mode === 'cloze') {
       if (!clozeText.trim() || !/\{\{c\d+::[^}]+\}\}/.test(clozeText)) {
         toast('Cloze precisa ter ao menos um {{c1::resposta}}', 'warn');
         return;
@@ -87,6 +89,49 @@ export function QuickCaptureModal() {
       );
       scheduleSync();
       toast(r.added > 0 ? '✅ Cloze salvo' : '❌ Falha', r.added > 0 ? 'success' : 'error');
+    } else {
+      // mode === 'paste' — parser heurístico
+      if (!pasteText.trim()) {
+        toast('Cole texto bruto (questão+alternativas)', 'warn');
+        return;
+      }
+      void (async () => {
+        const { parsePastedText, pastedToImportItem } = await import('@/lib/parse-pasted-text');
+        const parsed = parsePastedText(pasteText);
+        if (!parsed) {
+          toast(
+            'Não consegui detectar formato. Use A) B) C) e marque "Gabarito: X" no fim.',
+            'error'
+          );
+          return;
+        }
+        const item = pastedToImportItem(parsed, disc);
+        const r = saveGeneratedQuestions(
+          [
+            {
+              type: 'objetiva',
+              disciplina_id: item.disciplina_id,
+              payload: {
+                enunciado: item.enunciado,
+                alternativas: item.alternativas,
+                gabarito: item.gabarito,
+                explicacao_geral: item.explicacao_geral,
+              },
+            },
+          ],
+          userId
+        );
+        scheduleSync();
+        toast(
+          r.added > 0
+            ? `✅ Objetiva salva (${parsed.alternativas.length} alts${parsed.gabarito ? ', gabarito ' + parsed.gabarito : ''})`
+            : '❌ Falha',
+          r.added > 0 ? 'success' : 'error'
+        );
+        reset();
+        setOpen(false);
+      })();
+      return;
     }
     reset();
     setOpen(false);
@@ -113,6 +158,15 @@ export function QuickCaptureModal() {
             style={{ padding: '4px 10px', fontSize: '0.85rem' }}
           >
             Cloze
+          </button>
+          <button
+            type="button"
+            className={mode === 'paste' ? 'primary' : 'ghost'}
+            onClick={() => setMode('paste')}
+            style={{ padding: '4px 10px', fontSize: '0.85rem' }}
+            title="Cole texto bruto e o app detecta enunciado/alternativas/gabarito"
+          >
+            📋 Cole texto
           </button>
         </div>
 
@@ -142,12 +196,21 @@ export function QuickCaptureModal() {
               style={{ width: '100%', marginBottom: 10 }}
             />
           </>
-        ) : (
+        ) : mode === 'cloze' ? (
           <textarea
             placeholder='Texto com {{c1::lacunas}} marcadas. Ex: "Capital do Brasil é {{c1::Brasília}}."'
             value={clozeText}
             onChange={(e) => setClozeText(e.target.value)}
             rows={5}
+            style={{ width: '100%', marginBottom: 10 }}
+            autoFocus
+          />
+        ) : (
+          <textarea
+            placeholder={`Cole o texto bruto da questão. Ex:\n\nQual é a capital?\n\nA) Rio\nB) Brasília\nC) SP\n\nGabarito: B\nComentário: ...`}
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={10}
             style={{ width: '100%', marginBottom: 10 }}
             autoFocus
           />
