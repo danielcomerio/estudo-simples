@@ -17,7 +17,6 @@ import { PrimeirosPassos } from './PrimeirosPassos';
 import { triggerConfetti } from './ConfettiHost';
 import { ShareStreakButton } from './ShareStreakButton';
 import { ShareProgressButton } from './ShareProgressButton';
-import { EditaisCard } from './EditaisCard';
 import { DailyBriefingCard } from './DailyBriefingCard';
 import { StreakFreezesCard } from './StreakFreezesCard';
 import { ConquistasButton } from './ConquistasButton';
@@ -718,9 +717,6 @@ export function Dashboard() {
           dominadas={dominadas}
         />
       )}
-
-      {/* Editais ativos (feed agregado, opt-out via configurações) */}
-      <EditaisCard />
 
       {/* Meta diária */}
       <div className="card">

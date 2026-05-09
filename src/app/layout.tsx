@@ -13,7 +13,6 @@ import { FocusMode } from '@/components/FocusMode';
 import { StickyNotesModal } from '@/components/StickyNotesModal';
 import { AIExplainTermPopover } from '@/components/AIExplainTermPopover';
 import { BackToTopFab } from '@/components/BackToTopFab';
-import { DesktopSidebar } from '@/components/DesktopSidebar';
 import { OnboardingTour } from '@/components/OnboardingTour';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileFAB } from '@/components/MobileFAB';
@@ -174,7 +173,6 @@ export default async function RootLayout({
             </main>
             <MobileFAB />
             <MobileBottomNav />
-            <DesktopSidebar />
             <AICoach />
             <ToastHost />
           </StoreProvider>

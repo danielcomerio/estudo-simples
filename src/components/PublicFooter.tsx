@@ -1,11 +1,20 @@
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Footer compartilhado entre páginas públicas (landing, planos, manual,
  * privacidade, termos). Não aparece em rotas internas (banco, estudar,
  * etc.) — lá quem dá orientação é o Topbar/MobileBottomNav.
+ *
+ * Pra user logado retorna null — RootLayout já renderiza AppFooter.
+ * Evita 2 footers em /planos/manual/etc quando navega logado.
  */
-export function PublicFooter() {
+export async function PublicFooter() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) return null;
   const year = new Date().getFullYear();
   return (
     <footer
