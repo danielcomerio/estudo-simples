@@ -86,14 +86,15 @@ export function ShortcutsHelp() {
             </div>
 
             <Section title="Globais">
-              <Row k="Ctrl+K" desc="Abre/fecha command palette" />
-              <Row k="Ctrl+P" desc="Idem (alternativo)" />
-              <Row k="Ctrl+I" desc="Vai pra /banco (atalho de import)" />
-              <Row k="Ctrl+B" desc="Vai pra /banco" />
-              <Row k="Ctrl+E" desc="Vai pra /estudar" />
+              <Row k="Ctrl+K · Alt+K" desc="Abre/fecha command palette" />
+              <Row k="Ctrl+P · Alt+P" desc="Idem (alternativo)" />
+              <Row k="Ctrl+I · Alt+I" desc="Vai pra /banco (atalho de import)" />
+              <Row k="Ctrl+B · Alt+B" desc="Vai pra /banco" />
+              <Row k="Ctrl+E · Alt+E" desc="Vai pra /estudar" />
+              <Row k="Ctrl+G · Alt+G" desc="Vai pra /hoje" />
               <Row k="Ctrl+Shift+F" desc="Busca global em todas as questões" />
               <Row k="Ctrl+Shift+L" desc="Cicla tema (auto / claro / escuro)" />
-              <Row k="Ctrl+Shift+N" desc="Captura rápida (cria flashcard ou cloze)" />
+              <Row k="Ctrl+Shift+N" desc="Captura rápida (flashcard / cloze / cole texto)" />
               <Row k="Ctrl+Shift+M" desc="Bloco de notas (sticky notes)" />
               <Row k="F8" desc="Ativa/desativa modo focado (esconde topbar/sidebars)" />
               <Row k="?" desc="Abre/fecha esta ajuda" />

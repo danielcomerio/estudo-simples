@@ -803,6 +803,76 @@ Antes de escrever código:
 
 Veja `git log --oneline` — commits têm o "porquê" no corpo.
 
+### Onda 4 (2026-05-08 sessão extra) — pile fechado (155+ tasks)
+
+Continuação direta da Onda 3 — sem fronteira clara.
+
+**Migrations novas:**
+- `0032_questions_add_soma_type.sql` — adiciona tipo `'soma'` (UFRGS/Cebraspe somatório) ao CHECK de `questions.type`. SomaPayload em `lib/types.ts`. **USER ACTION**: aplicar manualmente no Supabase.
+- `0033_slack_webhooks.sql` — tabela `slack_webhooks` (mesmo pattern de discord_webhooks da 0022). UI/endpoint Slack ainda não implementados.
+
+**Rotas novas:**
+- `/revisoes` — calendário 30/60/90 dias com qtd questões SRS por dia (heatmap colorido).
+
+**IA novas:**
+- AICompareAlternativesButton (em /estudar quando errar) — explica diferença A vs B
+- AICompareQuestionsButton (em /banco bulk 2 questões) — IA aponta consolidação
+- AICompareDiscursivasButton (em /discursivas) — compara 2 respostas
+- AITranslateButton (Drawer) — PT→EN/ES
+- AIBulkValidateButton (/banco) — valida 20 questões IA-pendentes em batch
+- AIDicaDoDiaButton (/disciplinas) — 1 dica curta cache 24h
+- AIFinalSprintButton (/concursos com data_prova ≤60d) — plano dia-a-dia sprint final
+- AIFixDuvidosaButton (Drawer quando verificacao=duvidosa) — sugere correção
+- SuggestSimilarButton (/estudar pós-erro) — heurística local "mais 3 desse tipo"
+
+**UX novas:**
+- DesktopSidebar (>= 1280px) com 13 rotas + colapsável persistido
+- ResetDisciplinaButton (/disciplinas) — zera SRS + stats em massa
+- ClozeFillTrainer standalone — modo "preenche todos antes de revelar"
+- TimeAnalysisCard no SimuladoReport — 4 padrões metacognitivos
+- AutoBackupRestoreSection (/configuracoes) — restore do snapshot 24h
+- AutoFocusToggle (AccessibilitySection) — F8 auto ao entrar em /estudar
+- QuickCaptureModal modo "📋 Cole texto" usa parsePastedText pra criar objetiva auto
+- UltimaSessaoCard (/Painel) — resumo da sessão mais recente
+- Botão "📋 Copiar JSON" no Drawer
+
+**Voice:**
+- Voice cmd "revelar" no /discursivas
+- Voice cmd "próxima"/"pular"/"explica" em VoiceAnswerButton
+- AICoach modo "🎙 conversa" auto-send pós pausa
+
+**Busca em /banco — novos prefixos:**
+- `img:1` — questões com imagens
+- `ano:2024` ou `ano:2020-2024` — fonte.ano range
+- (já existentes: tag/disc/banca/due/id/bookmark/ai/dom/quality)
+
+**Atalhos novos:**
+- `Alt+B/E/G/K/I/P` aceitos como alternativa pro Ctrl (evita conflito bookmarks browser)
+
+**Libs novas:**
+- `lib/parse-pasted-text.ts` — extrai Q&A de texto bruto sem IA + 7 testes
+- `lib/validate-payload.ts` — valida shape por tipo + 15 testes
+- `lib/question-text.ts` — helpers getQuestionText/Answer/truncate + 10 testes
+- `lib/welcome-email-template.ts` — HTML/text pra Resend (USER ACTION)
+- `lib/canvas-share.ts` — generateProgressCardPNG sem dep
+- `lib/ai-cost-estimate.ts` — estimateCost por provider/model
+- `lib/highlights.ts` — capture + apply persistido
+- `lib/disciplina-order.ts` — move/applyOrder
+- `lib/glossary.ts` — 15 termos técnicos
+- `lib/use-live-insights.ts` — hook reusável
+- `lib/use-daily-progress.ts` — hook progresso diário
+- `lib/use-local-storage-state.ts` — hook genérico SSR-safe
+- `lib/session-url.ts` — sessionUrl helper + presets
+- `lib/auto-backup.ts` — snapshot 1×/dia em IDB
+
+**Testes:** 53 arquivos, 793 testes.
+
+**MANUAL.md** seção 19 documenta features pra usuário final.
+
+**Deferidas (USER ACTION pendente):**
+- T55 (welcome email) — config Resend + cron
+- T57 (planos anuais) — criar prices no Stripe Dashboard
+
 ### Onda 3 (2026-05-08) — IA expandida + UX diferenciais (~80 features)
 
 **Persona/Coach unificado:**
